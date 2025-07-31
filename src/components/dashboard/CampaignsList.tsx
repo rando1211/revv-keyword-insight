@@ -15,7 +15,7 @@ export const CampaignsList = () => {
     try {
       setLoading(true);
       // Using your actual MCC Customer ID
-      const campaignData = await fetchTopSpendingCampaigns('930-159-6383', 6);
+      const campaignData = await fetchTopSpendingCampaigns('9301596383', 6);
       setCampaigns(campaignData);
     } catch (error) {
       console.error('Failed to load campaigns:', error);

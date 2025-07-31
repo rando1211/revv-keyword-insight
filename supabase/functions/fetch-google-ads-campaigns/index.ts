@@ -11,7 +11,13 @@ serve(async (req) => {
   }
 
   try {
+    console.log('Starting fetch-google-ads-campaigns function');
     const { customerId } = await req.json();
+    console.log('Received customerId:', customerId);
+    
+    // Remove dashes from customer ID for API call
+    const cleanCustomerId = customerId.replace(/-/g, '');
+    console.log('Clean customerId:', cleanCustomerId);
     
     // Google Ads API configuration
     const DEVELOPER_TOKEN = Deno.env.get("Developer Token");
@@ -21,6 +27,13 @@ serve(async (req) => {
     const CLIENT_ID = Deno.env.get("Client ID");
     const CLIENT_SECRET = Deno.env.get("Client Secret"); 
     const REFRESH_TOKEN = Deno.env.get("Refresh Token");
+    
+    console.log('Environment check:', {
+      hasDeveloperToken: !!DEVELOPER_TOKEN,
+      hasClientId: !!CLIENT_ID,
+      hasClientSecret: !!CLIENT_SECRET,
+      hasRefreshToken: !!REFRESH_TOKEN
+    });
 
     // Get access token
     const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
@@ -59,7 +72,7 @@ serve(async (req) => {
 
     // Make Google Ads API call
     const apiResponse = await fetch(
-      `https://googleads.googleapis.com/${API_VERSION}/customers/${customerId}/googleAds:search`, 
+      `https://googleads.googleapis.com/${API_VERSION}/customers/${cleanCustomerId}/googleAds:search`, 
       {
         method: "POST",
         headers: {
