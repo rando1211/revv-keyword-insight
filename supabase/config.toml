@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.analyze-campaigns-openai]
 verify_jwt = false
+
+[functions.execute-optimizations]
+verify_jwt = false
