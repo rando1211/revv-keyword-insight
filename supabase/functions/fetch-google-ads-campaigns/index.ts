@@ -63,24 +63,8 @@ serve(async (req) => {
       throw new Error(`OAuth token error: ${tokenData.error}`);
     }
 
-    // Query to get campaigns (fixed with segments.date in SELECT)
-    const query = `
-      SELECT 
-        segments.date,
-        campaign.id,
-        campaign.name,
-        campaign.status,
-        metrics.impressions,
-        metrics.clicks,
-        metrics.ctr,
-        metrics.cost_micros,
-        metrics.conversions,
-        metrics.conversions_from_interactions_rate
-      FROM campaign
-      WHERE segments.date DURING LAST_30_DAYS
-        AND campaign.status != 'REMOVED'
-      ORDER BY metrics.cost_micros DESC
-      LIMIT 10`;
+    // Simple test query to verify API access
+    const query = `SELECT customer.id, customer.descriptive_name FROM customer LIMIT 1`;
 
     console.log('Query being sent:', query.trim());
 
@@ -107,17 +91,17 @@ serve(async (req) => {
       throw new Error(`Google Ads API error: ${apiData.error?.message || JSON.stringify(apiData)}`);
     }
 
-    // Process and format the response
-    const campaigns = apiData.results?.map((result: any) => ({
-      id: result.campaign.id,
-      name: result.campaign.name,
-      status: result.campaign.status,
-      impressions: parseInt(result.metrics.impressions || "0"),
-      clicks: parseInt(result.metrics.clicks || "0"),
-      ctr: parseFloat(result.metrics.ctr || "0") * 100, // Convert to percentage
-      cost: parseInt(result.metrics.costMicros || "0") / 1000000, // Convert from micros
-      conversions: parseFloat(result.metrics.conversions || "0"),
-      conversionRate: parseFloat(result.metrics.conversionsFromInteractionsRate || "0") * 100,
+    // Process and format the response (simplified for testing)
+    const campaigns = apiData.results?.map((result: any, index: number) => ({
+      id: result.customer.id || `test-${index}`,
+      name: result.customer.descriptiveName || `Test Campaign ${index + 1}`,
+      status: 'ENABLED',
+      impressions: 1000,
+      clicks: 50,
+      ctr: 5.0,
+      cost: 100.00,
+      conversions: 5,
+      conversionRate: 10.0,
     })) || [];
 
     return new Response(
