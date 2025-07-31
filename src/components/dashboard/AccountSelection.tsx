@@ -1,67 +1,49 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Building2, DollarSign, CreditCard, Check } from "lucide-react";
+import { Building2, DollarSign, CreditCard, Check, RefreshCw } from "lucide-react";
 import { useToast } from '@/hooks/use-toast';
-
-interface GoogleAdsAccount {
-  id: string;
-  name: string;
-  customerId: string;
-  campaignCount: number;
-  monthlySpend: number;
-  status: 'ENABLED' | 'SUSPENDED';
-}
-
-const mockAccounts: GoogleAdsAccount[] = [
-  {
-    id: '1234567890',
-    name: 'Your Main Business Account',
-    customerId: '123-456-7890',
-    campaignCount: 12,
-    monthlySpend: 22750.00,
-    status: 'ENABLED'
-  },
-  {
-    id: '1234567891', 
-    name: 'Your Display Campaigns Account',
-    customerId: '123-456-7891',
-    campaignCount: 8,
-    monthlySpend: 18000.00,
-    status: 'ENABLED'
-  },
-  {
-    id: '1234567892',
-    name: 'Your Shopping Campaigns Account',
-    customerId: '123-456-7892', 
-    campaignCount: 6,
-    monthlySpend: 15600.00,
-    status: 'ENABLED'
-  },
-  {
-    id: '1234567893',
-    name: 'Your Video Marketing Account',
-    customerId: '123-456-7893',
-    campaignCount: 4,
-    monthlySpend: 12000.00,
-    status: 'ENABLED'
-  },
-  {
-    id: '1234567894',
-    name: 'Your Local Campaigns Account',
-    customerId: '123-456-7894',
-    campaignCount: 3,
-    monthlySpend: 8000.00,
-    status: 'SUSPENDED'
-  }
-];
+import { fetchGoogleAdsAccounts, type GoogleAdsAccount } from '@/lib/google-ads-service';
 
 export const AccountSelection = () => {
   const [selectedAccounts, setSelectedAccounts] = useState<string[]>([]);
+  const [accounts, setAccounts] = useState<GoogleAdsAccount[]>([]);
+  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+
+  const loadAccounts = async () => {
+    try {
+      setLoading(true);
+      toast({
+        title: "Fetching Your Google Ads Accounts",
+        description: "Connecting to your MCC...",
+      });
+      
+      const accountData = await fetchGoogleAdsAccounts();
+      setAccounts(accountData);
+      
+      toast({
+        title: "✅ Accounts Loaded Successfully", 
+        description: `Found ${accountData.length} Google Ads accounts in your MCC`,
+      });
+    } catch (error) {
+      console.error('Failed to load accounts:', error);
+      toast({
+        title: "Error Loading Accounts",
+        description: `Unable to fetch accounts from your MCC: ${error.message}`,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadAccounts();
+  }, []);
 
   const handleAccountToggle = (accountId: string) => {
     setSelectedAccounts(prev => 
@@ -72,11 +54,8 @@ export const AccountSelection = () => {
   };
 
   const totalCost = selectedAccounts.length * 100;
-  const selectedAccountsData = mockAccounts.filter(account => 
+  const selectedAccountsData = accounts.filter(account => 
     selectedAccounts.includes(account.id)
-  );
-  const totalCampaigns = selectedAccountsData.reduce((sum, account) => 
-    sum + account.campaignCount, 0
   );
 
   const handleCheckout = () => {
@@ -103,20 +82,43 @@ export const AccountSelection = () => {
     }, 2000);
   };
 
+  if (loading) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between">
+            <span>🏢 Loading Your Google Ads Accounts</span>
+            <Button variant="outline" size="sm" disabled>
+              <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+              Fetching from MCC...
+            </Button>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-24 bg-muted animate-pulse rounded-lg"></div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center space-x-2">
             <Building2 className="h-5 w-5" />
-            <span>Select Google Ads Accounts</span>
+            <span>Select Google Ads Accounts from Your MCC</span>
           </CardTitle>
           <p className="text-sm text-muted-foreground">
             Choose which Google Ads accounts you want to access and manage. Pricing is $100 per account per month.
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
-          {mockAccounts.map((account) => (
+          {accounts.map((account) => (
             <div key={account.id} className="flex items-center space-x-4 p-4 border rounded-lg hover:bg-muted/50 transition-colors">
               <Checkbox
                 id={account.id}
@@ -133,21 +135,16 @@ export const AccountSelection = () => {
                   </Badge>
                 </div>
                 
-                <div className="grid grid-cols-3 gap-4 text-sm text-muted-foreground">
+                <div className="grid grid-cols-2 gap-4 text-sm text-muted-foreground">
                   <div>
                     <span className="font-medium">Customer ID:</span>
                     <br />
                     {account.customerId}
                   </div>
                   <div>
-                    <span className="font-medium">Campaigns:</span>
+                    <span className="font-medium">Status:</span>
                     <br />
-                    {account.campaignCount} active
-                  </div>
-                  <div>
-                    <span className="font-medium">Monthly Spend:</span>
-                    <br />
-                    ${account.monthlySpend.toLocaleString()}
+                    {account.status}
                   </div>
                 </div>
               </div>
@@ -158,6 +155,17 @@ export const AccountSelection = () => {
               </div>
             </div>
           ))}
+          
+          {accounts.length === 0 && !loading && (
+            <div className="text-center py-8 text-muted-foreground">
+              No Google Ads accounts found in your MCC. Check your API connection.
+              <br />
+              <Button variant="outline" onClick={loadAccounts} className="mt-4">
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Retry Connection
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -172,12 +180,12 @@ export const AccountSelection = () => {
         <CardContent className="space-y-4">
           <div className="space-y-3">
             <div className="flex justify-between">
-              <span>Selected Accounts:</span>
-              <span className="font-medium">{selectedAccounts.length}</span>
+              <span>Total Accounts:</span>
+              <span className="font-medium">{accounts.length}</span>
             </div>
             <div className="flex justify-between">
-              <span>Total Campaigns:</span>
-              <span className="font-medium">{totalCampaigns}</span>
+              <span>Selected:</span>
+              <span className="font-medium">{selectedAccounts.length}</span>
             </div>
             <div className="flex justify-between">
               <span>Price per Account:</span>

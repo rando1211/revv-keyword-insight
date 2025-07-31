@@ -1,6 +1,16 @@
-// Google Ads API Service for REVV Marketing Dashboard
-// Fetches real campaign data from Google Ads API
+import { createClient } from '@supabase/supabase-js';
 
+// Initialize Supabase client
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+if (!supabaseUrl || !supabaseKey) {
+  throw new Error('Missing Supabase configuration');
+}
+
+export const supabase = createClient(supabaseUrl, supabaseKey);
+
+// Google Ads API Service with real Supabase integration
 export interface Campaign {
   id: string;
   name: string;
@@ -13,28 +23,50 @@ export interface Campaign {
   conversionRate: number;
 }
 
-// Google Ads API Configuration
-const GOOGLE_ADS_CONFIG = {
-  developerToken: 'DwIxmnLQLA2T8TyaNnQMcg',
-  // Note: In production, these would come from Supabase Edge Functions for security
-  // Frontend should not directly access these credentials
+export interface GoogleAdsAccount {
+  id: string;
+  name: string;
+  customerId: string;
+  campaignCount?: number;
+  monthlySpend?: number;
+  status: 'ENABLED' | 'SUSPENDED';
+}
+
+// Fetch accounts from MCC using Supabase Edge Function
+export const fetchGoogleAdsAccounts = async (): Promise<GoogleAdsAccount[]> => {
+  try {
+    console.log('Fetching Google Ads accounts from MCC...');
+    
+    const { data, error } = await supabase.functions.invoke('fetch-google-ads-accounts');
+    
+    if (error) {
+      throw new Error(`Supabase function error: ${error.message}`);
+    }
+    
+    if (!data.success) {
+      throw new Error(data.error || 'Failed to fetch accounts');
+    }
+    
+    return data.accounts || [];
+    
+  } catch (error) {
+    console.error('Error fetching Google Ads accounts:', error);
+    throw error;
+  }
 };
 
-// Fetch top spending campaigns from Google Ads API via Supabase Edge Function
+// Fetch campaigns for a specific customer using Supabase Edge Function
 export const fetchTopSpendingCampaigns = async (customerId: string, limit: number = 10): Promise<Campaign[]> => {
   try {
     console.log('Fetching campaigns from Google Ads API for customer:', customerId);
     
-    // Call Supabase Edge Function to get real campaign data
-    const response = await fetch('/api/v1/supabase/functions/v1/fetch-google-ads-campaigns', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ customerId, limit })
+    const { data, error } = await supabase.functions.invoke('fetch-google-ads-campaigns', {
+      body: { customerId, limit }
     });
     
-    const data = await response.json();
+    if (error) {
+      throw new Error(`Supabase function error: ${error.message}`);
+    }
     
     if (!data.success) {
       throw new Error(data.error || 'Failed to fetch campaigns');
@@ -45,7 +77,7 @@ export const fetchTopSpendingCampaigns = async (customerId: string, limit: numbe
   } catch (error) {
     console.error('Google Ads API Error:', error);
     
-    // Fallback to show that API integration is attempted
+    // Return error info instead of throwing to show in UI
     return [{
       id: 'api_error',
       name: `API Error: ${error.message}`,
@@ -68,7 +100,7 @@ export const getCampaignSummary = async (customerId: string) => {
     const totalSpend = campaigns.reduce((sum, campaign) => sum + campaign.cost, 0);
     const totalConversions = campaigns.reduce((sum, campaign) => sum + campaign.conversions, 0);
     const totalClicks = campaigns.reduce((sum, campaign) => sum + campaign.clicks, 0);
-    const avgConversionRate = totalConversions / totalClicks * 100;
+    const avgConversionRate = totalClicks > 0 ? (totalConversions / totalClicks * 100) : 0;
     
     return {
       totalCampaigns: campaigns.length,
@@ -86,29 +118,3 @@ export const getCampaignSummary = async (customerId: string) => {
     };
   }
 };
-
-// Real Google Ads API integration (commented out - would need proper authentication)
-/*
-const fetchRealCampaignData = async (customerId: string) => {
-  const query = `
-    SELECT 
-      campaign.id,
-      campaign.name,
-      campaign.status,
-      metrics.impressions,
-      metrics.clicks,
-      metrics.ctr,
-      metrics.cost_micros,
-      metrics.conversions,
-      metrics.conversions_from_interactions_rate
-    FROM campaign 
-    WHERE segments.date DURING LAST_30_DAYS
-    ORDER BY metrics.cost_micros DESC
-    LIMIT 10
-  `;
-
-  // Would make actual API call here with proper authentication
-  // const response = await googleAdsClient.searchStream(query);
-  // return processGoogleAdsResponse(response);
-};
-*/
