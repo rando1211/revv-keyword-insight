@@ -128,10 +128,22 @@ export const AIInsightsPanel = () => {
                   <CardTitle className="text-base">
                     AI Recommendations for {selectedAccountForAnalysis.name}
                   </CardTitle>
+                  <Badge variant="secondary" className="w-fit">
+                    Assistant: asst_phXpkgf3V5TRddgpq06wjEtF
+                  </Badge>
                 </CardHeader>
                 <CardContent>
                   <div className="whitespace-pre-wrap text-sm leading-relaxed">
                     {analysisResults}
+                  </div>
+                  <div className="mt-4 p-3 bg-muted rounded-lg">
+                    <p className="text-xs text-muted-foreground">
+                      ✅ Analysis completed using your custom OpenAI Assistant
+                      <br />
+                      🎯 Campaign: {selectedAccountForAnalysis.name}
+                      <br />
+                      📊 Active campaigns with ENABLED status only
+                    </p>
                   </div>
                 </CardContent>
               </Card>
@@ -142,6 +154,15 @@ export const AIInsightsPanel = () => {
                 <Brain className="h-12 w-12 mx-auto mb-4 opacity-50" />
                 <p className="font-medium">No analysis results yet.</p>
                 <p className="text-sm">Go to the Accounts tab and click "Analyze with AI" on any account.</p>
+                <div className="mt-4 p-3 bg-muted rounded-lg">
+                  <p className="text-xs">
+                    📋 When you analyze: Assistant ID asst_phXpkgf3V5TRddgpq06wjEtF will be used
+                    <br />
+                    🔍 Only ENABLED campaigns will be analyzed
+                    <br />
+                    ⚡ Real-time data from Google Ads API
+                  </p>
+                </div>
               </div>
             )}
           </TabsContent>
