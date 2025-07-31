@@ -23,7 +23,19 @@ serve(async (req) => {
     const DEVELOPER_TOKEN = Deno.env.get('Developer Token');
     
     if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET || !GOOGLE_REFRESH_TOKEN || !DEVELOPER_TOKEN) {
-      throw new Error('Missing Google API credentials');
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Missing Google API credentials',
+        missing: {
+          client_id: !GOOGLE_CLIENT_ID,
+          client_secret: !GOOGLE_CLIENT_SECRET,
+          refresh_token: !GOOGLE_REFRESH_TOKEN,
+          developer_token: !DEVELOPER_TOKEN
+        }
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     console.log('🔄 Getting fresh access token...');
@@ -42,7 +54,14 @@ serve(async (req) => {
     console.log('OAuth status:', oauthResponse.status);
     
     if (!oauthResponse.ok) {
-      throw new Error(`OAuth failed: ${JSON.stringify(oauthData)}`);
+      return new Response(JSON.stringify({
+        success: false,
+        error: `OAuth failed: ${JSON.stringify(oauthData)}`,
+        status: oauthResponse.status
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     const { access_token } = oauthData;
