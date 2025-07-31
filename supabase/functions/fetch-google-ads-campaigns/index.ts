@@ -82,22 +82,26 @@ serve(async (req) => {
     `;
 
     // Make Google Ads API call
-    const apiResponse = await fetch(
-      `https://googleads.googleapis.com/${API_VERSION}/customers/${cleanCustomerId}/googleAds:search`, 
-      {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${tokenData.access_token}`,
-          "developer-token": DEVELOPER_TOKEN,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ query }),
-      }
-    );
+    const apiUrl = `https://googleads.googleapis.com/${API_VERSION}/customers/${cleanCustomerId}/googleAds:search`;
+    console.log('Making API request to:', apiUrl);
+    console.log('With query:', query);
+    
+    const apiResponse = await fetch(apiUrl, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${tokenData.access_token}`,
+        "developer-token": DEVELOPER_TOKEN,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ query }),
+    });
 
     const apiData = await apiResponse.json();
+    console.log('API response status:', apiResponse.status);
+    console.log('API response data:', JSON.stringify(apiData, null, 2));
+    
     if (!apiResponse.ok) {
-      throw new Error(`Google Ads API error: ${apiData.error?.message || 'Unknown error'}`);
+      throw new Error(`Google Ads API error: ${apiData.error?.message || JSON.stringify(apiData)}`);
     }
 
     // Process and format the response
