@@ -15,8 +15,8 @@ serve(async (req) => {
     const { customerId } = await req.json();
     console.log('Received customerId:', customerId);
     
-    // Remove dashes from customer ID for API call
-    const cleanCustomerId = customerId.replace(/-/g, '');
+    // Remove "customers/" prefix and dashes from customer ID for API call
+    const cleanCustomerId = customerId.replace(/^customers\//, '').replace(/-/g, '');
     console.log('Clean customerId:', cleanCustomerId);
     
     // Google Ads API configuration
@@ -63,65 +63,27 @@ serve(async (req) => {
       throw new Error(`OAuth token error: ${tokenData.error}`);
     }
 
-    // Step 1: First get child accounts under the MCC
-    const mccId = "9301596383";
-    const childAccountsQuery = `
-      SELECT 
-        customer_client.client_customer, 
-        customer_client.descriptive_name
-      FROM customer_client
-      WHERE customer_client.level = 1
+    // Query campaigns directly from the requested customer account
+    console.log("🎯 Fetching campaigns for customer:", cleanCustomerId);
+    
+    const query = `
+      SELECT
+        campaign.id,
+        campaign.name,
+        campaign.status,
+        metrics.cost_micros,
+        metrics.clicks,
+        metrics.impressions,
+        metrics.ctr
+      FROM campaign
+      WHERE campaign.status = 'ENABLED'
+      AND segments.date DURING LAST_30_DAYS
+      ORDER BY metrics.cost_micros DESC
+      LIMIT 20
     `;
 
-    console.log("🔍 Step 1: Getting child accounts under MCC...");
-    const childAccountsResponse = await fetch(
-      `https://googleads.googleapis.com/v18/customers/${mccId}/googleAds:search`,
-      {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${tokenData.access_token}`,
-          "developer-token": DEVELOPER_TOKEN,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ query: childAccountsQuery }),
-      }
-    );
-
-    const childAccountsData = await childAccountsResponse.json();
-    if (!childAccountsResponse.ok) {
-      console.error("❌ Failed to get child accounts:", childAccountsData);
-      throw new Error(`Failed to get child accounts: ${childAccountsData.error?.message || JSON.stringify(childAccountsData)}`);
-    }
-
-    if (!childAccountsData.results || childAccountsData.results.length === 0) {
-      throw new Error("No child accounts found under this MCC");
-    }
-
-    // Use the first child account for metrics query
-    const rawChildAccount = childAccountsData.results[0].customerClient.clientCustomer;
-    // Remove "customers/" prefix if it exists to avoid duplication
-    const firstChildAccount = rawChildAccount.replace('customers/', '');
-    console.log("✅ Using child account:", firstChildAccount);
-
-    // Step 2: Now query campaigns from the child account
     try {
-      const apiUrl = `https://googleads.googleapis.com/v18/customers/${firstChildAccount}/googleAds:search`;
-
-      const query = `
-        SELECT
-          campaign.id,
-          campaign.name,
-          campaign.status,
-          metrics.cost_micros,
-          metrics.clicks,
-          metrics.impressions,
-          metrics.ctr
-        FROM campaign
-        WHERE campaign.status = 'ENABLED'
-        AND segments.date DURING LAST_30_DAYS
-        ORDER BY metrics.cost_micros DESC
-        LIMIT 20
-      `;
+      const apiUrl = `https://googleads.googleapis.com/v18/customers/${cleanCustomerId}/googleAds:search`;
 
       const headers = {
         "Authorization": `Bearer ${tokenData.access_token}`,
@@ -167,11 +129,14 @@ serve(async (req) => {
         ctr: parseFloat(result.metrics?.ctr || "0"),
       })) || [];
 
+      console.log(`✅ Found ${campaigns.length} campaigns with activity for customer ${cleanCustomerId}`);
+
       return new Response(
         JSON.stringify({ 
           success: true, 
           campaigns,
-          total: campaigns.length
+          total: campaigns.length,
+          customerId: cleanCustomerId
         }),
         { 
           headers: { ...corsHeaders, "Content-Type": "application/json" },
