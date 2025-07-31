@@ -1,1 +1,7 @@
-project_id = "zbonqkwmkqugnyfkpgvi"
+project_id = "vplwrfapmvxffnrfywqh"
+
+[functions.fetch-google-ads-campaigns]
+verify_jwt = false
+
+[functions.fetch-google-ads-accounts]
+verify_jwt = false
