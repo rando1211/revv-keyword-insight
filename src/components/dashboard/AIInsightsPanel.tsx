@@ -140,7 +140,7 @@ export const AIInsightsPanel = () => {
             {!analysisResults && (
               <div className="text-center py-8 text-muted-foreground">
                 <Brain className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>No analysis results yet.</p>
+                <p className="font-medium">No analysis results yet.</p>
                 <p className="text-sm">Go to the Accounts tab and click "Analyze with AI" on any account.</p>
               </div>
             )}
