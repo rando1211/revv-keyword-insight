@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.exchange-oauth-token]
 verify_jwt = false
+
+[functions.analyze-campaigns-openai]
+verify_jwt = false
