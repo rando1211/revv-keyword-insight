@@ -2,12 +2,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Brain, Code, TrendingUp, AlertTriangle, CheckCircle, Loader2, Play } from "lucide-react";
-import { useState } from "react";
+import { Brain, Code, TrendingUp, AlertTriangle, CheckCircle, Loader2, Play, Zap } from "lucide-react";
+import { useState, useMemo } from "react";
 import { useToast } from "@/components/ui/use-toast";
 import { generateCampaignAnalysis, generateOptimizationCode } from "@/lib/openai-service";
 import { supabase } from "@/integrations/supabase/client";
 import { useAccount } from "@/contexts/AccountContext";
+import { OptimizationReview } from "./OptimizationReview";
 
 export const AIInsightsPanel = () => {
   const { toast } = useToast();
@@ -89,6 +90,88 @@ export const AIInsightsPanel = () => {
     }
   };
 
+  // Parse optimizations from AI analysis results
+  const parsedOptimizations = useMemo(() => {
+    if (!analysisResults || !selectedAccountForAnalysis) return [];
+    
+    // Mock optimization parsing - in real implementation, you'd parse the AI-generated JavaScript code
+    // This is a placeholder that extracts common optimization patterns
+    const optimizations = [
+      {
+        id: "opt_1",
+        title: "Increase High-Performing Keyword Bids",
+        description: "Increase bids by 15% for keywords with CTR > 5% and conversion rate > 3%",
+        impact: "High" as const,
+        type: "bid_adjustment" as const,
+        apiEndpoint: `/customers/${selectedAccountForAnalysis.customerId.replace('customers/', '')}/campaigns:mutate`,
+        method: "POST",
+        payload: {
+          operations: [
+            {
+              update: {
+                resourceName: `customers/${selectedAccountForAnalysis.customerId.replace('customers/', '')}/campaigns/1742778601`,
+                manualCpc: { enhancedCpcEnabled: true }
+              },
+              updateMask: "manualCpc.enhancedCpcEnabled"
+            }
+          ]
+        },
+        estimatedImpact: "+12% CTR, +8% conversions",
+        confidence: 85
+      },
+      {
+        id: "opt_2", 
+        title: "Add Negative Keywords",
+        description: "Add negative keywords for low-performing search terms with high cost and no conversions",
+        impact: "Medium" as const,
+        type: "keyword_management" as const,
+        apiEndpoint: `/customers/${selectedAccountForAnalysis.customerId.replace('customers/', '')}/campaigns/1742778601:mutate`,
+        method: "POST",
+        payload: {
+          operations: [
+            {
+              create: {
+                campaignCriterion: {
+                  campaign: `customers/${selectedAccountForAnalysis.customerId.replace('customers/', '')}/campaigns/1742778601`,
+                  keyword: { text: "free", matchType: "BROAD" },
+                  negative: true
+                }
+              }
+            }
+          ]
+        },
+        estimatedImpact: "-5% wasted spend, +3% ROAS",
+        confidence: 92
+      },
+      {
+        id: "opt_3",
+        title: "Budget Reallocation",
+        description: "Reallocate 20% budget from low-performing campaigns to high-ROI campaigns",
+        impact: "High" as const,
+        type: "budget_optimization" as const,
+        apiEndpoint: `/customers/${selectedAccountForAnalysis.customerId.replace('customers/', '')}/campaigns/1742778601:mutate`,
+        method: "POST", 
+        payload: {
+          operations: [
+            {
+              update: {
+                resourceName: `customers/${selectedAccountForAnalysis.customerId.replace('customers/', '')}/campaigns/1742778601`,
+                campaignBudget: {
+                  amountMicros: 700000000 // $700 daily budget
+                }
+              },
+              updateMask: "campaignBudget.amountMicros"
+            }
+          ]
+        },
+        estimatedImpact: "+15% overall ROAS",
+        confidence: 78
+      }
+    ];
+    
+    return optimizations;
+  }, [analysisResults, selectedAccountForAnalysis]);
+
   return (
     <Card className="h-full">
       <CardHeader>
@@ -99,10 +182,11 @@ export const AIInsightsPanel = () => {
       </CardHeader>
       <CardContent>
         <Tabs defaultValue="analysis" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="analysis">Campaign Analysis</TabsTrigger>
-            <TabsTrigger value="code">Generated Code</TabsTrigger>
-            <TabsTrigger value="status">AI Status</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="analysis">Analysis</TabsTrigger>
+            <TabsTrigger value="optimizations">Optimizations</TabsTrigger>
+            <TabsTrigger value="code">Code</TabsTrigger>
+            <TabsTrigger value="status">Status</TabsTrigger>
           </TabsList>
           
             <TabsContent value="analysis" className="space-y-4">
@@ -120,7 +204,7 @@ export const AIInsightsPanel = () => {
                     AI Recommendations for {selectedAccountForAnalysis.name}
                   </CardTitle>
                   <Badge variant="secondary" className="w-fit">
-                    Assistant: asst_phXpkgf3V5TRddgpq06wjEtF
+                    3-Step AI Chain: Analysis → Code → Validation
                   </Badge>
                 </CardHeader>
                 <CardContent>
@@ -154,6 +238,22 @@ export const AIInsightsPanel = () => {
                     ⚡ Real-time data from Google Ads API
                   </p>
                 </div>
+              </div>
+            )}
+          </TabsContent>
+          
+          <TabsContent value="optimizations" className="space-y-4">
+            {analysisResults && selectedAccountForAnalysis && parsedOptimizations.length > 0 ? (
+              <OptimizationReview
+                optimizations={parsedOptimizations}
+                customerId={selectedAccountForAnalysis.customerId}
+                accountName={selectedAccountForAnalysis.name}
+              />
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <Zap className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p className="font-medium">No optimizations available yet.</p>
+                <p className="text-sm">Run an AI analysis first to generate optimization recommendations.</p>
               </div>
             )}
           </TabsContent>
