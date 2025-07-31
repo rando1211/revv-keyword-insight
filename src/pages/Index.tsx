@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { OpenAIIntegration } from "@/components/dashboard/OpenAIIntegration";
+import { CampaignsList } from "@/components/dashboard/CampaignsList";
 import { BarChart3, TrendingUp, DollarSign, Target, RefreshCw } from "lucide-react";
 
 const Index = () => {
@@ -135,76 +136,7 @@ const Index = () => {
           </TabsContent>
 
           <TabsContent value="campaigns" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Campaign Performance</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <Card>
-                      <CardContent className="p-4">
-                        <h4 className="font-semibold">Digital Marketing Q4</h4>
-                        <div className="mt-2 space-y-1 text-sm">
-                          <div className="flex justify-between">
-                            <span>Impressions:</span>
-                            <span>245,678</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span>Clicks:</span>
-                            <span>12,456</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span>CTR:</span>
-                            <span>5.07%</span>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                    
-                    <Card>
-                      <CardContent className="p-4">
-                        <h4 className="font-semibold">SEO Services Local</h4>
-                        <div className="mt-2 space-y-1 text-sm">
-                          <div className="flex justify-between">
-                            <span>Impressions:</span>
-                            <span>156,890</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span>Clicks:</span>
-                            <span>8,934</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span>CTR:</span>
-                            <span>5.69%</span>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                    
-                    <Card>
-                      <CardContent className="p-4">
-                        <h4 className="font-semibold">PPC Management</h4>
-                        <div className="mt-2 space-y-1 text-sm">
-                          <div className="flex justify-between">
-                            <span>Impressions:</span>
-                            <span>89,567</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span>Clicks:</span>
-                            <span>3,456</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span>CTR:</span>
-                            <span>3.86%</span>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            <CampaignsList />
           </TabsContent>
 
           <TabsContent value="ai-insights" className="space-y-6">
