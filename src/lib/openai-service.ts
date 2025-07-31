@@ -8,6 +8,15 @@ export const OPENAI_CONFIG = {
   project: null, // Add if you have a project ID
 };
 
+// Assistant IDs from your OpenAI account
+const ASSISTANTS = {
+  CAMPAIGN_ANALYZER: 'asst_dUUTuhMdkCHSYjVnVFOjcF8w',
+  AD_REVIEWER_DEV: 'asst_pUdfF3MJrLYHYWCtnYG83Wxs',
+  OUTPUT_INSPECTOR: 'asst_cXMVKXyJDiZNrHvVpnZlkyJ',
+  AD_TRANSLATOR: 'asst_5VL6MJKwByEkROtAwrUm5yhF',
+  AD_REVIEWER_PROD: 'asst_pnXpkq3VSTBddgqp06wjETF'
+};
+
 // Campaign Analysis Assistant using Assistants API
 export const generateCampaignAnalysis = async (campaignData: any) => {
   try {
@@ -56,31 +65,68 @@ export const generateCampaignAnalysis = async (campaignData: any) => {
       throw new Error(`OpenAI Message creation error: ${messageResponse.status}`);
     }
 
-    // For now, return a placeholder until we have the assistant ID
-    return `Campaign Analysis Results:
+    // Run the assistant
+    const runResponse = await fetch(`https://api.openai.com/v1/threads/${thread.id}/runs`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${OPENAI_CONFIG.apiKey}`,
+        'Content-Type': 'application/json',
+        'OpenAI-Beta': 'assistants=v2',
+      },
+      body: JSON.stringify({
+        assistant_id: ASSISTANTS.CAMPAIGN_ANALYZER,
+      }),
+    });
 
-**HIGH PRIORITY RECOMMENDATIONS:**
+    if (!runResponse.ok) {
+      throw new Error(`OpenAI Run creation error: ${runResponse.status}`);
+    }
 
-1. **Bid Optimization for High-Performing Keywords** (Priority: High)
-   - Estimated Impact: +15-20% conversion increase
-   - Confidence: 85%
-   - Implementation: Increase bids by 10-15% for keywords with CTR > 5%
+    const run = await runResponse.json();
 
-2. **Ad Copy A/B Testing** (Priority: High)  
-   - Estimated Impact: +8-12% CTR improvement
-   - Confidence: 78%
-   - Implementation: Test emotional vs. rational headlines
+    // Wait for completion (simple polling)
+    let runStatus = run;
+    let attempts = 0;
+    const maxAttempts = 30;
 
-3. **Landing Page Optimization** (Priority: Medium)
-   - Estimated Impact: +5-8% conversion rate boost
-   - Confidence: 72%
-   - Implementation: Improve page load speed and CTA placement
+    while (runStatus.status === 'queued' || runStatus.status === 'in_progress') {
+      if (attempts >= maxAttempts) {
+        throw new Error('Assistant run timeout');
+      }
+      
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      const statusResponse = await fetch(`https://api.openai.com/v1/threads/${thread.id}/runs/${run.id}`, {
+        headers: {
+          'Authorization': `Bearer ${OPENAI_CONFIG.apiKey}`,
+          'OpenAI-Beta': 'assistants=v2',
+        },
+      });
+      
+      runStatus = await statusResponse.json();
+      attempts++;
+    }
 
-**Current Performance Summary:**
-- Digital Marketing Services Q4: Strong CTR (5.07%) but room for conversion improvement
-- SEO Services Local: Excellent CTR (5.69%) with good conversion potential
+    if (runStatus.status !== 'completed') {
+      throw new Error(`Assistant run failed with status: ${runStatus.status}`);
+    }
 
-**Next Steps:** Focus on bid adjustments for top-performing keywords first.`;
+    // Get the assistant's response
+    const messagesResponse = await fetch(`https://api.openai.com/v1/threads/${thread.id}/messages`, {
+      headers: {
+        'Authorization': `Bearer ${OPENAI_CONFIG.apiKey}`,
+        'OpenAI-Beta': 'assistants=v2',
+      },
+    });
+
+    const messages = await messagesResponse.json();
+    const assistantMessage = messages.data.find((msg: any) => msg.role === 'assistant');
+    
+    if (assistantMessage && assistantMessage.content[0]?.text?.value) {
+      return assistantMessage.content[0].text.value;
+    }
+
+    throw new Error('No response from assistant');
 
   } catch (error) {
     console.error('OpenAI Analysis Error:', error);
