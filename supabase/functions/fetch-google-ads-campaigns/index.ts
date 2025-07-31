@@ -15,9 +15,17 @@ serve(async (req) => {
     const { customerId } = await req.json();
     console.log('Received customerId:', customerId);
     
-    // Remove "customers/" prefix and dashes from customer ID for API call
-    const cleanCustomerId = customerId.replace(/^customers\//, '').replace(/-/g, '');
+    // Handle different customer ID formats
+    let cleanCustomerId;
+    if (typeof customerId === 'string') {
+      // Remove "customers/" prefix and dashes from customer ID for API call
+      cleanCustomerId = customerId.replace(/^customers\//, '').replace(/-/g, '');
+    } else {
+      throw new Error('Invalid customerId format');
+    }
+    
     console.log('Clean customerId:', cleanCustomerId);
+    console.log('Is MCC account?', cleanCustomerId === "9301596383");
     
     // Google Ads API configuration
     const DEVELOPER_TOKEN = Deno.env.get("Developer Token");
@@ -65,10 +73,12 @@ serve(async (req) => {
 
     // Query campaigns directly from the requested customer account
     // Make sure we're not using the MCC account for metrics queries
-    console.log("🎯 Fetching campaigns for customer:", cleanCustomerId);
+    console.log("🎯 Analyzing customer ID:", cleanCustomerId);
+    console.log("🎯 Original customer ID:", customerId);
     
     // Check if this is the MCC account ID - if so, we can't fetch metrics
     if (cleanCustomerId === "9301596383") {
+      console.error("❌ Attempted to query MCC account for metrics");
       throw new Error("Cannot fetch campaign metrics from MCC account. Please select a specific client account to analyze.");
     }
     
@@ -90,6 +100,9 @@ serve(async (req) => {
 
     try {
       const apiUrl = `https://googleads.googleapis.com/v18/customers/${cleanCustomerId}/googleAds:search`;
+      
+      console.log("🚀 Final API URL:", apiUrl);
+      console.log("🚀 Customer ID being used:", cleanCustomerId);
 
       const headers = {
         "Authorization": `Bearer ${tokenData.access_token}`,
