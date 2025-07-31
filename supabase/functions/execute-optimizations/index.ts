@@ -29,6 +29,17 @@ serve(async (req) => {
     const GOOGLE_REFRESH_TOKEN = Deno.env.get('Refresh token');
     const DEVELOPER_TOKEN = Deno.env.get('Developer Token');
     
+    console.log('🔑 Checking Google API credentials...');
+    console.log('Client ID exists:', !!GOOGLE_CLIENT_ID);
+    console.log('Client Secret exists:', !!GOOGLE_CLIENT_SECRET);
+    console.log('Refresh Token exists:', !!GOOGLE_REFRESH_TOKEN);
+    console.log('Developer Token exists:', !!DEVELOPER_TOKEN);
+    
+    if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET || !GOOGLE_REFRESH_TOKEN || !DEVELOPER_TOKEN) {
+      throw new Error('Missing required Google API credentials');
+    }
+    
+    console.log('🔄 Refreshing OAuth token...');
     const oauthResponse = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -40,7 +51,21 @@ serve(async (req) => {
       }),
     });
 
-    const { access_token } = await oauthResponse.json();
+    console.log('OAuth response status:', oauthResponse.status);
+    const oauthData = await oauthResponse.json();
+    console.log('OAuth response:', oauthData);
+    
+    if (!oauthResponse.ok) {
+      throw new Error(`OAuth token refresh failed: ${oauthData.error || oauthResponse.status}`);
+    }
+    
+    const { access_token } = oauthData;
+    
+    if (!access_token) {
+      throw new Error('No access token received from OAuth refresh');
+    }
+    
+    console.log('✅ Fresh access token obtained');
     
     const results = [];
     
