@@ -64,7 +64,13 @@ serve(async (req) => {
     }
 
     // Query campaigns directly from the requested customer account
+    // Make sure we're not using the MCC account for metrics queries
     console.log("🎯 Fetching campaigns for customer:", cleanCustomerId);
+    
+    // Check if this is the MCC account ID - if so, we can't fetch metrics
+    if (cleanCustomerId === "9301596383") {
+      throw new Error("Cannot fetch campaign metrics from MCC account. Please select a specific client account to analyze.");
+    }
     
     const query = `
       SELECT
