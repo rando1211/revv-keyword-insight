@@ -51,12 +51,22 @@ export const GoogleAdsSetup = () => {
 
   const generateOAuthUrl = () => {
     const scopes = 'https://www.googleapis.com/auth/adwords';
-    const redirectUri = 'urn:ietf:wg:oauth:2.0:oob';
+    const redirectUri = 'urn:ietf:wg:oauth:2.0:oob'; // This works without web redirect
     const responseType = 'code';
     
-    const url = `https://accounts.google.com/o/oauth2/auth?client_id=${clientId}&redirect_uri=${redirectUri}&scope=${scopes}&response_type=${responseType}&access_type=offline&prompt=consent`;
+    const url = `https://accounts.google.com/o/oauth2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scopes)}&response_type=${responseType}&access_type=offline&prompt=consent`;
     
+    return url;
+  };
+
+  const openOAuthFlow = () => {
+    const url = generateOAuthUrl();
     window.open(url, '_blank');
+    
+    toast({
+      title: "OAuth Flow Started",
+      description: "Complete the authorization in the new window, then copy the authorization code to exchange for tokens.",
+    });
   };
 
   if (isConnected) {
@@ -210,10 +220,16 @@ export const GoogleAdsSetup = () => {
               <div className="space-y-2">
                 <p className="font-medium text-primary">Method 2: Generate Authorization URL</p>
                 <p className="text-muted-foreground">Click below to generate an authorization URL with your credentials:</p>
-                <Button variant="outline" size="sm" onClick={generateOAuthUrl}>
+                <Button variant="outline" size="sm" onClick={openOAuthFlow}>
                   <ExternalLink className="h-4 w-4 mr-2" />
-                  Generate Authorization URL
+                  Start OAuth Flow (Fixed Redirect)
                 </Button>
+                
+                <div className="mt-2 p-2 bg-muted rounded text-xs">
+                  <p className="font-medium">After authorization:</p>
+                  <p>1. Copy the authorization code from the page</p>
+                  <p>2. Exchange it for tokens using the code below</p>
+                </div>
               </div>
             </div>
           )}
