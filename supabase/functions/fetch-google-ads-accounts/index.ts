@@ -37,20 +37,20 @@ serve(async (req) => {
       throw new Error(`OAuth token error: ${tokenData.error}`);
     }
 
-    // Query to get customer accounts from MCC
+    // Query to get customer accounts from MCC (simplified)
     const query = `
       SELECT 
-        customer_client.descriptive_name,
-        customer_client.id,
-        customer_client.manager,
-        customer_client.status
-      FROM customer_client
-      WHERE customer_client.manager = false
-    `;
+        customer.descriptive_name,
+        customer.id
+      FROM customer
+      WHERE customer.manager = false`;
+    
+    console.log('Accounts query:', query.trim());
 
-    // Make Google Ads API call
+    // Make Google Ads API call to get customer info
+    const customerId = "9301596383"; // Use your customer ID
     const apiResponse = await fetch(
-      `https://googleads.googleapis.com/${API_VERSION}/customers/search`, 
+      `https://googleads.googleapis.com/${API_VERSION}/customers/${customerId}/googleAds:search`, 
       {
         method: "POST",
         headers: {
@@ -58,7 +58,7 @@ serve(async (req) => {
           "developer-token": DEVELOPER_TOKEN,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ query }),
+        body: JSON.stringify({ query: query.trim() }),
       }
     );
 
@@ -69,11 +69,11 @@ serve(async (req) => {
 
     // Process and format the response
     const accounts = apiData.results?.map((result: any) => ({
-      id: result.customerClient.id,
-      name: result.customerClient.descriptiveName,
-      customerId: result.customerClient.id,
-      status: result.customerClient.status,
-      isManager: result.customerClient.manager,
+      id: result.customer.id,
+      name: result.customer.descriptiveName,
+      customerId: result.customer.id,
+      status: 'ENABLED',
+      isManager: false,
     })) || [];
 
     return new Response(
