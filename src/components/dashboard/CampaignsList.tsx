@@ -14,16 +14,28 @@ export const CampaignsList = () => {
   const loadCampaigns = async () => {
     try {
       setLoading(true);
-      // Using your actual MCC Customer ID
+      toast({
+        title: "Loading Campaigns",
+        description: "Fetching campaign data from Google Ads...",
+      });
+      
+      // Note: Using MCC ID as fallback - for specific campaigns, use individual customer IDs
       const campaignData = await fetchTopSpendingCampaigns('9301596383', 6);
       setCampaigns(campaignData);
+      
+      toast({
+        title: "✅ Campaigns Loaded",
+        description: `Found ${campaignData.length} campaigns`,
+      });
     } catch (error) {
       console.error('Failed to load campaigns:', error);
       toast({
-        title: "Error Loading Campaigns",
-        description: "Unable to fetch campaign data. Please try again.",
-        variant: "destructive",
+        title: "Unable to Load Campaigns", 
+        description: "This view shows campaigns from your MCC. Use the Accounts tab to analyze specific accounts.",
+        variant: "default", // Changed from "destructive" to be less alarming
       });
+      // Set empty array so UI shows "no campaigns" message instead of loading forever
+      setCampaigns([]);
     } finally {
       setLoading(false);
     }
