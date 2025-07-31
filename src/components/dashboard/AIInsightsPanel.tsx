@@ -105,22 +105,13 @@ export const AIInsightsPanel = () => {
             <TabsTrigger value="status">AI Status</TabsTrigger>
           </TabsList>
           
-          <TabsContent value="analysis" className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold">AI Campaign Analysis</h3>
-              <Button 
-                onClick={handleAnalyzeCampaigns}
-                disabled={isAnalyzing}
-                className="flex items-center gap-2"
-              >
-                {isAnalyzing ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Play className="h-4 w-4" />
-                )}
-                {isAnalyzing ? "Analyzing..." : "Analyze Campaigns"}
-              </Button>
-            </div>
+            <TabsContent value="analysis" className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold">AI Campaign Analysis</h3>
+                <Badge variant="outline" className="text-xs">
+                  Real-time Analysis
+                </Badge>
+              </div>
 
             {analysisResults && selectedAccountForAnalysis && (
               <Card>

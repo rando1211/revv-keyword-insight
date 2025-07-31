@@ -89,6 +89,11 @@ export const AccountSelection = () => {
 
   const handleAnalyzeAccount = async (account: GoogleAdsAccount) => {
     setAnalyzingAccount(account.id);
+    
+    // Clear previous analysis results immediately
+    setAnalysisResults(null);
+    setSelectedAccountForAnalysis(null);
+    
     try {
       toast({
         title: "Starting AI Analysis",
@@ -133,8 +138,8 @@ export const AccountSelection = () => {
       setAnalysisResults(analysis);
       
       toast({
-        title: "AI Analysis Complete",
-        description: "Campaign analysis ready! Check the AI Insights tab.",
+        title: "✅ AI Analysis Complete",
+        description: `Analysis ready for ${account.name}! Check the AI Insights tab.`,
       });
     } catch (error) {
       console.error("Analysis failed:", error);
