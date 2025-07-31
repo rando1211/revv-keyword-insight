@@ -63,9 +63,10 @@ serve(async (req) => {
       throw new Error(`OAuth token error: ${tokenData.error}`);
     }
 
-    // Query to get campaigns (simplified and corrected)
+    // Query to get campaigns (fixed with segments.date in SELECT)
     const query = `
       SELECT 
+        segments.date,
         campaign.id,
         campaign.name,
         campaign.status,
@@ -75,8 +76,9 @@ serve(async (req) => {
         metrics.cost_micros,
         metrics.conversions,
         metrics.conversions_from_interactions_rate
-      FROM campaign 
+      FROM campaign
       WHERE segments.date DURING LAST_30_DAYS
+        AND campaign.status != 'REMOVED'
       ORDER BY metrics.cost_micros DESC
       LIMIT 10`;
 
@@ -92,7 +94,6 @@ serve(async (req) => {
       headers: {
         "Authorization": `Bearer ${tokenData.access_token}`,
         "developer-token": DEVELOPER_TOKEN,
-        "login-customer-id": cleanCustomerId,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ query: query.trim() }),
