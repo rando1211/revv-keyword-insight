@@ -40,7 +40,9 @@ export const OptimizationReview = ({ optimizations, customerId, accountName, cam
   const { toast } = useToast();
 
   // Evaluate custom rules against campaign data
+  console.log('🔍 Custom rules evaluation - campaignData:', campaignData);
   const customOptimizations = evaluateCustomRules(campaignData);
+  console.log('🔍 Custom optimizations found:', customOptimizations);
   const allOptimizations = [...optimizations, ...customOptimizations];
 
   const handleOptimizationToggle = (optimizationId: string) => {
