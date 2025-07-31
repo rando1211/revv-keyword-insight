@@ -90,13 +90,6 @@ export const AccountSelection = () => {
   const handleAnalyzeAccount = async (account: GoogleAdsAccount) => {
     setAnalyzingAccount(account.id);
     try {
-      console.log('=== DEBUGGING ACCOUNT ANALYSIS ===');
-      console.log('Account clicked:', account);
-      console.log('Account ID:', account.id);
-      console.log('Account customerId:', account.customerId);
-      console.log('Account name:', account.name);
-      console.log('================================');
-      
       toast({
         title: "Starting AI Analysis",
         description: `Analyzing campaigns for ${account.name}...`,
@@ -105,7 +98,6 @@ export const AccountSelection = () => {
       // Fetch REAL campaign data for this specific account only
       let campaignData = [];
       try {
-        console.log('Making API call with customerId:', account.customerId);
         const { data, error } = await supabase.functions.invoke('fetch-google-ads-campaigns', {
           body: { customerId: account.customerId }
         });
