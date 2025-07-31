@@ -14,8 +14,8 @@ export const CampaignsList = () => {
   const loadCampaigns = async () => {
     try {
       setLoading(true);
-      // Using a placeholder customer ID - in production this would come from user settings
-      const campaignData = await fetchTopSpendingCampaigns('1234567890', 6);
+      // Using your actual MCC Customer ID
+      const campaignData = await fetchTopSpendingCampaigns('930-159-6383', 6);
       setCampaigns(campaignData);
     } catch (error) {
       console.error('Failed to load campaigns:', error);
