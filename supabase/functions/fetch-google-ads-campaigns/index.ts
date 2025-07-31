@@ -63,8 +63,8 @@ serve(async (req) => {
       throw new Error(`OAuth token error: ${tokenData.error}`);
     }
 
-    // Ultra-simple test query to verify basic API access
-    const query = `SELECT customer.id FROM customer LIMIT 1`;
+    // Minimal campaign query test
+    const query = `SELECT campaign.id, campaign.name FROM campaign LIMIT 1`;
 
     console.log('Query being sent:', query.trim());
 
@@ -83,18 +83,28 @@ serve(async (req) => {
       body: JSON.stringify({ query: query.trim() }),
     });
 
-    const apiData = await apiResponse.json();
+    let apiData;
+    try {
+      apiData = await apiResponse.json();
+    } catch (jsonError) {
+      const responseText = await apiResponse.text();
+      console.error("Failed to parse JSON. Response text:", responseText);
+      throw new Error(`API response parsing error: ${responseText}`);
+    }
+    
     console.log('API response status:', apiResponse.status);
     console.log('API response data:', JSON.stringify(apiData, null, 2));
     
     if (!apiResponse.ok) {
+      // Log the full error details
+      console.error("Full API error response:", apiData);
       throw new Error(`Google Ads API error: ${apiData.error?.message || JSON.stringify(apiData)}`);
     }
 
-    // Process and format the response (using customer data as test)
+    // Process and format the response (minimal campaign data)
     const campaigns = apiData.results?.map((result: any, index: number) => ({
-      id: result.customer?.id || `test-${index}`,
-      name: `Test Campaign for Customer ${result.customer?.id || index}`,
+      id: result.campaign?.id || `test-${index}`,
+      name: result.campaign?.name || `Test Campaign ${index + 1}`,
       status: 'ENABLED',
       impressions: 1000,
       clicks: 50,
