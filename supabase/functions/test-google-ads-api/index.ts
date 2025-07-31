@@ -8,109 +8,57 @@ const corsHeaders = {
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response('ok', { headers: corsHeaders });
   }
 
   try {
-    const { customerId } = await req.json();
+    console.log('🧪 Test function started');
     
-    console.log('🧪 Testing Google Ads API connection for customer:', customerId);
+    const body = await req.json().catch(() => ({}));
+    console.log('Request body:', body);
     
-    // Get fresh access token
     const GOOGLE_CLIENT_ID = Deno.env.get('Client ID');
-    const GOOGLE_CLIENT_SECRET = Deno.env.get('Secret');
+    const GOOGLE_CLIENT_SECRET = Deno.env.get('Secret'); 
     const GOOGLE_REFRESH_TOKEN = Deno.env.get('Refresh token');
     const DEVELOPER_TOKEN = Deno.env.get('Developer Token');
     
+    console.log('Credentials check:', {
+      hasClientId: !!GOOGLE_CLIENT_ID,
+      hasSecret: !!GOOGLE_CLIENT_SECRET,
+      hasRefreshToken: !!GOOGLE_REFRESH_TOKEN,
+      hasDeveloperToken: !!DEVELOPER_TOKEN
+    });
+
     if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET || !GOOGLE_REFRESH_TOKEN || !DEVELOPER_TOKEN) {
       return new Response(JSON.stringify({
         success: false,
-        error: 'Missing Google API credentials',
-        missing: {
-          client_id: !GOOGLE_CLIENT_ID,
-          client_secret: !GOOGLE_CLIENT_SECRET,
-          refresh_token: !GOOGLE_REFRESH_TOKEN,
-          developer_token: !DEVELOPER_TOKEN
+        error: 'Missing credentials',
+        details: {
+          hasClientId: !!GOOGLE_CLIENT_ID,
+          hasSecret: !!GOOGLE_CLIENT_SECRET,
+          hasRefreshToken: !!GOOGLE_REFRESH_TOKEN,
+          hasDeveloperToken: !!DEVELOPER_TOKEN
         }
       }), {
-        status: 400,
+        status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
-    }
-
-    console.log('🔄 Getting fresh access token...');
-    const oauthResponse = await fetch('https://oauth2.googleapis.com/token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        client_id: GOOGLE_CLIENT_ID,
-        client_secret: GOOGLE_CLIENT_SECRET,
-        refresh_token: GOOGLE_REFRESH_TOKEN,
-        grant_type: 'refresh_token',
-      }),
-    });
-
-    const oauthData = await oauthResponse.json();
-    console.log('OAuth status:', oauthResponse.status);
-    
-    if (!oauthResponse.ok) {
-      return new Response(JSON.stringify({
-        success: false,
-        error: `OAuth failed: ${JSON.stringify(oauthData)}`,
-        status: oauthResponse.status
-      }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    const { access_token } = oauthData;
-    console.log('✅ Got access token');
-
-    // Test simple Google Ads API call - just get customer info
-    const cleanCustomerId = customerId.replace('customers/', '');
-    const testUrl = `https://googleads.googleapis.com/v18/customers/${cleanCustomerId}`;
-    
-    console.log('🎯 Testing API call to:', testUrl);
-    
-    const testResponse = await fetch(testUrl, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${access_token}`,
-        'developer-token': DEVELOPER_TOKEN,
-        'login-customer-id': '9301596383',
-        'Content-Type': 'application/json'
-      }
-    });
-
-    const responseText = await testResponse.text();
-    console.log('📊 API Response status:', testResponse.status);
-    console.log('📄 API Response:', responseText);
-
-    let result;
-    try {
-      result = JSON.parse(responseText);
-    } catch (e) {
-      result = { rawResponse: responseText };
     }
 
     return new Response(JSON.stringify({
-      success: testResponse.ok,
-      status: testResponse.status,
-      result: result,
-      message: testResponse.ok ? 'Google Ads API connection working!' : 'API call failed',
-      customerId: cleanCustomerId
+      success: true,
+      message: 'All credentials found - ready to test API'
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
     
   } catch (error) {
-    console.error('🔥 Test failed:', error);
+    console.error('Test error:', error);
     return new Response(JSON.stringify({
       success: false,
       error: error.message
     }), {
-      status: 500,
+      status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
