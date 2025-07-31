@@ -63,8 +63,18 @@ serve(async (req) => {
       throw new Error(`OAuth token error: ${tokenData.error}`);
     }
 
-    // Simple test query to verify API access
-    const query = `SELECT customer.id, customer.descriptive_name FROM customer LIMIT 1`;
+    // Simplified campaign query with basic metrics
+    const query = `
+      SELECT
+        segments.date,
+        campaign.id,
+        campaign.name,
+        campaign.status,
+        metrics.cost_micros
+      FROM campaign
+      WHERE segments.date DURING LAST_30_DAYS
+      ORDER BY metrics.cost_micros DESC
+      LIMIT 10`;
 
     console.log('Query being sent:', query.trim());
 
@@ -91,17 +101,17 @@ serve(async (req) => {
       throw new Error(`Google Ads API error: ${apiData.error?.message || JSON.stringify(apiData)}`);
     }
 
-    // Process and format the response (simplified for testing)
-    const campaigns = apiData.results?.map((result: any, index: number) => ({
-      id: result.customer.id || `test-${index}`,
-      name: result.customer.descriptiveName || `Test Campaign ${index + 1}`,
-      status: 'ENABLED',
-      impressions: 1000,
-      clicks: 50,
-      ctr: 5.0,
-      cost: 100.00,
-      conversions: 5,
-      conversionRate: 10.0,
+    // Process and format the response with actual campaign data
+    const campaigns = apiData.results?.map((result: any) => ({
+      id: result.campaign.id,
+      name: result.campaign.name,
+      status: result.campaign.status,
+      impressions: 0, // Not included in simplified query
+      clicks: 0, // Not included in simplified query  
+      ctr: 0, // Not included in simplified query
+      cost: parseInt(result.metrics.costMicros || "0") / 1000000, // Convert from micros
+      conversions: 0, // Not included in simplified query
+      conversionRate: 0, // Not included in simplified query
     })) || [];
 
     return new Response(
