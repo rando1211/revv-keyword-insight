@@ -17,10 +17,10 @@ serve(async (req) => {
     console.log('🧪 Testing Google Ads API connection for customer:', customerId);
     
     // Get fresh access token
-    const GOOGLE_CLIENT_ID = Deno.env.get('Client ID');
-    const GOOGLE_CLIENT_SECRET = Deno.env.get('Secret');
-    const GOOGLE_REFRESH_TOKEN = Deno.env.get('Refresh token');
-    const DEVELOPER_TOKEN = Deno.env.get('Developer Token');
+    const GOOGLE_CLIENT_ID = Deno.env.get('GOOGLE_CLIENT_ID');
+    const GOOGLE_CLIENT_SECRET = Deno.env.get('GOOGLE_CLIENT_SECRET');
+    const GOOGLE_REFRESH_TOKEN = Deno.env.get('GOOGLE_REFRESH_TOKEN');
+    const DEVELOPER_TOKEN = Deno.env.get('DEVELOPER_TOKEN');
     
     if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET || !GOOGLE_REFRESH_TOKEN || !DEVELOPER_TOKEN) {
       throw new Error('Missing Google API credentials');
