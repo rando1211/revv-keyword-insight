@@ -2,6 +2,7 @@ import { Header } from "@/components/layout/Header";
 import { CampaignCard } from "@/components/dashboard/CampaignCard";
 import { AIInsightsPanel } from "@/components/dashboard/AIInsightsPanel";
 import { ApprovalWorkflow } from "@/components/dashboard/ApprovalWorkflow";
+import { GoogleAdsSetup } from "@/components/dashboard/GoogleAdsSetup";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -102,12 +103,13 @@ const Index = () => {
 
         {/* Main Dashboard */}
         <Tabs defaultValue="approvals" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="approvals">Approvals</TabsTrigger>
             <TabsTrigger value="ai-recommendations">AI Recommendations</TabsTrigger>
             <TabsTrigger value="ai-code">AI Generated Code</TabsTrigger>
             <TabsTrigger value="google-metrics">Google Ad Metrics</TabsTrigger>
             <TabsTrigger value="data-dump">Data Dump</TabsTrigger>
+            <TabsTrigger value="setup">API Setup</TabsTrigger>
           </TabsList>
 
           <TabsContent value="approvals" className="space-y-6">
@@ -160,6 +162,41 @@ const Index = () => {
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="setup" className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <GoogleAdsSetup />
+              <Card>
+                <CardHeader>
+                  <CardTitle>Integration Status</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm">Google Ads API</span>
+                      <Badge variant="outline">Ready</Badge>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm">OpenAI Integration</span>
+                      <Badge variant="secondary">Pending</Badge>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm">Automation Engine</span>
+                      <Badge variant="secondary">Pending</Badge>
+                    </div>
+                  </div>
+                  <div className="pt-4 border-t">
+                    <p className="text-sm text-muted-foreground mb-3">
+                      Your developer token is already configured. Add your OAuth2 credentials to start pulling live campaign data.
+                    </p>
+                    <Button variant="outline" className="w-full">
+                      View Documentation
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
         </Tabs>
       </div>
