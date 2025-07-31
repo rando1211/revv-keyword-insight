@@ -89,6 +89,11 @@ export const OptimizationReview = ({ optimizations, customerId, accountName }: O
 
       setExecutionResults(data.results);
       
+      // Show debug information
+      if (data.debugInfo) {
+        console.log('🔍 Debug Info:', data.debugInfo);
+      }
+      
       toast({
         title: "✅ Optimizations Complete!",
         description: `Successfully executed ${data.executedCount}/${data.totalApproved} optimizations.`,

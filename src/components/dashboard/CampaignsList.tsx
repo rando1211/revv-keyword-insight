@@ -8,7 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 
 export const CampaignsList = () => {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false); // Changed to false since we're not auto-loading
   const { toast } = useToast();
 
   const loadCampaigns = async () => {
@@ -41,9 +41,15 @@ export const CampaignsList = () => {
     }
   };
 
-  useEffect(() => {
+  // Disable auto-loading to prevent constant errors
+  // useEffect(() => {
+  //   loadCampaigns();
+  // }, []);
+  
+  // Manual load only
+  const handleManualLoad = () => {
     loadCampaigns();
-  }, []);
+  };
 
   const handleRefresh = () => {
     toast({
@@ -96,9 +102,16 @@ export const CampaignsList = () => {
             <CampaignCard key={campaign.id} campaign={campaign} />
           ))}
         </div>
-        {campaigns.length === 0 && (
-          <div className="text-center py-8 text-muted-foreground">
-            No campaigns found. Check your Google Ads API connection.
+        {campaigns.length === 0 && !loading && (
+          <div className="text-center py-8 text-muted-foreground space-y-4">
+            <p>No campaigns loaded yet.</p>
+            <Button onClick={handleManualLoad} variant="outline">
+              <TrendingUp className="h-4 w-4 mr-2" />
+              Load MCC Campaigns
+            </Button>
+            <p className="text-xs">
+              Note: For specific account analysis, use the "Accounts" tab instead.
+            </p>
           </div>
         )}
       </CardContent>

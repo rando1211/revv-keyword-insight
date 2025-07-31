@@ -109,7 +109,19 @@ serve(async (req) => {
       success: true,
       results,
       executedCount: results.filter(r => r.success).length,
-      totalApproved: approved.length
+      totalApproved: approved.length,
+      debugInfo: {
+        totalOptimizations: optimizations.length,
+        approvedOptimizations: approved,
+        customerId: customerId,
+        timestamp: new Date().toISOString(),
+        resultDetails: results.map(r => ({
+          id: r.optimizationId,
+          success: r.success,
+          statusCode: r.statusCode || 'unknown',
+          errorMessage: r.error || 'none'
+        }))
+      }
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
