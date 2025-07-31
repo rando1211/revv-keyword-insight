@@ -25,14 +25,16 @@ serve(async (req) => {
     
     // Get OAuth tokens from Supabase secrets
     const CLIENT_ID = Deno.env.get("Client ID");
-    const CLIENT_SECRET = Deno.env.get("Client Secret"); 
-    const REFRESH_TOKEN = Deno.env.get("Refresh Token");
+    const CLIENT_SECRET = Deno.env.get("Secret"); 
+    const REFRESH_TOKEN = Deno.env.get("Refresh token");
     
     console.log('Environment check:', {
       hasDeveloperToken: !!DEVELOPER_TOKEN,
       hasClientId: !!CLIENT_ID,
       hasClientSecret: !!CLIENT_SECRET,
-      hasRefreshToken: !!REFRESH_TOKEN
+      hasRefreshToken: !!REFRESH_TOKEN,
+      clientIdLength: CLIENT_ID?.length,
+      clientSecretLength: CLIENT_SECRET?.length
     });
 
     // Get access token
