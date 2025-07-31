@@ -37,15 +37,15 @@ serve(async (req) => {
       throw new Error(`OAuth token error: ${tokenData.error}`);
     }
 
-    // Query to get customer accounts from MCC (simplified)
+    // Query to get child accounts under the MCC
     const query = `
       SELECT 
-        customer.descriptive_name,
-        customer.id
-      FROM customer
-      WHERE customer.manager = false`;
+        customer_client.client_customer, 
+        customer_client.descriptive_name
+      FROM customer_client
+      WHERE customer_client.level = 1`;
     
-    console.log('Accounts query:', query.trim());
+    console.log('Child accounts query:', query.trim());
 
     // Make Google Ads API call to get customer info
     const customerId = "9301596383"; // Use your customer ID
@@ -67,11 +67,11 @@ serve(async (req) => {
       throw new Error(`Google Ads API error: ${apiData.error?.message || 'Unknown error'}`);
     }
 
-    // Process and format the response
+    // Process and format the response for child accounts
     const accounts = apiData.results?.map((result: any) => ({
-      id: result.customer.id,
-      name: result.customer.descriptiveName,
-      customerId: result.customer.id,
+      id: result.customerClient.clientCustomer,
+      name: result.customerClient.descriptiveName,
+      customerId: result.customerClient.clientCustomer,
       status: 'ENABLED',
       isManager: false,
     })) || [];

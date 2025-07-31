@@ -63,11 +63,47 @@ serve(async (req) => {
       throw new Error(`OAuth token error: ${tokenData.error}`);
     }
 
-    // 🔧 DEBUGGING IMPLEMENTATION - Exactly as specified
+    // Step 1: First get child accounts under the MCC
+    const mccId = "9301596383";
+    const childAccountsQuery = `
+      SELECT 
+        customer_client.client_customer, 
+        customer_client.descriptive_name
+      FROM customer_client
+      WHERE customer_client.level = 1
+    `;
+
+    console.log("🔍 Step 1: Getting child accounts under MCC...");
+    const childAccountsResponse = await fetch(
+      `https://googleads.googleapis.com/v18/customers/${mccId}/googleAds:search`,
+      {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${tokenData.access_token}`,
+          "developer-token": DEVELOPER_TOKEN,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ query: childAccountsQuery }),
+      }
+    );
+
+    const childAccountsData = await childAccountsResponse.json();
+    if (!childAccountsResponse.ok) {
+      console.error("❌ Failed to get child accounts:", childAccountsData);
+      throw new Error(`Failed to get child accounts: ${childAccountsData.error?.message || JSON.stringify(childAccountsData)}`);
+    }
+
+    if (!childAccountsData.results || childAccountsData.results.length === 0) {
+      throw new Error("No child accounts found under this MCC");
+    }
+
+    // Use the first child account for metrics query
+    const firstChildAccount = childAccountsData.results[0].customerClient.clientCustomer;
+    console.log("✅ Using child account:", firstChildAccount);
+
+    // Step 2: Now query campaigns from the child account
     try {
-      // Use a client account ID instead of MCC ID for metrics queries
-      const clientAccountId = "6392103727"; // First client account: 639-210-3727
-      const apiUrl = `https://googleads.googleapis.com/v18/customers/${clientAccountId}/googleAds:search`;
+      const apiUrl = `https://googleads.googleapis.com/v18/customers/${firstChildAccount}/googleAds:search`;
 
       const query = `
         SELECT
