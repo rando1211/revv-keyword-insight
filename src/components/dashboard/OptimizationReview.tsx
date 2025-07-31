@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { AlertTriangle, CheckCircle, XCircle, Play, Clock } from "lucide-react";
+import { AlertTriangle, CheckCircle, XCircle, Play, Clock, TestTube } from "lucide-react";
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAccount } from '@/contexts/AccountContext';
@@ -111,6 +111,37 @@ export const OptimizationReview = ({ optimizations, customerId, accountName }: O
     }
   };
 
+  const handleTestApiConnection = async () => {
+    try {
+      toast({
+        title: "🧪 Testing Google Ads API",
+        description: "Checking connection and credentials...",
+      });
+
+      const { data, error } = await supabase.functions.invoke('test-google-ads-api', {
+        body: { customerId }
+      });
+
+      if (error) throw error;
+
+      console.log('🧪 API Test Result:', data);
+      
+      toast({
+        title: data.success ? "✅ API Connection Working!" : "❌ API Connection Failed",
+        description: data.message || "Check console for details",
+        variant: data.success ? "default" : "destructive",
+      });
+
+    } catch (error) {
+      console.error('API test failed:', error);
+      toast({
+        title: "❌ Test Failed",
+        description: error instanceof Error ? error.message : "Unknown error",
+        variant: "destructive",
+      });
+    }
+  };
+
   const getImpactColor = (impact: string) => {
     switch (impact) {
       case 'High': return 'destructive';
@@ -149,13 +180,25 @@ export const OptimizationReview = ({ optimizations, customerId, accountName }: O
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center justify-between">
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={handleSelectAll}
-            >
-              {selectedOptimizations.length === optimizations.length ? 'Deselect All' : 'Select All'}
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={handleSelectAll}
+              >
+                {selectedOptimizations.length === optimizations.length ? 'Deselect All' : 'Select All'}
+              </Button>
+              
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={handleTestApiConnection}
+                className="flex items-center gap-2"
+              >
+                <TestTube className="h-4 w-4" />
+                Test API
+              </Button>
+            </div>
             
             <Button 
               onClick={handleExecuteOptimizations}
