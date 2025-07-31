@@ -41,14 +41,16 @@ serve(async (req) => {
     const query = `
       SELECT 
         customer_client.client_customer, 
-        customer_client.descriptive_name
+        customer_client.descriptive_name,
+        customer_client.level,
+        customer_client.manager
       FROM customer_client
       WHERE customer_client.level = 1`;
     
     console.log('Child accounts query:', query.trim());
 
     // Make Google Ads API call to get customer info
-    const customerId = "9301596383"; // Use your customer ID
+    const customerId = "9301596383"; // Use your MCC customer ID
     const apiResponse = await fetch(
       `https://googleads.googleapis.com/${API_VERSION}/customers/${customerId}/googleAds:search`, 
       {
@@ -63,18 +65,29 @@ serve(async (req) => {
     );
 
     const apiData = await apiResponse.json();
+    console.log('API Response:', JSON.stringify(apiData, null, 2));
+    
     if (!apiResponse.ok) {
       throw new Error(`Google Ads API error: ${apiData.error?.message || 'Unknown error'}`);
     }
 
     // Process and format the response for child accounts
-    const accounts = apiData.results?.map((result: any) => ({
-      id: result.customerClient.clientCustomer,
-      name: result.customerClient.descriptiveName,
-      customerId: result.customerClient.clientCustomer,
-      status: 'ENABLED',
-      isManager: false,
-    })) || [];
+    const accounts = apiData.results?.map((result: any) => {
+      const clientCustomer = result.customerClient.clientCustomer;
+      const descriptiveName = result.customerClient.descriptiveName;
+      
+      console.log('Processing account:', { clientCustomer, descriptiveName });
+      
+      return {
+        id: clientCustomer,
+        name: descriptiveName || 'Unnamed Account',
+        customerId: clientCustomer, // This should be like "customers/2140202145"
+        status: 'ENABLED',
+        isManager: false,
+      };
+    }) || [];
+
+    console.log('Final accounts array:', accounts);
 
     return new Response(
       JSON.stringify({ 
