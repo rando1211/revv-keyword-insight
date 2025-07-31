@@ -155,7 +155,21 @@ serve(async (req) => {
         
         const responseText = await response.text();
         console.log(`📊 Response status: ${response.status}`);
+        console.log(`📄 Response headers:`, Object.fromEntries(response.headers.entries()));
         console.log(`📄 Response text:`, responseText);
+        
+        // Log additional debug info for 400 errors
+        if (response.status === 400) {
+          console.log('🚨 400 ERROR DETAILS:');
+          console.log('🔗 Request URL:', apiEndpoint);
+          console.log('📋 Request Headers:', {
+            'Authorization': `Bearer ${access_token.substring(0, 20)}...`,
+            'developer-token': DEVELOPER_TOKEN.substring(0, 10) + '...',
+            'login-customer-id': '9301596383',
+            'Content-Type': 'application/json'
+          });
+          console.log('📦 Request Body:', JSON.stringify(requestPayload, null, 2));
+        }
         
         let result;
         try {
