@@ -103,7 +103,7 @@ export const AIInsightsPanel = () => {
         description: "Increase bids by 15% for keywords with CTR > 5% and conversion rate > 3%",
         impact: "High" as const,
         type: "bid_adjustment" as const,
-        apiEndpoint: `/customers/${selectedAccountForAnalysis.customerId.replace('customers/', '')}/campaigns:mutate`,
+        apiEndpoint: `https://googleads.googleapis.com/v18/customers/${selectedAccountForAnalysis.customerId.replace('customers/', '')}/campaigns:mutate`,
         method: "POST",
         payload: {
           operations: [
@@ -125,7 +125,7 @@ export const AIInsightsPanel = () => {
         description: "Add negative keywords for low-performing search terms with high cost and no conversions",
         impact: "Medium" as const,
         type: "keyword_management" as const,
-        apiEndpoint: `/customers/${selectedAccountForAnalysis.customerId.replace('customers/', '')}/campaigns/1742778601:mutate`,
+        apiEndpoint: `https://googleads.googleapis.com/v18/customers/${selectedAccountForAnalysis.customerId.replace('customers/', '')}/campaigns/1742778601:mutate`,
         method: "POST",
         payload: {
           operations: [
@@ -149,7 +149,7 @@ export const AIInsightsPanel = () => {
         description: "Reallocate 20% budget from low-performing campaigns to high-ROI campaigns",
         impact: "High" as const,
         type: "budget_optimization" as const,
-        apiEndpoint: `/customers/${selectedAccountForAnalysis.customerId.replace('customers/', '')}/campaigns/1742778601:mutate`,
+        apiEndpoint: `https://googleads.googleapis.com/v18/customers/${selectedAccountForAnalysis.customerId.replace('customers/', '')}/campaigns/1742778601:mutate`,
         method: "POST", 
         payload: {
           operations: [

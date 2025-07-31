@@ -14,8 +14,14 @@ serve(async (req) => {
   try {
     const { optimizations, customerId, approved } = await req.json();
     
-    console.log('Executing optimizations for customer:', customerId);
+    console.log('=== OPTIMIZATION EXECUTION START ===');
+    console.log('Customer ID:', customerId);
     console.log('Approved optimizations:', approved);
+    console.log('Total optimizations received:', optimizations?.length || 0);
+    
+    if (!optimizations || !Array.isArray(optimizations)) {
+      throw new Error('Invalid optimizations data received');
+    }
     
     // Get fresh access token
     const GOOGLE_CLIENT_ID = Deno.env.get('Client ID');
@@ -46,7 +52,9 @@ serve(async (req) => {
       }
       
       try {
-        console.log(`Executing optimization: ${optimization.title}`);
+        console.log(`🔄 Executing optimization: ${optimization.title}`);
+        console.log(`📍 API Endpoint: ${optimization.apiEndpoint}`);
+        console.log(`📦 Payload:`, JSON.stringify(optimization.payload, null, 2));
         
         // Execute the generated JavaScript code
         const response = await fetch(optimization.apiEndpoint, {
@@ -60,19 +68,34 @@ serve(async (req) => {
           body: JSON.stringify(optimization.payload)
         });
         
-        const result = await response.json();
+        const responseText = await response.text();
+        console.log(`📊 Response status: ${response.status}`);
+        console.log(`📄 Response text:`, responseText);
+        
+        let result;
+        try {
+          result = JSON.parse(responseText);
+        } catch (e) {
+          result = { error: `Non-JSON response: ${responseText}` };
+        }
         
         results.push({
           optimizationId: optimization.id,
           success: response.ok,
           result: result,
-          title: optimization.title
+          title: optimization.title,
+          statusCode: response.status,
+          rawResponse: responseText
         });
         
-        console.log(`✅ Optimization ${optimization.id} executed:`, result);
+        if (response.ok) {
+          console.log(`✅ Optimization ${optimization.id} executed successfully`);
+        } else {
+          console.log(`❌ Optimization ${optimization.id} failed with status ${response.status}`);
+        }
         
       } catch (error) {
-        console.error(`❌ Failed to execute optimization ${optimization.id}:`, error);
+        console.error(`💥 Failed to execute optimization ${optimization.id}:`, error);
         results.push({
           optimizationId: optimization.id,
           success: false,

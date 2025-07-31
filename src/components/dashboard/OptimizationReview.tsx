@@ -62,6 +62,12 @@ export const OptimizationReview = ({ optimizations, customerId, accountName }: O
 
     setExecuting(true);
     try {
+      console.log('🚀 Starting optimization execution...');
+      console.log('Selected optimizations:', selectedOptimizations);
+      console.log('Customer ID:', customerId);
+      console.log('Account name:', accountName);
+      console.log('Optimizations data:', optimizations);
+
       toast({
         title: "🚀 Executing Optimizations",
         description: `Applying ${selectedOptimizations.length} optimizations to ${accountName}...`,
@@ -75,7 +81,11 @@ export const OptimizationReview = ({ optimizations, customerId, accountName }: O
         }
       });
 
-      if (error) throw error;
+      console.log('✅ Execution response:', data);
+      if (error) {
+        console.error('❌ Execution error:', error);
+        throw error;
+      }
 
       setExecutionResults(data.results);
       
