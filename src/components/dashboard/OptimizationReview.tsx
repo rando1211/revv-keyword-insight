@@ -55,19 +55,40 @@ export const OptimizationReview = ({ optimizations, customerId, accountName }: O
     if (optimization.type !== 'keyword_management') return null;
     
     try {
+      console.log('🔍 Extracting keywords from optimization:', optimization);
       const operations = optimization.payload?.operations || [];
       const keywords: Array<{text: string, matchType: string, negative: boolean}> = [];
       
-      operations.forEach((operation: any) => {
-        if (operation.create?.keyword) {
-          keywords.push({
-            text: operation.create.keyword.text || operation.create.keyword.text,
-            matchType: operation.create.keyword.match_type || operation.create.keyword.matchType || 'BROAD',
-            negative: operation.create.negative || false
-          });
+      operations.forEach((operation: any, index: number) => {
+        console.log(`🔍 Processing operation ${index}:`, operation);
+        
+        // Handle the corrected structure (direct create object)
+        if (operation.create) {
+          const createData = operation.create;
+          
+          // Check if keyword is directly in create
+          if (createData.keyword) {
+            console.log('🔑 Found keyword in create:', createData.keyword);
+            keywords.push({
+              text: createData.keyword.text,
+              matchType: createData.keyword.match_type || createData.keyword.matchType || 'BROAD',
+              negative: createData.negative || false
+            });
+          }
+          
+          // Also check for the old campaignCriterion structure (fallback)
+          if (createData.campaignCriterion?.keyword) {
+            console.log('🔑 Found keyword in campaignCriterion:', createData.campaignCriterion.keyword);
+            keywords.push({
+              text: createData.campaignCriterion.keyword.text,
+              matchType: createData.campaignCriterion.keyword.match_type || createData.campaignCriterion.keyword.matchType || 'BROAD',
+              negative: createData.campaignCriterion.negative || false
+            });
+          }
         }
       });
       
+      console.log('🔍 Extracted keywords:', keywords);
       return keywords;
     } catch (error) {
       console.error('Error extracting keyword details:', error);
