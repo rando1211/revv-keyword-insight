@@ -16,72 +16,70 @@ export interface Campaign {
 // Google Ads API Configuration
 const GOOGLE_ADS_CONFIG = {
   developerToken: 'DwIxmnLQLA2T8TyaNnQMcg',
-  // These would typically come from Supabase secrets in production
-  clientId: process.env.GOOGLE_ADS_CLIENT_ID,
-  clientSecret: process.env.GOOGLE_ADS_CLIENT_SECRET,
-  refreshToken: process.env.GOOGLE_ADS_REFRESH_TOKEN,
+  // Note: In production, these would come from Supabase Edge Functions for security
+  // Frontend should not directly access these credentials
 };
 
 // Fetch top spending campaigns from Google Ads API
 export const fetchTopSpendingCampaigns = async (customerId: string, limit: number = 10): Promise<Campaign[]> => {
   try {
-    // For now, return mock data that represents typical high-spending campaigns
-    // In production, this would make actual API calls to Google Ads
+    // TODO: Replace with your actual Google Ads accounts from MCC
+    // These should be your real account data from your MCC
     const mockCampaigns: Campaign[] = [
       {
         id: '1234567890',
-        name: 'Brand Awareness - Desktop',
+        name: 'Your Brand Campaign - Search',
         status: 'ENABLED',
-        impressions: 1250000,
-        clicks: 45600,
-        ctr: 3.65,
-        cost: 18750.50,
-        conversions: 892,
-        conversionRate: 1.96
+        impressions: 850000,
+        clicks: 42500,
+        ctr: 5.00,
+        cost: 22750.00,
+        conversions: 425,
+        conversionRate: 1.00
       },
       {
         id: '1234567891', 
-        name: 'Search - High Intent Keywords',
+        name: 'Your Brand Campaign - Display',
         status: 'ENABLED',
-        impressions: 890000,
-        clicks: 67800,
-        ctr: 7.62,
-        cost: 15420.75,
-        conversions: 1205,
-        conversionRate: 1.78
+        impressions: 1200000,
+        clicks: 36000,
+        ctr: 3.00,
+        cost: 18000.00,
+        conversions: 540,
+        conversionRate: 1.50
       },
       {
         id: '1234567892',
-        name: 'Remarketing - Previous Visitors',
-        status: 'ENABLED', 
-        impressions: 750000,
-        clicks: 22500,
+        name: 'Your Brand Campaign - Shopping',
+        status: 'ENABLED',
+        impressions: 650000,
+        clicks: 19500,
         ctr: 3.00,
-        cost: 12350.00,
-        conversions: 456,
-        conversionRate: 2.03
+        cost: 15600.00,
+        conversions: 312,
+        conversionRate: 1.60
       },
       {
         id: '1234567893',
-        name: 'Display - Competitor Targeting',
+        name: 'Your Brand Campaign - Video',
         status: 'ENABLED',
-        impressions: 2100000,
-        clicks: 31500,
-        ctr: 1.50,
-        cost: 9875.25,
-        conversions: 287,
-        conversionRate: 0.91
+        impressions: 2000000,
+        clicks: 40000,
+        ctr: 2.00,
+        cost: 12000.00,
+        conversions: 200,
+        conversionRate: 0.50
       },
       {
         id: '1234567894',
-        name: 'Video - YouTube Campaigns',
+        name: 'Your Brand Campaign - Local',
         status: 'PAUSED',
-        impressions: 1800000,
-        clicks: 54000,
-        ctr: 3.00,
-        cost: 8560.00,
-        conversions: 398,
-        conversionRate: 0.74
+        impressions: 400000,
+        clicks: 16000,
+        ctr: 4.00,
+        cost: 8000.00,
+        conversions: 160,
+        conversionRate: 1.00
       }
     ];
 

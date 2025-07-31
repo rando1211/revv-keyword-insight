@@ -19,42 +19,42 @@ interface GoogleAdsAccount {
 const mockAccounts: GoogleAdsAccount[] = [
   {
     id: '1234567890',
-    name: 'Acme Corp - Main Account',
+    name: 'Your Main Business Account',
     customerId: '123-456-7890',
-    campaignCount: 8,
-    monthlySpend: 15420.75,
+    campaignCount: 12,
+    monthlySpend: 22750.00,
     status: 'ENABLED'
   },
   {
     id: '1234567891', 
-    name: 'Acme Corp - Brand Campaigns',
+    name: 'Your Display Campaigns Account',
     customerId: '123-456-7891',
-    campaignCount: 5,
-    monthlySpend: 8750.50,
+    campaignCount: 8,
+    monthlySpend: 18000.00,
     status: 'ENABLED'
   },
   {
     id: '1234567892',
-    name: 'Acme Corp - Local Store',
+    name: 'Your Shopping Campaigns Account',
     customerId: '123-456-7892', 
-    campaignCount: 3,
-    monthlySpend: 3200.25,
+    campaignCount: 6,
+    monthlySpend: 15600.00,
     status: 'ENABLED'
   },
   {
     id: '1234567893',
-    name: 'Subsidiary Inc - Search',
+    name: 'Your Video Marketing Account',
     customerId: '123-456-7893',
-    campaignCount: 12,
-    monthlySpend: 22100.00,
+    campaignCount: 4,
+    monthlySpend: 12000.00,
     status: 'ENABLED'
   },
   {
     id: '1234567894',
-    name: 'Test Account - Development',
+    name: 'Your Local Campaigns Account',
     customerId: '123-456-7894',
-    campaignCount: 2,
-    monthlySpend: 150.00,
+    campaignCount: 3,
+    monthlySpend: 8000.00,
     status: 'SUSPENDED'
   }
 ];
