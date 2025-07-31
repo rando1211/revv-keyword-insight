@@ -248,6 +248,40 @@ export const AIInsightsPanel = () => {
                 optimizations={parsedOptimizations}
                 customerId={selectedAccountForAnalysis.customerId}
                 accountName={selectedAccountForAnalysis.name}
+                campaignData={[
+                  {
+                    id: "1742778601",
+                    name: "Boat Rentals Campaign",
+                    cost: 2500000000, // $2500 in micros
+                    status: "ENABLED",
+                    metrics: { 
+                      clicks: 150, 
+                      impressions: 8500, 
+                      conversions: 0, 
+                      ctr: 0.0176,
+                      costMicros: 2500000000
+                    },
+                    keywords: [
+                      { text: "boat rentals oxnard", clicks: 50, conversions: 0, matchType: "EXACT" },
+                      { text: "channel islands boat", clicks: 50, conversions: 0, matchType: "PHRASE" },
+                      { text: "oxnard boat charter", clicks: 30, conversions: 0, matchType: "BROAD" },
+                      { text: "boat rental santa barbara", clicks: 20, conversions: 2, matchType: "PHRASE" }
+                    ]
+                  },
+                  {
+                    id: "1742778602", 
+                    name: "Marina Services Campaign",
+                    cost: 500000000, // $500 in micros
+                    status: "ENABLED",
+                    metrics: { 
+                      clicks: 75, 
+                      impressions: 4200, 
+                      conversions: 3, 
+                      ctr: 0.0178,
+                      costMicros: 500000000
+                    }
+                  }
+                ]}
               />
             ) : (
               <div className="text-center py-8 text-muted-foreground">
