@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { AlertTriangle, CheckCircle, XCircle, Play, Clock, TestTube } from "lucide-react";
+import { AlertTriangle, CheckCircle, XCircle, Play, Clock, TestTube, ChevronDown, ChevronUp } from "lucide-react";
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAccount } from '@/contexts/AccountContext';
@@ -32,6 +32,7 @@ export const OptimizationReview = ({ optimizations, customerId, accountName }: O
   const [selectedOptimizations, setSelectedOptimizations] = useState<string[]>([]);
   const [executing, setExecuting] = useState(false);
   const [executionResults, setExecutionResults] = useState<any[]>([]);
+  const [expandedDetails, setExpandedDetails] = useState<string[]>([]);
   const { toast } = useToast();
 
   const handleOptimizationToggle = (optimizationId: string) => {
@@ -40,6 +41,38 @@ export const OptimizationReview = ({ optimizations, customerId, accountName }: O
         ? prev.filter(id => id !== optimizationId)
         : [...prev, optimizationId]
     );
+  };
+
+  const toggleDetails = (optimizationId: string) => {
+    setExpandedDetails(prev => 
+      prev.includes(optimizationId)
+        ? prev.filter(id => id !== optimizationId)
+        : [...prev, optimizationId]
+    );
+  };
+
+  const extractKeywordDetails = (optimization: Optimization) => {
+    if (optimization.type !== 'keyword_management') return null;
+    
+    try {
+      const operations = optimization.payload?.operations || [];
+      const keywords: Array<{text: string, matchType: string, negative: boolean}> = [];
+      
+      operations.forEach((operation: any) => {
+        if (operation.create?.keyword) {
+          keywords.push({
+            text: operation.create.keyword.text || operation.create.keyword.text,
+            matchType: operation.create.keyword.match_type || operation.create.keyword.matchType || 'BROAD',
+            negative: operation.create.negative || false
+          });
+        }
+      });
+      
+      return keywords;
+    } catch (error) {
+      console.error('Error extracting keyword details:', error);
+      return null;
+    }
   };
 
   const handleSelectAll = () => {
@@ -261,6 +294,67 @@ export const OptimizationReview = ({ optimizations, customerId, accountName }: O
                           </code>
                         </div>
                       </div>
+
+                      {/* Show details button for keyword management */}
+                      {optimization.type === 'keyword_management' && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => toggleDetails(optimization.id)}
+                          className="flex items-center gap-2 mt-2"
+                        >
+                          {expandedDetails.includes(optimization.id) ? (
+                            <>
+                              <ChevronUp className="h-4 w-4" />
+                              Hide Keywords
+                            </>
+                          ) : (
+                            <>
+                              <ChevronDown className="h-4 w-4" />
+                              Show Keywords
+                            </>
+                          )}
+                        </Button>
+                      )}
+
+                      {/* Expanded keyword details */}
+                      {expandedDetails.includes(optimization.id) && optimization.type === 'keyword_management' && (
+                        <div className="mt-4 p-4 bg-muted/50 rounded-lg">
+                          <h5 className="font-medium mb-3 flex items-center gap-2">
+                            🔑 Keywords to be added as negatives:
+                          </h5>
+                          {(() => {
+                            const keywordDetails = extractKeywordDetails(optimization);
+                            if (!keywordDetails || keywordDetails.length === 0) {
+                              return (
+                                <p className="text-sm text-muted-foreground">
+                                  No keywords found in this optimization.
+                                </p>
+                              );
+                            }
+                            
+                            return (
+                              <div className="space-y-2">
+                                {keywordDetails.map((keyword, index) => (
+                                  <div key={index} className="flex items-center justify-between p-2 bg-background rounded border">
+                                    <div className="flex items-center gap-3">
+                                      <Badge variant="outline" className="font-mono text-xs">
+                                        "{keyword.text}"
+                                      </Badge>
+                                      <span className="text-sm text-muted-foreground">
+                                        Match Type: {keyword.matchType}
+                                      </span>
+                                    </div>
+                                    <Badge variant={keyword.negative ? "destructive" : "default"}>
+                                      {keyword.negative ? "Negative" : "Positive"}
+                                    </Badge>
+                                  </div>
+                                ))}
+                              </div>
+                            );
+                          })()}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </CardContent>
