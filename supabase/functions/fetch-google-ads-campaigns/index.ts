@@ -109,14 +109,22 @@ serve(async (req) => {
 
       const query = `
         SELECT
-          segments.date,
           campaign.id,
           campaign.name,
-          metrics.cost_micros
+          campaign.status,
+          campaign.bidding_strategy_type,
+          campaign.target_cpa.target_cpa_micros,
+          metrics.cost_micros,
+          metrics.clicks,
+          metrics.impressions,
+          metrics.ctr,
+          metrics.conversions,
+          metrics.cost_per_conversion_micros
         FROM campaign
-        WHERE segments.date DURING LAST_30_DAYS
+        WHERE campaign.status = 'ENABLED'
+        AND segments.date DURING LAST_30_DAYS
         ORDER BY metrics.cost_micros DESC
-        LIMIT 10
+        LIMIT 20
       `;
 
       const headers = {
@@ -155,13 +163,17 @@ serve(async (req) => {
       const campaigns = apiData.results?.map((result: any) => ({
         id: result.campaign?.id || 'unknown',
         name: result.campaign?.name || 'Unknown Campaign',
-        status: 'ENABLED', // Will add this field back later if needed
-        impressions: 0, // Not included in this query yet
-        clicks: 0, // Not included in this query yet
-        ctr: 0, // Not included in this query yet
-        cost: parseInt(result.metrics?.costMicros || "0") / 1000000, // Convert from micros to dollars
-        conversions: 0, // Avoiding this field for now
-        conversionRate: 0, // Avoiding this field for now
+        status: result.campaign?.status || 'UNKNOWN',
+        bidding_strategy_type: result.campaign?.biddingStrategyType || 'UNKNOWN',
+        target_cpa_micros: result.campaign?.targetCpa?.targetCpaMicros || null,
+        cost_micros: parseInt(result.metrics?.costMicros || "0"),
+        cost: parseInt(result.metrics?.costMicros || "0") / 1000000, // Convert to dollars
+        clicks: parseInt(result.metrics?.clicks || "0"),
+        impressions: parseInt(result.metrics?.impressions || "0"),
+        ctr: parseFloat(result.metrics?.ctr || "0"),
+        conversions: parseFloat(result.metrics?.conversions || "0"),
+        cost_per_conversion_micros: parseInt(result.metrics?.costPerConversionMicros || "0"),
+        cost_per_conversion: parseInt(result.metrics?.costPerConversionMicros || "0") / 1000000,
       })) || [];
 
       return new Response(

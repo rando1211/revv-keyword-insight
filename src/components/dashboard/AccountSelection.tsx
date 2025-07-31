@@ -95,8 +95,8 @@ export const AccountSelection = () => {
         description: `Analyzing campaigns for ${account.name}...`,
       });
 
-      // Fetch campaign data for this specific account
-      let campaignData;
+      // Fetch REAL campaign data for this specific account only
+      let campaignData = [];
       try {
         const { data, error } = await supabase.functions.invoke('fetch-google-ads-campaigns', {
           body: { customerId: account.customerId }
@@ -105,80 +105,25 @@ export const AccountSelection = () => {
         if (error) throw error;
         campaignData = data.campaigns || [];
         
-        // If no real campaigns found, use rich mock data for testing
         if (campaignData.length === 0) {
-          console.log('No real campaigns found, using enhanced mock data for AI analysis');
-          campaignData = [
-            {
-              id: "123456789",
-              name: `${account.name} - Performance Max Campaign`,
-              cost: 45000000, // $450 in micros
-              metrics: { 
-                ctr: 0.0507, 
-                impressions: 125000, 
-                clicks: 6337,
-                conversions: 42,
-                conversion_rate: 0.0066,
-                cost_per_conversion: 107.14
-              },
-              status: "ENABLED",
-              bidding_strategy: "MAXIMIZE_CONVERSIONS",
-              target_cpa: 100000000 // $100 target CPA in micros
-            },
-            {
-              id: "987654321", 
-              name: `${account.name} - Search Campaign`,
-              cost: 32000000, // $320 in micros
-              metrics: { 
-                ctr: 0.0569, 
-                impressions: 89000, 
-                clicks: 5064,
-                conversions: 28,
-                conversion_rate: 0.0055,
-                cost_per_conversion: 114.28
-              },
-              status: "ENABLED",
-              bidding_strategy: "MANUAL_CPC",
-              target_cpa: 120000000 // $120 target CPA in micros
-            },
-            {
-              id: "456789123",
-              name: `${account.name} - Display Remarketing`,
-              cost: 18000000, // $180 in micros  
-              metrics: {
-                ctr: 0.0234,
-                impressions: 245000,
-                clicks: 5730,
-                conversions: 15,
-                conversion_rate: 0.0026,
-                cost_per_conversion: 120.00
-              },
-              status: "ENABLED",
-              bidding_strategy: "TARGET_CPA"
-            }
-          ];
+          toast({
+            title: "No Active Campaigns Found",
+            description: `${account.name} has no active campaigns with data in the last 30 days.`,
+            variant: "destructive",
+          });
+          return;
         }
+
+        console.log(`Found ${campaignData.length} active campaigns for ${account.name}:`, campaignData);
+        
       } catch (error) {
-        console.log('API error, using enhanced mock data:', error);
-        // Enhanced fallback data
-        campaignData = [
-          {
-            id: "123456789",
-            name: `${account.name} - Performance Max Campaign`,
-            cost: 45000000,
-            metrics: { ctr: 0.0507, impressions: 125000, clicks: 6337, conversions: 42 },
-            status: "ENABLED",
-            bidding_strategy: "MAXIMIZE_CONVERSIONS"
-          },
-          {
-            id: "987654321", 
-            name: `${account.name} - Search Campaign`,
-            cost: 32000000,
-            metrics: { ctr: 0.0569, impressions: 89000, clicks: 5064, conversions: 28 },
-            status: "ENABLED",
-            bidding_strategy: "MANUAL_CPC"
-          }
-        ];
+        console.error('Failed to fetch campaign data:', error);
+        toast({
+          title: "Campaign Data Error",
+          description: `Unable to fetch campaign data for ${account.name}: ${error.message}`,
+          variant: "destructive",
+        });
+        return;
       }
 
       const analysis = await generateCampaignAnalysis(campaignData);
