@@ -1,10 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
-
-// Initialize Supabase client for this project
-const supabaseUrl = 'https://zbonqkwmkqugnyfkpgvi.supabase.co';
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inpib25xa3dta3F1Z255ZmtwZ3ZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzU2NjM3MzksImV4cCI6MjA1MTIzOTczOX0.YslJlEAZ6w4TxQAH-VGJzjYFLNyS9fMZ8wOOEj8TZeY';
-
-export const supabase = createClient(supabaseUrl, supabaseKey);
+import { supabase } from '@/integrations/supabase/client';
 
 // Google Ads API Service with real Supabase integration
 export interface Campaign {
