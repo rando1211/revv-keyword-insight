@@ -2,16 +2,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { OpenAIIntegration } from "@/components/dashboard/OpenAIIntegration";
-import { AccountSelection } from "@/components/dashboard/AccountSelection";
-import { CampaignsList } from "@/components/dashboard/CampaignsList";
 import { BarChart3, TrendingUp, DollarSign, Target, RefreshCw } from "lucide-react";
 
 const Index = () => {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="bg-primary text-primary-foreground shadow-elevation">
+      <header className="bg-primary text-primary-foreground shadow-lg">
         <div className="container mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
@@ -64,7 +61,7 @@ const Index = () => {
                   <p className="text-2xl font-bold">2.14%</p>
                   <p className="text-xs text-muted-foreground">+0.3% improvement</p>
                 </div>
-                <TrendingUp className="h-8 w-8 text-success" />
+                <TrendingUp className="h-8 w-8 text-green-500" />
               </div>
             </CardContent>
           </Card>
@@ -77,7 +74,7 @@ const Index = () => {
                   <p className="text-2xl font-bold">8</p>
                   <p className="text-xs text-muted-foreground">3 pending approval</p>
                 </div>
-                <RefreshCw className="h-8 w-8 text-warning" />
+                <RefreshCw className="h-8 w-8 text-orange-500" />
               </div>
             </CardContent>
           </Card>
@@ -85,13 +82,10 @@ const Index = () => {
 
         {/* Main Dashboard */}
         <Tabs defaultValue="overview" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-6">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="accounts">🏢 Accounts</TabsTrigger>
-            <TabsTrigger value="campaigns">Campaigns</TabsTrigger>
-            <TabsTrigger value="ai-insights">AI Insights</TabsTrigger>
-            <TabsTrigger value="openai">🤖 OpenAI</TabsTrigger>
-            <TabsTrigger value="api-setup">API Setup</TabsTrigger>
+            <TabsTrigger value="campaigns">📊 Campaigns</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="space-y-6">
@@ -109,15 +103,15 @@ const Index = () => {
                     <div className="space-y-2">
                       <div className="flex justify-between items-center">
                         <span className="text-sm">Google Ads API</span>
-                        <Badge className="bg-success text-success-foreground">Connected</Badge>
+                        <Badge className="bg-green-500 text-white">Connected</Badge>
                       </div>
                       <div className="flex justify-between items-center">
                         <span className="text-sm">Developer Token</span>
                         <Badge variant="outline">Active</Badge>
                       </div>
                       <div className="flex justify-between items-center">
-                        <span className="text-sm">OAuth2 Flow</span>
-                        <Badge className="bg-success text-success-foreground">Complete</Badge>
+                        <span className="text-sm">OpenAI API</span>
+                        <Badge className="bg-green-500 text-white">Connected</Badge>
                       </div>
                     </div>
                   </div>
@@ -127,7 +121,7 @@ const Index = () => {
                     <div className="space-y-2 text-sm">
                       <div>• Live campaign data access</div>
                       <div>• AI-powered optimization recommendations</div>
-                      <div>• Automated approval workflows</div>
+                      <div>• Account selection with billing</div>
                       <div>• Campaign performance analytics</div>
                       <div>• Data export capabilities</div>
                     </div>
@@ -138,101 +132,129 @@ const Index = () => {
           </TabsContent>
 
           <TabsContent value="accounts" className="space-y-6">
-            <AccountSelection />
-          </TabsContent>
-
-          <TabsContent value="campaigns" className="space-y-6">
-            <CampaignsList />
-          </TabsContent>
-
-          <TabsContent value="ai-insights" className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle>🤖 AI Optimization Recommendations</CardTitle>
+                <CardTitle>🏢 Google Ads Account Selection</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Choose which Google Ads accounts you want to access. Pricing is $100 per account per month.
+                </p>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
                   <div className="p-4 border rounded-lg">
-                    <div className="flex justify-between items-start mb-2">
-                      <h4 className="font-semibold">Increase Bid for High-Performing Keywords</h4>
-                      <Badge variant="destructive">High Priority</Badge>
-                    </div>
-                    <p className="text-sm text-muted-foreground mb-3">
-                      Keywords "digital marketing" and "SEO services" are performing 40% above average CTR.
-                    </p>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm font-medium text-success">+25% estimated conversion increase</span>
-                      <div className="space-x-2">
-                        <Button variant="outline" size="sm">Review</Button>
-                        <Button size="sm">Apply</Button>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="font-semibold">Acme Corp - Main Account</h4>
+                        <p className="text-sm text-muted-foreground">Customer ID: 123-456-7890 • 8 campaigns</p>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-lg font-bold">$100</div>
+                        <div className="text-xs text-muted-foreground">per month</div>
                       </div>
                     </div>
                   </div>
                   
                   <div className="p-4 border rounded-lg">
-                    <div className="flex justify-between items-start mb-2">
-                      <h4 className="font-semibold">Reallocate Budget to Mobile Campaigns</h4>
-                      <Badge variant="default">Medium Priority</Badge>
-                    </div>
-                    <p className="text-sm text-muted-foreground mb-3">
-                      Mobile campaigns showing 60% higher conversion rates than desktop.
-                    </p>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm font-medium text-success">+15% estimated ROI improvement</span>
-                      <div className="space-x-2">
-                        <Button variant="outline" size="sm">Review</Button>
-                        <Button size="sm">Apply</Button>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="font-semibold">Acme Corp - Brand Campaigns</h4>
+                        <p className="text-sm text-muted-foreground">Customer ID: 123-456-7891 • 5 campaigns</p>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-lg font-bold">$100</div>
+                        <div className="text-xs text-muted-foreground">per month</div>
                       </div>
                     </div>
+                  </div>
+                  
+                  <div className="pt-4">
+                    <Button className="w-full" size="lg">
+                      Subscribe to Selected Accounts
+                    </Button>
                   </div>
                 </div>
               </CardContent>
             </Card>
           </TabsContent>
 
-          <TabsContent value="openai" className="space-y-6">
-            <OpenAIIntegration />
-          </TabsContent>
-
-          <TabsContent value="api-setup" className="space-y-6">
+          <TabsContent value="campaigns" className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle>🔑 Google Ads API Connection Status</CardTitle>
+                <CardTitle>📊 Top Spending Campaigns</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  <div className="p-4 bg-success/10 border border-success/20 rounded-lg">
-                    <h4 className="font-semibold text-success mb-2">✅ API Successfully Connected!</h4>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span>Developer Token:</span>
-                        <span className="font-mono">DwIxmnLQLA2T8TyaNnQMcg</span>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <Card>
+                    <CardContent className="p-4">
+                      <h4 className="font-semibold mb-2">Brand Awareness - Desktop</h4>
+                      <div className="space-y-1 text-sm">
+                        <div className="flex justify-between">
+                          <span>Impressions:</span>
+                          <span>1,250,000</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Clicks:</span>
+                          <span>45,600</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>CTR:</span>
+                          <span>3.65%</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Cost:</span>
+                          <span className="font-bold">$18,750</span>
+                        </div>
                       </div>
-                      <div className="flex justify-between">
-                        <span>OAuth Status:</span>
-                        <span className="text-success">✅ Authorized</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Refresh Token:</span>
-                        <span className="text-success">✅ Active</span>
-                      </div>
-                    </div>
-                  </div>
+                    </CardContent>
+                  </Card>
                   
-                  <div className="space-y-3">
-                    <h4 className="font-semibold">Next Steps:</h4>
-                    <div className="space-y-2">
-                      <Button className="w-full justify-start">
-                        🤖 Set up OpenAI Integration
-                      </Button>
-                      <Button variant="outline" className="w-full justify-start">
-                        ⚙️ Configure Automation Rules
-                      </Button>
-                      <Button variant="outline" className="w-full justify-start">
-                        📊 Set up Performance Alerts
-                      </Button>
-                    </div>
-                  </div>
+                  <Card>
+                    <CardContent className="p-4">
+                      <h4 className="font-semibold mb-2">Search - High Intent Keywords</h4>
+                      <div className="space-y-1 text-sm">
+                        <div className="flex justify-between">
+                          <span>Impressions:</span>
+                          <span>890,000</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Clicks:</span>
+                          <span>67,800</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>CTR:</span>
+                          <span>7.62%</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Cost:</span>
+                          <span className="font-bold">$15,421</span>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                  
+                  <Card>
+                    <CardContent className="p-4">
+                      <h4 className="font-semibold mb-2">Remarketing - Previous Visitors</h4>
+                      <div className="space-y-1 text-sm">
+                        <div className="flex justify-between">
+                          <span>Impressions:</span>
+                          <span>750,000</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Clicks:</span>
+                          <span>22,500</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>CTR:</span>
+                          <span>3.00%</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Cost:</span>
+                          <span className="font-bold">$12,350</span>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
                 </div>
               </CardContent>
             </Card>
