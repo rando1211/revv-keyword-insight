@@ -20,73 +20,35 @@ const GOOGLE_ADS_CONFIG = {
   // Frontend should not directly access these credentials
 };
 
-// Fetch top spending campaigns from Google Ads API
+// Fetch top spending campaigns from Google Ads API via Supabase Edge Function
 export const fetchTopSpendingCampaigns = async (customerId: string, limit: number = 10): Promise<Campaign[]> => {
   try {
-    // TODO: Replace with your actual Google Ads accounts from MCC
-    // These should be your real account data from your MCC
+    console.log('Fetching campaigns from Google Ads API for customer:', customerId);
+    
+    // In a real implementation, this would call the Supabase Edge Function
+    // const { data, error } = await supabase.functions.invoke('fetch-google-ads-campaigns', {
+    //   body: { customerId, limit }
+    // });
+    
+    // For now, showing that this should fetch from your actual Google Ads account
+    // TODO: Implement actual API call when OAuth2 is set up
+    
     const mockCampaigns: Campaign[] = [
       {
-        id: '1234567890',
-        name: 'Your Brand Campaign - Search',
+        id: 'real_campaign_1',
+        name: '[REAL DATA NEEDED] - Configure OAuth2 to fetch from your MCC',
         status: 'ENABLED',
-        impressions: 850000,
-        clicks: 42500,
-        ctr: 5.00,
-        cost: 22750.00,
-        conversions: 425,
-        conversionRate: 1.00
-      },
-      {
-        id: '1234567891', 
-        name: 'Your Brand Campaign - Display',
-        status: 'ENABLED',
-        impressions: 1200000,
-        clicks: 36000,
-        ctr: 3.00,
-        cost: 18000.00,
-        conversions: 540,
-        conversionRate: 1.50
-      },
-      {
-        id: '1234567892',
-        name: 'Your Brand Campaign - Shopping',
-        status: 'ENABLED',
-        impressions: 650000,
-        clicks: 19500,
-        ctr: 3.00,
-        cost: 15600.00,
-        conversions: 312,
-        conversionRate: 1.60
-      },
-      {
-        id: '1234567893',
-        name: 'Your Brand Campaign - Video',
-        status: 'ENABLED',
-        impressions: 2000000,
-        clicks: 40000,
-        ctr: 2.00,
-        cost: 12000.00,
-        conversions: 200,
-        conversionRate: 0.50
-      },
-      {
-        id: '1234567894',
-        name: 'Your Brand Campaign - Local',
-        status: 'PAUSED',
-        impressions: 400000,
-        clicks: 16000,
-        ctr: 4.00,
-        cost: 8000.00,
-        conversions: 160,
-        conversionRate: 1.00
+        impressions: 0,
+        clicks: 0,
+        ctr: 0,
+        cost: 0,
+        conversions: 0,
+        conversionRate: 0
       }
     ];
 
-    // Sort by cost (spend) descending to get top spending campaigns
-    return mockCampaigns
-      .sort((a, b) => b.cost - a.cost)
-      .slice(0, limit);
+    console.log('Note: To fetch real data, need to implement OAuth2 flow');
+    return mockCampaigns;
 
   } catch (error) {
     console.error('Google Ads API Error:', error);
