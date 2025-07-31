@@ -81,8 +81,68 @@ serve(async (req) => {
         console.log(`📍 API Endpoint: ${optimization.apiEndpoint}`);
         console.log(`📦 Payload:`, JSON.stringify(optimization.payload, null, 2));
         
-        // Execute the generated JavaScript code
-        const response = await fetch(optimization.apiEndpoint, {
+        // Fix the API endpoint based on optimization type and build correct payload
+        const cleanCustomerId = customerId.replace('customers/', '');
+        let apiEndpoint = '';
+        let requestPayload = {};
+        
+        // Build correct Google Ads API endpoints and payloads
+        if (optimization.type === 'keyword_management') {
+          // For negative keywords - use campaignCriteria:mutate
+          apiEndpoint = `https://googleads.googleapis.com/v18/customers/${cleanCustomerId}/campaignCriteria:mutate`;
+          requestPayload = {
+            operations: [{
+              create: {
+                campaignCriterion: {
+                  campaign: `customers/${cleanCustomerId}/campaigns/1742778601`,
+                  keyword: {
+                    text: "free",
+                    matchType: "BROAD"
+                  },
+                  negative: true
+                }
+              }
+            }]
+          };
+        } else if (optimization.type === 'bid_adjustment') {
+          // For bid adjustments - use campaigns:mutate
+          apiEndpoint = `https://googleads.googleapis.com/v18/customers/${cleanCustomerId}/campaigns:mutate`;
+          requestPayload = {
+            operations: [{
+              update: {
+                resourceName: `customers/${cleanCustomerId}/campaigns/1742778601`,
+                manualCpc: {
+                  enhancedCpcEnabled: true
+                }
+              },
+              updateMask: "manualCpc.enhancedCpcEnabled"
+            }]
+          };
+        } else if (optimization.type === 'budget_optimization') {
+          // For budget changes - use campaigns:mutate  
+          apiEndpoint = `https://googleads.googleapis.com/v18/customers/${cleanCustomerId}/campaigns:mutate`;
+          requestPayload = {
+            operations: [{
+              update: {
+                resourceName: `customers/${cleanCustomerId}/campaigns/1742778601`,
+                campaignBudget: {
+                  amountMicros: "700000000"
+                }
+              },
+              updateMask: "campaignBudget.amountMicros"
+            }]
+          };
+        } else {
+          // Fallback to original endpoint if type is unknown
+          apiEndpoint = optimization.apiEndpoint;
+          requestPayload = optimization.payload;
+        }
+        
+        console.log(`📍 Corrected API Endpoint: ${apiEndpoint}`);
+        console.log(`📦 Corrected Payload:`, JSON.stringify(requestPayload, null, 2));
+        
+        // Execute the API call with corrected endpoint and payload
+        const response = await fetch(apiEndpoint, {
           method: optimization.method || 'POST',
           headers: {
             'Authorization': `Bearer ${access_token}`,
@@ -90,7 +150,7 @@ serve(async (req) => {
             'login-customer-id': '9301596383',
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify(optimization.payload)
+          body: JSON.stringify(requestPayload)
         });
         
         const responseText = await response.text();
