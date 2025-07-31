@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { OpenAIIntegration } from "@/components/dashboard/OpenAIIntegration";
+import { AIInsightsPanel } from "@/components/dashboard/AIInsightsPanel";
 import { AccountSelection } from "@/components/dashboard/AccountSelection";
 import { CampaignsList } from "@/components/dashboard/CampaignsList";
 import { BarChart3, TrendingUp, DollarSign, Target, RefreshCw } from "lucide-react";
@@ -85,12 +85,11 @@ const Index = () => {
 
         {/* Main Dashboard */}
         <Tabs defaultValue="overview" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-6">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="accounts">🏢 Accounts</TabsTrigger>
             <TabsTrigger value="campaigns">📊 Campaigns</TabsTrigger>
             <TabsTrigger value="ai-insights">🧠 AI Insights</TabsTrigger>
-            <TabsTrigger value="openai">🤖 OpenAI</TabsTrigger>
             <TabsTrigger value="api-setup">⚙️ API Setup</TabsTrigger>
           </TabsList>
 
@@ -151,69 +150,7 @@ const Index = () => {
           </TabsContent>
 
           <TabsContent value="ai-insights" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>🧠 AI Optimization Recommendations</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="p-4 border rounded-lg">
-                    <div className="flex justify-between items-start mb-2">
-                      <h4 className="font-semibold">Increase Bid for High-Performing Keywords</h4>
-                      <Badge variant="destructive">High Priority</Badge>
-                    </div>
-                    <p className="text-sm text-muted-foreground mb-3">
-                      Keywords "digital marketing" and "SEO services" are performing 40% above average CTR.
-                    </p>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm font-medium text-success">+25% estimated conversion increase</span>
-                      <div className="space-x-2">
-                        <Button variant="outline" size="sm">Review</Button>
-                        <Button size="sm">Apply</Button>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="p-4 border rounded-lg">
-                    <div className="flex justify-between items-start mb-2">
-                      <h4 className="font-semibold">Reallocate Budget to Mobile Campaigns</h4>
-                      <Badge variant="default">Medium Priority</Badge>
-                    </div>
-                    <p className="text-sm text-muted-foreground mb-3">
-                      Mobile campaigns showing 60% higher conversion rates than desktop.
-                    </p>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm font-medium text-success">+15% estimated ROI improvement</span>
-                      <div className="space-x-2">
-                        <Button variant="outline" size="sm">Review</Button>
-                        <Button size="sm">Apply</Button>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="p-4 border rounded-lg">
-                    <div className="flex justify-between items-start mb-2">
-                      <h4 className="font-semibold">Optimize Ad Schedule for Peak Hours</h4>
-                      <Badge variant="secondary">Low Priority</Badge>
-                    </div>
-                    <p className="text-sm text-muted-foreground mb-3">
-                      Analysis shows 3x higher conversion rates between 2-4 PM EST.
-                    </p>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm font-medium text-success">+12% estimated efficiency gain</span>
-                      <div className="space-x-2">
-                        <Button variant="outline" size="sm">Review</Button>
-                        <Button size="sm">Apply</Button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="openai" className="space-y-6">
-            <OpenAIIntegration />
+            <AIInsightsPanel />
           </TabsContent>
 
           <TabsContent value="api-setup" className="space-y-6">
