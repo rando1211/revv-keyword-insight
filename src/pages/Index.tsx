@@ -146,7 +146,16 @@ const Index = () => {
           </TabsContent>
 
           <TabsContent value="campaigns" className="space-y-6">
-            <CampaignsList />
+            <Card>
+              <CardContent className="py-8">
+                <div className="text-center text-muted-foreground">
+                  <TrendingUp className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <h3 className="text-lg font-semibold mb-2">Campaign Analysis</h3>
+                  <p className="mb-4">For detailed campaign analysis and optimizations, use the Accounts tab.</p>
+                  <p className="text-sm">Select any account → Analyze with AI → Check AI Insights for optimizations</p>
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
 
           <TabsContent value="ai-insights" className="space-y-6">
