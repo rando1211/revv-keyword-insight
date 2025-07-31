@@ -25,7 +25,7 @@ serve(async (req) => {
     
     // Get OAuth tokens from Supabase secrets
     const CLIENT_ID = Deno.env.get("Client ID");
-    const CLIENT_SECRET = Deno.env.get("Secret"); 
+    const CLIENT_SECRET = Deno.env.get("Secret");
     const REFRESH_TOKEN = Deno.env.get("Refresh token");
     
     console.log('Environment check:', {
@@ -63,71 +63,92 @@ serve(async (req) => {
       throw new Error(`OAuth token error: ${tokenData.error}`);
     }
 
-    // Minimal campaign query test
-    const query = `SELECT campaign.id, campaign.name FROM campaign LIMIT 1`;
+    // 🔧 DEBUGGING IMPLEMENTATION - Exactly as specified
+    try {
+      const apiUrl = `https://googleads.googleapis.com/v18/customers/${cleanCustomerId}/googleAds:search`;
 
-    console.log('Query being sent:', query.trim());
+      const query = `
+        SELECT
+          campaign.id,
+          campaign.name
+        FROM campaign
+        LIMIT 1
+      `;
 
-    // Make Google Ads API call
-    const apiUrl = `https://googleads.googleapis.com/${API_VERSION}/customers/${cleanCustomerId}/googleAds:search`;
-    console.log('Making API request to:', apiUrl);
-    console.log('With query:', query);
-    
-    const apiResponse = await fetch(apiUrl, {
-      method: "POST",
-      headers: {
+      const headers = {
         "Authorization": `Bearer ${tokenData.access_token}`,
         "developer-token": DEVELOPER_TOKEN,
         "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ query: query.trim() }),
-    });
+        // Uncomment only if using MCC:
+        // "login-customer-id": cleanCustomerId
+      };
 
-    let apiData;
-    try {
-      apiData = await apiResponse.json();
-    } catch (jsonError) {
+      const requestBody = JSON.stringify({ query });
+
+      console.log("🚀 API URL:", apiUrl);
+      console.log("📨 Request Headers:", headers);
+      console.log("🧾 Request Body:", requestBody);
+
+      const apiResponse = await fetch(apiUrl, {
+        method: "POST",
+        headers,
+        body: requestBody,
+      });
+
       const responseText = await apiResponse.text();
-      console.error("Failed to parse JSON. Response text:", responseText);
-      throw new Error(`API response parsing error: ${responseText}`);
-    }
-    
-    console.log('API response status:', apiResponse.status);
-    console.log('API response data:', JSON.stringify(apiData, null, 2));
-    
-    if (!apiResponse.ok) {
-      // Log the full error details
-      console.error("Full API error response:", apiData);
-      throw new Error(`Google Ads API error: ${apiData.error?.message || JSON.stringify(apiData)}`);
-    }
 
-    // Process and format the response (minimal campaign data)
-    const campaigns = apiData.results?.map((result: any, index: number) => ({
-      id: result.campaign?.id || `test-${index}`,
-      name: result.campaign?.name || `Test Campaign ${index + 1}`,
-      status: 'ENABLED',
-      impressions: 1000,
-      clicks: 50,
-      ctr: 5.0,
-      cost: 100.00,
-      conversions: 5,
-      conversionRate: 10.0,
-    })) || [];
-
-    return new Response(
-      JSON.stringify({ 
-        success: true, 
-        campaigns,
-        total: campaigns.length
-      }),
-      { 
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 200 
+      if (!apiResponse.ok) {
+        console.error("❌ API Response Status:", apiResponse.status);
+        console.error("❌ API Response Text:", responseText);
+        throw new Error(`Google Ads API error: ${responseText}`);
       }
-    );
+
+      console.log("✅ API Response OK:", responseText);
+      
+      // Parse the successful response
+      const apiData = JSON.parse(responseText);
+      
+      // Process and format the response (minimal campaign data)
+      const campaigns = apiData.results?.map((result: any, index: number) => ({
+        id: result.campaign?.id || `test-${index}`,
+        name: result.campaign?.name || `Test Campaign ${index + 1}`,
+        status: 'ENABLED',
+        impressions: 1000,
+        clicks: 50,
+        ctr: 5.0,
+        cost: 100.00,
+        conversions: 5,
+        conversionRate: 10.0,
+      })) || [];
+
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          campaigns,
+          total: campaigns.length
+        }),
+        { 
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200 
+        }
+      );
+
+    } catch (err) {
+      console.error("🔥 Caught Error:", err.message || err);
+      return new Response(
+        JSON.stringify({ 
+          error: "Google Ads Campaigns API Error: " + err.message,
+          success: false
+        }),
+        { 
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 500 
+        }
+      );
+    }
     
   } catch (error) {
-    console.error("Google Ads Campaigns API Error:", error);
+    console.error("🔥 Function Error:", error);
     return new Response(
       JSON.stringify({ 
         error: error.message,
