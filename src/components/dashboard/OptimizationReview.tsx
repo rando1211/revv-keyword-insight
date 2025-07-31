@@ -4,10 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { AlertTriangle, CheckCircle, XCircle, Play, Clock, TestTube, ChevronDown, ChevronUp } from "lucide-react";
+import { AlertTriangle, CheckCircle, XCircle, Play, Clock, TestTube, ChevronDown, ChevronUp, Settings } from "lucide-react";
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAccount } from '@/contexts/AccountContext';
+import { evaluateCustomRules, getCustomRules, type CustomRule } from '@/lib/custom-optimization-rules';
+import { OptimizationCard } from './OptimizationCard';
 
 interface Optimization {
   id: string;
@@ -26,14 +28,20 @@ interface OptimizationReviewProps {
   optimizations: Optimization[];
   customerId: string;
   accountName: string;
+  campaignData?: any[]; // Add campaign data to run custom rules
 }
 
-export const OptimizationReview = ({ optimizations, customerId, accountName }: OptimizationReviewProps) => {
+export const OptimizationReview = ({ optimizations, customerId, accountName, campaignData = [] }: OptimizationReviewProps) => {
   const [selectedOptimizations, setSelectedOptimizations] = useState<string[]>([]);
   const [executing, setExecuting] = useState(false);
   const [executionResults, setExecutionResults] = useState<any[]>([]);
   const [expandedDetails, setExpandedDetails] = useState<string[]>([]);
+  const [showCustomRules, setShowCustomRules] = useState(false);
   const { toast } = useToast();
+
+  // Evaluate custom rules against campaign data
+  const customOptimizations = evaluateCustomRules(campaignData);
+  const allOptimizations = [...optimizations, ...customOptimizations];
 
   const handleOptimizationToggle = (optimizationId: string) => {
     setSelectedOptimizations(prev => 
@@ -97,10 +105,10 @@ export const OptimizationReview = ({ optimizations, customerId, accountName }: O
   };
 
   const handleSelectAll = () => {
-    if (selectedOptimizations.length === optimizations.length) {
+    if (selectedOptimizations.length === allOptimizations.length) {
       setSelectedOptimizations([]);
     } else {
-      setSelectedOptimizations(optimizations.map(opt => opt.id));
+      setSelectedOptimizations(allOptimizations.map(opt => opt.id));
     }
   };
 
@@ -120,7 +128,7 @@ export const OptimizationReview = ({ optimizations, customerId, accountName }: O
       console.log('Selected optimizations:', selectedOptimizations);
       console.log('Customer ID:', customerId);
       console.log('Account name:', accountName);
-      console.log('Optimizations data:', optimizations);
+      console.log('Optimizations data:', allOptimizations);
 
       toast({
         title: "🚀 Executing Optimizations",
@@ -129,7 +137,7 @@ export const OptimizationReview = ({ optimizations, customerId, accountName }: O
 
       const { data, error } = await supabase.functions.invoke('execute-optimizations', {
         body: {
-          optimizations,
+          optimizations: allOptimizations,
           customerId,
           approved: selectedOptimizations
         }
@@ -211,6 +219,7 @@ export const OptimizationReview = ({ optimizations, customerId, accountName }: O
       case 'keyword_management': return '🔑';
       case 'budget_optimization': return '📊';
       case 'campaign_structure': return '🏗️';
+      case 'custom_rule': return '⚡';
       default: return '⚙️';
     }
   };
@@ -222,14 +231,33 @@ export const OptimizationReview = ({ optimizations, customerId, accountName }: O
           <CardTitle className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
               <AlertTriangle className="h-5 w-5 text-orange-500" />
-              <span>Review Optimizations for {accountName}</span>
+              <span>Optimizations for {accountName}</span>
+              <Badge variant="outline">
+                AI: {optimizations.length} | Custom: {customOptimizations.length}
+              </Badge>
             </div>
-            <Badge variant="outline">
-              {selectedOptimizations.length}/{optimizations.length} selected
-            </Badge>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowCustomRules(!showCustomRules)}
+                className="flex items-center gap-2"
+              >
+                <Settings className="h-4 w-4" />
+                Rules
+              </Button>
+              <Badge variant="outline">
+                {selectedOptimizations.length}/{allOptimizations.length} selected
+              </Badge>
+            </div>
           </CardTitle>
           <p className="text-sm text-muted-foreground">
-            Review and approve the AI-generated optimizations before applying them to your Google Ads account.
+            Review and approve AI-generated and custom rule optimizations before applying them to your Google Ads account. 
+            {customOptimizations.length > 0 && (
+              <span className="text-orange-600 font-medium"> 
+                {customOptimizations.length} custom rule(s) triggered!
+              </span>
+            )}
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -240,7 +268,7 @@ export const OptimizationReview = ({ optimizations, customerId, accountName }: O
                 size="sm"
                 onClick={handleSelectAll}
               >
-                {selectedOptimizations.length === optimizations.length ? 'Deselect All' : 'Select All'}
+                {selectedOptimizations.length === allOptimizations.length ? 'Deselect All' : 'Select All'}
               </Button>
               
               <Button 
@@ -271,116 +299,49 @@ export const OptimizationReview = ({ optimizations, customerId, accountName }: O
           <Separator />
 
           <div className="space-y-4">
-            {optimizations.map((optimization) => (
-              <Card key={optimization.id} className="border-l-4 border-l-blue-500">
-                <CardContent className="p-4">
-                  <div className="flex items-start space-x-4">
-                    <Checkbox
-                      id={optimization.id}
-                      checked={selectedOptimizations.includes(optimization.id)}
-                      onCheckedChange={() => handleOptimizationToggle(optimization.id)}
-                    />
-                    
-                    <div className="flex-1 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-2">
-                          <span className="text-xl">{getTypeIcon(optimization.type)}</span>
-                          <h4 className="font-semibold">{optimization.title}</h4>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <Badge variant={getImpactColor(optimization.impact)}>
-                            {optimization.impact} Impact
-                          </Badge>
-                          <Badge variant="outline">
-                            {optimization.confidence}% confidence
-                          </Badge>
-                        </div>
-                      </div>
-                      
-                      <p className="text-sm text-muted-foreground">
-                        {optimization.description}
-                      </p>
-                      
-                      <div className="grid grid-cols-2 gap-4 text-sm">
-                        <div>
-                          <span className="font-medium">Estimated Impact:</span>
-                          <br />
-                          {optimization.estimatedImpact}
-                        </div>
-                        <div>
-                          <span className="font-medium">API Endpoint:</span>
-                          <br />
-                          <code className="text-xs bg-muted px-1 py-0.5 rounded">
-                            {optimization.method} {optimization.apiEndpoint}
-                          </code>
-                        </div>
-                      </div>
+            {/* Group optimizations by type */}
+            {optimizations.length > 0 && (
+              <div>
+                <h4 className="font-medium text-sm text-muted-foreground mb-3 flex items-center gap-2">
+                  🤖 AI-Generated Optimizations ({optimizations.length})
+                </h4>
+                {optimizations.map((optimization) => (
+                  <OptimizationCard
+                    key={optimization.id}
+                    optimization={optimization}
+                    isSelected={selectedOptimizations.includes(optimization.id)}
+                    onToggle={handleOptimizationToggle}
+                    isExpanded={expandedDetails.includes(optimization.id)}
+                    onToggleDetails={toggleDetails}
+                    extractKeywordDetails={extractKeywordDetails}
+                    getTypeIcon={getTypeIcon}
+                    getImpactColor={getImpactColor}
+                  />
+                ))}
+              </div>
+            )}
 
-                      {/* Show details button for keyword management */}
-                      {optimization.type === 'keyword_management' && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => toggleDetails(optimization.id)}
-                          className="flex items-center gap-2 mt-2"
-                        >
-                          {expandedDetails.includes(optimization.id) ? (
-                            <>
-                              <ChevronUp className="h-4 w-4" />
-                              Hide Keywords
-                            </>
-                          ) : (
-                            <>
-                              <ChevronDown className="h-4 w-4" />
-                              Show Keywords
-                            </>
-                          )}
-                        </Button>
-                      )}
-
-                      {/* Expanded keyword details */}
-                      {expandedDetails.includes(optimization.id) && optimization.type === 'keyword_management' && (
-                        <div className="mt-4 p-4 bg-muted/50 rounded-lg">
-                          <h5 className="font-medium mb-3 flex items-center gap-2">
-                            🔑 Keywords to be added as negatives:
-                          </h5>
-                          {(() => {
-                            const keywordDetails = extractKeywordDetails(optimization);
-                            if (!keywordDetails || keywordDetails.length === 0) {
-                              return (
-                                <p className="text-sm text-muted-foreground">
-                                  No keywords found in this optimization.
-                                </p>
-                              );
-                            }
-                            
-                            return (
-                              <div className="space-y-2">
-                                {keywordDetails.map((keyword, index) => (
-                                  <div key={index} className="flex items-center justify-between p-2 bg-background rounded border">
-                                    <div className="flex items-center gap-3">
-                                      <Badge variant="outline" className="font-mono text-xs">
-                                        "{keyword.text}"
-                                      </Badge>
-                                      <span className="text-sm text-muted-foreground">
-                                        Match Type: {keyword.matchType}
-                                      </span>
-                                    </div>
-                                    <Badge variant={keyword.negative ? "destructive" : "default"}>
-                                      {keyword.negative ? "Negative" : "Positive"}
-                                    </Badge>
-                                  </div>
-                                ))}
-                              </div>
-                            );
-                          })()}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+            {customOptimizations.length > 0 && (
+              <div>
+                <h4 className="font-medium text-sm text-muted-foreground mb-3 flex items-center gap-2">
+                  ⚡ Custom Rule Optimizations ({customOptimizations.length})
+                </h4>
+                {customOptimizations.map((optimization) => (
+                  <OptimizationCard
+                    key={optimization.id}
+                    optimization={optimization}
+                    isSelected={selectedOptimizations.includes(optimization.id)}
+                    onToggle={handleOptimizationToggle}
+                    isExpanded={expandedDetails.includes(optimization.id)}
+                    onToggleDetails={toggleDetails}
+                    extractKeywordDetails={extractKeywordDetails}
+                    getTypeIcon={getTypeIcon}
+                    getImpactColor={getImpactColor}
+                    isCustomRule={true}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
