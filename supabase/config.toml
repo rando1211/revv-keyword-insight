@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.fetch-google-ads-accounts]
 verify_jwt = false
+
+[functions.exchange-oauth-token]
+verify_jwt = false
