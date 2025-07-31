@@ -163,7 +163,7 @@ Focus on ENABLED campaigns from the last 30 days.`;
     const step1Result = await runAssistant(ANALYSIS_ASSISTANT_ID, analysisPrompt, '1 - Analysis');
 
     // Step 2: Code Generation
-    const codeGenerationPrompt = `You are the second AI in a Google Ads optimization chain. Based on the analysis from the first AI, generate GAQL queries and Python code:
+    const codeGenerationPrompt = `You are the second AI in a Google Ads optimization chain. Based on the analysis from the first AI, generate GAQL queries and JavaScript/TypeScript code for Supabase Edge Functions:
 
 Previous Analysis:
 ${step1Result}
@@ -171,26 +171,41 @@ ${step1Result}
 Campaign Data:
 ${JSON.stringify(campaignData, null, 2)}
 
-Provide:
-1. GAQL queries for data extraction
-2. Python code for implementing optimizations
-3. API implementation steps
+Generate executable JavaScript/TypeScript code that can run in Supabase Edge Functions:
 
-Return everything in JSON format for the next AI to validate.`;
+1. **GAQL QUERIES** for data extraction and analysis
+2. **JAVASCRIPT/TYPESCRIPT CODE** for implementing optimizations via Google Ads API:
+   - Bid adjustment functions
+   - Keyword management (add/remove/negative keywords)
+   - Budget optimization functions
+   - Campaign structure improvements
+   - Use fetch() for API calls to Google Ads API endpoints
+   - Include proper error handling and authentication headers
+   - Generate code that can execute in Deno/Edge Function environment
+
+3. **API IMPLEMENTATION DETAILS**:
+   - Specific Google Ads API endpoints to call
+   - Request payloads and headers
+   - Response handling
+
+Return everything in a structured format for the validation AI to review. Focus on production-ready JavaScript/TypeScript code that makes direct Google Ads API calls.`;
 
     const step2Result = await runAssistant(CODE_GENERATION_ASSISTANT_ID, codeGenerationPrompt, '2 - Code Generation');
 
     // Step 3: API Validation
-    const validationPrompt = `You are the third and final AI in the chain. Review the JSON provided by the second AI and ensure API compliance:
+    const validationPrompt = `You are the third and final AI in the chain. Review the JavaScript/TypeScript code provided by the second AI and ensure API compliance:
 
 Generated Code and Queries:
 ${step2Result}
 
-Validate:
-- API call formats are correct
-- GAQL syntax is valid
-- Python code follows Google Ads API standards
-- All required parameters are included
+Validate and ensure:
+- Google Ads API call formats are correct for Deno/Edge Functions
+- GAQL syntax is valid 
+- JavaScript/TypeScript code follows Google Ads API standards
+- All required parameters and headers are included
+- fetch() calls are properly structured for the Google Ads API
+- Error handling is implemented
+- Code can execute in Supabase Edge Function environment
 
 If adjustments are needed, make them. If no adjustments are needed, return the code unchanged.`;
 
