@@ -75,99 +75,140 @@ serve(async (req) => {
 
     console.log('Message added to thread');
 
-    // Run the assistant - using the PRODUCTION Ad Reviewer assistant
-    const AD_REVIEWER_PROD_ID = 'asst_phXpkgf3V5TRddgpq06wjEtF';
-    const runResponse = await fetch(`https://api.openai.com/v1/threads/${thread.id}/runs`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${OPENAI_API_KEY}`,
-        'Content-Type': 'application/json',
-        'OpenAI-Beta': 'assistants=v2',
-      },
-      body: JSON.stringify({
-        assistant_id: AD_REVIEWER_PROD_ID,
-      }),
-    });
+    // Multiple assistants for comprehensive analysis
+    const assistants = [
+      { id: 'asst_phXpkgf3V5TRddgpq06wjEtF', name: 'Campaign Optimizer' },
+      { id: 'asst_4VN8Q2bGNJpHLsYzOPqOOGwN', name: 'Keyword Analyzer' },
+      { id: 'asst_QQoJVqK3Sp7w0CZB0b2Y6Zhs', name: 'Performance Auditor' }
+    ];
 
-    if (!runResponse.ok) {
-      const errorData = await runResponse.text();
-      console.error('Run creation failed:', runResponse.status, errorData);
-      throw new Error(`OpenAI Run creation error: ${runResponse.status}`);
-    }
-
-    const run = await runResponse.json();
-    console.log('Assistant run started:', run.id);
-
-    // Wait for completion (simple polling)
-    let runStatus = run;
-    let attempts = 0;
-    const maxAttempts = 30;
-
-    while (runStatus.status === 'queued' || runStatus.status === 'in_progress') {
-      if (attempts >= maxAttempts) {
-        console.error('Assistant run timeout after', maxAttempts, 'attempts');
-        throw new Error('Assistant run timeout');
-      }
+    const analysisResults = [];
+    
+    for (const assistant of assistants) {
+      console.log(`Running analysis with ${assistant.name} (${assistant.id})...`);
       
-      console.log(`Waiting for completion... Status: ${runStatus.status}, Attempt: ${attempts + 1}`);
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      const statusResponse = await fetch(`https://api.openai.com/v1/threads/${thread.id}/runs/${run.id}`, {
+      const runResponse = await fetch(`https://api.openai.com/v1/threads/${thread.id}/runs`, {
+        method: 'POST',
         headers: {
           'Authorization': `Bearer ${OPENAI_API_KEY}`,
+          'Content-Type': 'application/json',
           'OpenAI-Beta': 'assistants=v2',
         },
+        body: JSON.stringify({
+          assistant_id: assistant.id,
+        }),
       });
-      
-      if (!statusResponse.ok) {
-        const errorData = await statusResponse.text();
-        console.error('Status check failed:', statusResponse.status, errorData);
-        throw new Error(`Assistant status check error: ${statusResponse.status}`);
+
+      if (!runResponse.ok) {
+        const errorData = await runResponse.text();
+        console.error(`Run creation failed for ${assistant.name}:`, runResponse.status, errorData);
+        continue; // Skip this assistant and try the next one
       }
-      
-      runStatus = await statusResponse.json();
-      attempts++;
+
+      const run = await runResponse.json();
+      console.log(`${assistant.name} run started:`, run.id);
+
+      // Wait for completion (simple polling)
+      let runStatus = run;
+      let attempts = 0;
+      const maxAttempts = 20;
+
+      while (runStatus.status === 'queued' || runStatus.status === 'in_progress') {
+        if (attempts >= maxAttempts) {
+          console.error(`${assistant.name} run timeout after`, maxAttempts, 'attempts');
+          break; // Move to next assistant
+        }
+        
+        console.log(`[${assistant.name}] Waiting for completion... Status: ${runStatus.status}, Attempt: ${attempts + 1}`);
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        const statusResponse = await fetch(`https://api.openai.com/v1/threads/${thread.id}/runs/${run.id}`, {
+          headers: {
+            'Authorization': `Bearer ${OPENAI_API_KEY}`,
+            'OpenAI-Beta': 'assistants=v2',
+          },
+        });
+        
+        if (!statusResponse.ok) {
+          console.error(`Status check failed for ${assistant.name}:`, statusResponse.status);
+          break;
+        }
+        
+        runStatus = await statusResponse.json();
+        attempts++;
+      }
+
+      console.log(`[${assistant.name}] Final run status:`, runStatus.status);
+
+      if (runStatus.status === 'completed') {
+        // Get the assistant's response
+        const messagesResponse = await fetch(`https://api.openai.com/v1/threads/${thread.id}/messages`, {
+          headers: {
+            'Authorization': `Bearer ${OPENAI_API_KEY}`,
+            'OpenAI-Beta': 'assistants=v2',
+          },
+        });
+
+        if (messagesResponse.ok) {
+          const messages = await messagesResponse.json();
+          const assistantMessage = messages.data.find((msg: any) => msg.role === 'assistant');
+          
+          if (assistantMessage && assistantMessage.content[0]?.text?.value) {
+            const analysis = assistantMessage.content[0].text.value;
+            console.log(`[${assistant.name}] Analysis completed successfully`);
+            
+            analysisResults.push({
+              assistant: assistant.name,
+              assistantId: assistant.id,
+              analysis: analysis,
+              runId: run.id,
+              timestamp: new Date().toISOString()
+            });
+          }
+        }
+      }
     }
 
-    console.log('Final run status:', runStatus.status);
-
-    if (runStatus.status !== 'completed') {
-      console.error('Assistant run failed with status:', runStatus.status);
-      throw new Error(`Assistant run failed with status: ${runStatus.status}`);
+    if (analysisResults.length === 0) {
+      throw new Error('No successful analysis from any assistant');
     }
 
-    // Get the assistant's response
-    const messagesResponse = await fetch(`https://api.openai.com/v1/threads/${thread.id}/messages`, {
-      headers: {
-        'Authorization': `Bearer ${OPENAI_API_KEY}`,
-        'OpenAI-Beta': 'assistants=v2',
-      },
-    });
+    // Combine all assistant analyses
+    const combinedAnalysis = `# Multi-Assistant Campaign Analysis Report
+Generated on: ${new Date().toISOString()}
+Assistants Used: ${analysisResults.map(r => `${r.assistant} (${r.assistantId})`).join(', ')}
 
-    if (!messagesResponse.ok) {
-      const errorData = await messagesResponse.text();
-      console.error('Messages retrieval failed:', messagesResponse.status, errorData);
-      throw new Error(`OpenAI Messages retrieval error: ${messagesResponse.status}`);
-    }
+${analysisResults.map((result, index) => `
+## Analysis ${index + 1}: ${result.assistant}
+Assistant ID: ${result.assistantId}
+Run ID: ${result.runId}
 
-    const messages = await messagesResponse.json();
-    const assistantMessage = messages.data.find((msg: any) => msg.role === 'assistant');
+${result.analysis}
+
+---`).join('\n')}
+
+## Summary
+✅ Total Assistants Used: ${analysisResults.length}
+📊 Campaign Data Period: Last 30 days
+🎯 Analysis Focus: ENABLED campaigns only
+⚡ Real-time Google Ads API data`;
+
+    console.log(`Analysis completed using ${analysisResults.length} assistants`);
     
-    if (assistantMessage && assistantMessage.content[0]?.text?.value) {
-      const analysis = assistantMessage.content[0].text.value;
-      console.log('Analysis completed successfully');
-      
-      return new Response(JSON.stringify({ 
-        success: true, 
-        analysis: analysis,
-        threadId: thread.id,
-        runId: run.id
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+    return new Response(JSON.stringify({ 
+      success: true, 
+      analysis: combinedAnalysis,
+      threadId: thread.id,
+      assistantsUsed: analysisResults.length,
+      assistantDetails: analysisResults.map(r => ({ 
+        name: r.assistant, 
+        id: r.assistantId, 
+        runId: r.runId 
+      }))
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
     }
-
-    throw new Error('No response from assistant');
 
   } catch (error) {
     console.error('OpenAI Analysis Error:', error);
