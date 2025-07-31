@@ -63,7 +63,7 @@ serve(async (req) => {
       throw new Error(`OAuth token error: ${tokenData.error}`);
     }
 
-    // Query to get campaigns
+    // Query to get campaigns (simplified and corrected)
     const query = `
       SELECT 
         campaign.id,
@@ -78,8 +78,9 @@ serve(async (req) => {
       FROM campaign 
       WHERE segments.date DURING LAST_30_DAYS
       ORDER BY metrics.cost_micros DESC
-      LIMIT 10
-    `;
+      LIMIT 10`;
+
+    console.log('Query being sent:', query.trim());
 
     // Make Google Ads API call
     const apiUrl = `https://googleads.googleapis.com/${API_VERSION}/customers/${cleanCustomerId}/googleAds:search`;
@@ -91,9 +92,10 @@ serve(async (req) => {
       headers: {
         "Authorization": `Bearer ${tokenData.access_token}`,
         "developer-token": DEVELOPER_TOKEN,
+        "login-customer-id": cleanCustomerId,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ query }),
+      body: JSON.stringify({ query: query.trim() }),
     });
 
     const apiData = await apiResponse.json();
