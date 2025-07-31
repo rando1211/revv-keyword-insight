@@ -89,11 +89,11 @@ serve(async (req) => {
 
       const run = await runResponse.json();
       
-      // Wait for completion
+      // Wait for completion with extended timeout for complex operations
       let runStatus = run;
       let attempts = 0;
-      const maxAttempts = 25;
-      const pollInterval = 800;
+      const maxAttempts = 45; // Increased for 3-step process
+      const pollInterval = 1000; // Slightly slower polling to reduce API pressure
 
       while (runStatus.status === 'queued' || runStatus.status === 'in_progress') {
         if (attempts >= maxAttempts) {
@@ -162,8 +162,10 @@ Focus on ENABLED campaigns from the last 30 days.`;
 
     const step1Result = await runAssistant(ANALYSIS_ASSISTANT_ID, analysisPrompt, '1 - Analysis');
 
-    // Step 2: Code Generation
-    const codeGenerationPrompt = `You are the second AI in a Google Ads optimization chain. Based on the analysis from the first AI, generate GAQL queries and JavaScript/TypeScript code for Supabase Edge Functions:
+    // Step 2: Code Generation (with fallback)
+    let step2Result;
+    try {
+      const codeGenerationPrompt = `You are the second AI in a Google Ads optimization chain. Based on the analysis from the first AI, generate GAQL queries and JavaScript/TypeScript code for Supabase Edge Functions:
 
 Previous Analysis:
 ${step1Result}
@@ -190,10 +192,43 @@ Generate executable JavaScript/TypeScript code that can run in Supabase Edge Fun
 
 Return everything in a structured format for the validation AI to review. Focus on production-ready JavaScript/TypeScript code that makes direct Google Ads API calls.`;
 
-    const step2Result = await runAssistant(CODE_GENERATION_ASSISTANT_ID, codeGenerationPrompt, '2 - Code Generation');
+      step2Result = await runAssistant(CODE_GENERATION_ASSISTANT_ID, codeGenerationPrompt, '2 - Code Generation');
+    } catch (error) {
+      console.error('Step 2 failed, using fallback:', error);
+      step2Result = `## Fallback Code Generation
+Due to timeout in Step 2, providing basic optimization template:
 
-    // Step 3: API Validation
-    const validationPrompt = `You are the third and final AI in the chain. Review the JavaScript/TypeScript code provided by the second AI and ensure API compliance:
+\`\`\`javascript
+// Basic bid adjustment function
+const adjustBids = async (customerId, campaignId, bidAdjustment) => {
+  const response = await fetch(\`https://googleads.googleapis.com/v18/customers/\${customerId}/campaigns/\${campaignId}:mutate\`, {
+    method: 'POST',
+    headers: {
+      'Authorization': \`Bearer \${accessToken}\`,
+      'developer-token': \${developerToken},
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      operations: [{
+        update: {
+          resourceName: \`customers/\${customerId}/campaigns/\${campaignId}\`,
+          manualCpc: { enhancedCpcEnabled: true }
+        },
+        updateMask: 'manualCpc.enhancedCpcEnabled'
+      }]
+    })
+  });
+  return response.json();
+};
+\`\`\`
+
+⚠️ This is a fallback template. For full optimization code, retry the analysis.`;
+    }
+
+    // Step 3: API Validation (with fallback)
+    let step3Result;
+    try {
+      const validationPrompt = `You are the third and final AI in the chain. Review the JavaScript/TypeScript code provided by the second AI and ensure API compliance:
 
 Generated Code and Queries:
 ${step2Result}
@@ -209,7 +244,16 @@ Validate and ensure:
 
 If adjustments are needed, make them. If no adjustments are needed, return the code unchanged.`;
 
-    const step3Result = await runAssistant(VALIDATION_ASSISTANT_ID, validationPrompt, '3 - Validation');
+      step3Result = await runAssistant(VALIDATION_ASSISTANT_ID, validationPrompt, '3 - Validation');
+    } catch (error) {
+      console.error('Step 3 failed, using step 2 result:', error);
+      step3Result = `## Validation Fallback
+Step 3 validation timed out, but Step 2 code is available:
+
+${step2Result}
+
+⚠️ Code has not been validated. Please review manually before execution.`;
+    }
 
     // Format final response
     const finalAnalysis = `# 3-Step Google Ads AI Analysis Complete
