@@ -1,5 +1,10 @@
-// Google Ads API Service - Direct API integration without Supabase client dependency
-// Note: In production, this would use Supabase Edge Functions
+import { createClient } from '@supabase/supabase-js';
+
+// Initialize Supabase client for this project
+const supabaseUrl = 'https://zbonqkwmkqugnyfkpgvi.supabase.co';
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inpib25xa3dta3F1Z255ZmtwZ3ZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzU2NjM3MzksImV4cCI6MjA1MTIzOTczOX0.YslJlEAZ6w4TxQAH-VGJzjYFLNyS9fMZ8wOOEj8TZeY';
+
+export const supabase = createClient(supabaseUrl, supabaseKey);
 
 // Google Ads API Service with real Supabase integration
 export interface Campaign {
@@ -28,16 +33,11 @@ export const fetchGoogleAdsAccounts = async (): Promise<GoogleAdsAccount[]> => {
   try {
     console.log('Fetching Google Ads accounts from MCC...');
     
-    // Call the Supabase Edge Function directly via fetch
-    const response = await fetch('/supabase/functions/v1/fetch-google-ads-accounts', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + 'your-anon-key-here' // Would come from Supabase config
-      }
-    });
+    const { data, error } = await supabase.functions.invoke('fetch-google-ads-accounts');
     
-    const data = await response.json();
+    if (error) {
+      throw new Error(`Supabase function error: ${error.message}`);
+    }
     
     if (!data.success) {
       throw new Error(data.error || 'Failed to fetch accounts');
@@ -71,17 +71,13 @@ export const fetchTopSpendingCampaigns = async (customerId: string, limit: numbe
   try {
     console.log('Fetching campaigns from Google Ads API for customer:', customerId);
     
-    // Call the Supabase Edge Function directly via fetch
-    const response = await fetch('/supabase/functions/v1/fetch-google-ads-campaigns', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + 'your-anon-key-here' // Would come from Supabase config
-      },
-      body: JSON.stringify({ customerId, limit })
+    const { data, error } = await supabase.functions.invoke('fetch-google-ads-campaigns', {
+      body: { customerId, limit }
     });
     
-    const data = await response.json();
+    if (error) {
+      throw new Error(`Supabase function error: ${error.message}`);
+    }
     
     if (!data.success) {
       throw new Error(data.error || 'Failed to fetch campaigns');
