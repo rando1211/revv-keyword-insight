@@ -38,6 +38,12 @@ serve(async (req) => {
     });
 
     // Get access token
+    console.log('Making OAuth request with:', {
+      client_id: CLIENT_ID ? `${CLIENT_ID.substring(0, 10)}...` : 'missing',
+      client_secret: CLIENT_SECRET ? `${CLIENT_SECRET.substring(0, 10)}...` : 'missing',
+      refresh_token: REFRESH_TOKEN ? `${REFRESH_TOKEN.substring(0, 10)}...` : 'missing'
+    });
+    
     const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -50,6 +56,9 @@ serve(async (req) => {
     });
 
     const tokenData = await tokenResponse.json();
+    console.log('OAuth response status:', tokenResponse.status);
+    console.log('OAuth response data:', tokenData);
+    
     if (!tokenResponse.ok) {
       throw new Error(`OAuth token error: ${tokenData.error}`);
     }
