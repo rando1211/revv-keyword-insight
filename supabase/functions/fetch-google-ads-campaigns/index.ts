@@ -69,10 +69,14 @@ serve(async (req) => {
 
       const query = `
         SELECT
+          segments.date,
           campaign.id,
-          campaign.name
+          campaign.name,
+          metrics.cost_micros
         FROM campaign
-        LIMIT 1
+        WHERE segments.date DURING LAST_30_DAYS
+        ORDER BY metrics.cost_micros DESC
+        LIMIT 10
       `;
 
       const headers = {
@@ -108,17 +112,17 @@ serve(async (req) => {
       // Parse the successful response
       const apiData = JSON.parse(responseText);
       
-      // Process and format the response (minimal campaign data)
-      const campaigns = apiData.results?.map((result: any, index: number) => ({
-        id: result.campaign?.id || `test-${index}`,
-        name: result.campaign?.name || `Test Campaign ${index + 1}`,
-        status: 'ENABLED',
-        impressions: 1000,
-        clicks: 50,
-        ctr: 5.0,
-        cost: 100.00,
-        conversions: 5,
-        conversionRate: 10.0,
+      // Process and format the response with actual campaign data
+      const campaigns = apiData.results?.map((result: any) => ({
+        id: result.campaign?.id || 'unknown',
+        name: result.campaign?.name || 'Unknown Campaign',
+        status: 'ENABLED', // Will add this field back later if needed
+        impressions: 0, // Not included in this query yet
+        clicks: 0, // Not included in this query yet
+        ctr: 0, // Not included in this query yet
+        cost: parseInt(result.metrics?.costMicros || "0") / 1000000, // Convert from micros to dollars
+        conversions: 0, // Avoiding this field for now
+        conversionRate: 0, // Avoiding this field for now
       })) || [];
 
       return new Response(
