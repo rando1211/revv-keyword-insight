@@ -252,15 +252,12 @@ export const AIInsightsPanel = () => {
                   {
                     id: "1742778601",
                     name: "Boat Rentals Campaign",
-                    cost: 2500000000, // $2500 in micros
+                    cost: 2500, // $2500 (converted from micros)
                     status: "ENABLED",
-                    metrics: { 
-                      clicks: 150, 
-                      impressions: 8500, 
-                      conversions: 0, 
-                      ctr: 0.0176,
-                      costMicros: 2500000000
-                    },
+                    clicks: 150, 
+                    impressions: 8500, 
+                    conversions: 0, 
+                    ctr: 0.0176,
                     keywords: [
                       { text: "boat rentals oxnard", clicks: 50, conversions: 0, matchType: "EXACT" },
                       { text: "channel islands boat", clicks: 50, conversions: 0, matchType: "PHRASE" },
@@ -271,15 +268,12 @@ export const AIInsightsPanel = () => {
                   {
                     id: "1742778602", 
                     name: "Marina Services Campaign",
-                    cost: 500000000, // $500 in micros
+                    cost: 500, // $500 (converted from micros)
                     status: "ENABLED",
-                    metrics: { 
-                      clicks: 75, 
-                      impressions: 4200, 
-                      conversions: 3, 
-                      ctr: 0.0178,
-                      costMicros: 500000000
-                    }
+                    clicks: 75, 
+                    impressions: 4200, 
+                    conversions: 3, 
+                    ctr: 0.0178
                   }
                 ]}
               />
