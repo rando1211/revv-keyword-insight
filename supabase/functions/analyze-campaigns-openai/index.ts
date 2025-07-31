@@ -75,8 +75,8 @@ serve(async (req) => {
 
     console.log('Message added to thread');
 
-    // Run the assistant - using the Campaign Analyzer assistant
-    const CAMPAIGN_ANALYZER_ID = 'asst_dUUTuhMdkCHSYjVnVFOjcF8w';
+    // Run the assistant - using the PRODUCTION Ad Reviewer assistant
+    const AD_REVIEWER_PROD_ID = 'asst_phXpkgf3V5TRddgpq06wjEtF';
     const runResponse = await fetch(`https://api.openai.com/v1/threads/${thread.id}/runs`, {
       method: 'POST',
       headers: {
@@ -85,7 +85,7 @@ serve(async (req) => {
         'OpenAI-Beta': 'assistants=v2',
       },
       body: JSON.stringify({
-        assistant_id: CAMPAIGN_ANALYZER_ID,
+        assistant_id: AD_REVIEWER_PROD_ID,
       }),
     });
 
