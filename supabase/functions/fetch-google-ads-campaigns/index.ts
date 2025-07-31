@@ -82,9 +82,8 @@ serve(async (req) => {
       const headers = {
         "Authorization": `Bearer ${tokenData.access_token}`,
         "developer-token": DEVELOPER_TOKEN,
+        "login-customer-id": "9301596383", // MCC account ID
         "Content-Type": "application/json",
-        // Uncomment only if using MCC:
-        // "login-customer-id": cleanCustomerId
       };
 
       const requestBody = JSON.stringify({ query });
