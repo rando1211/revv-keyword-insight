@@ -112,14 +112,10 @@ serve(async (req) => {
           campaign.id,
           campaign.name,
           campaign.status,
-          campaign.bidding_strategy_type,
-          campaign.target_cpa.target_cpa_micros,
           metrics.cost_micros,
           metrics.clicks,
           metrics.impressions,
-          metrics.ctr,
-          metrics.conversions,
-          metrics.cost_per_conversion_micros
+          metrics.ctr
         FROM campaign
         WHERE campaign.status = 'ENABLED'
         AND segments.date DURING LAST_30_DAYS
@@ -164,16 +160,11 @@ serve(async (req) => {
         id: result.campaign?.id || 'unknown',
         name: result.campaign?.name || 'Unknown Campaign',
         status: result.campaign?.status || 'UNKNOWN',
-        bidding_strategy_type: result.campaign?.biddingStrategyType || 'UNKNOWN',
-        target_cpa_micros: result.campaign?.targetCpa?.targetCpaMicros || null,
         cost_micros: parseInt(result.metrics?.costMicros || "0"),
         cost: parseInt(result.metrics?.costMicros || "0") / 1000000, // Convert to dollars
         clicks: parseInt(result.metrics?.clicks || "0"),
         impressions: parseInt(result.metrics?.impressions || "0"),
         ctr: parseFloat(result.metrics?.ctr || "0"),
-        conversions: parseFloat(result.metrics?.conversions || "0"),
-        cost_per_conversion_micros: parseInt(result.metrics?.costPerConversionMicros || "0"),
-        cost_per_conversion: parseInt(result.metrics?.costPerConversionMicros || "0") / 1000000,
       })) || [];
 
       return new Response(
