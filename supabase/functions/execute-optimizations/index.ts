@@ -88,19 +88,17 @@ serve(async (req) => {
         
         // Build correct Google Ads API endpoints and payloads
         if (optimization.type === 'keyword_management') {
-          // For negative keywords - use campaignCriteria:mutate
+          // For negative keywords - use campaignCriteria:mutate with correct payload structure
           apiEndpoint = `https://googleads.googleapis.com/v18/customers/${cleanCustomerId}/campaignCriteria:mutate`;
           requestPayload = {
             operations: [{
               create: {
-                campaignCriterion: {
-                  campaign: `customers/${cleanCustomerId}/campaigns/1742778601`,
-                  keyword: {
-                    text: "free",
-                    matchType: "BROAD"
-                  },
-                  negative: true
-                }
+                campaign: `customers/${cleanCustomerId}/campaigns/1742778601`,
+                keyword: {
+                  text: "free",
+                  match_type: "BROAD"
+                },
+                negative: true
               }
             }]
           };
