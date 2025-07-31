@@ -2,7 +2,7 @@
 // Your API Key: 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
 
 export const OPENAI_CONFIG = {
-  apiKey: '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',
+  apiKey: 'sk-proj-Gr-r9ru8e61Nik-echAkap10JnzTDMk9r1VkYMGoxDq4paH1QHH0CszpXr_e0MCvtYn16mZVvT3BlbkFJXPzQJUg3GbJQc9IpKe0HgkSV7FJG_y1T1LV82MXqG-u9F7jXVHL03jCod5u4_-x9Dj0C_5sxYA',
   baseURL: 'https://api.openai.com/v1',
   organization: null, // Add if you have an org ID
   project: null, // Add if you have a project ID
