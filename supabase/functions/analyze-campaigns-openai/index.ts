@@ -43,38 +43,36 @@ serve(async (req) => {
     const thread = await threadResponse.json();
     console.log('Thread created:', thread.id);
 
-    // Use the primary assistant with enhanced prompting for comprehensive analysis
-    const PRIMARY_ASSISTANT_ID = 'asst_phXpkgf3V5TRddgpq06wjEtF';
+    // Use the code generation assistant that creates GAQL and Python implementation code
+    const CODE_GENERATION_ASSISTANT_ID = 'asst_5VL6MJKwByEkR0fAwrUm5yhF';
     
-    // Enhanced prompt that requests analysis from multiple perspectives
-    const enhancedPrompt = `Analyze this Google Ads campaign data with comprehensive multi-assistant perspective:
+    // Prompt specifically for the code generation assistant
+    const codeGenerationPrompt = `You are the second AI in a Google Ads optimization chain. Your role is to take campaign data and generate GAQL queries and Python code to implement optimization recommendations via the Google Ads API.
 
 Campaign Data:
 ${JSON.stringify(campaignData, null, 2)}
 
-Please provide analysis from multiple specialized viewpoints:
+Based on this campaign data, please provide:
 
-1. CAMPAIGN OPTIMIZER PERSPECTIVE:
-   - Top 3 optimization recommendations
-   - Priority level for each (High/Medium/Low)
-   - Estimated impact percentage
-   - Confidence score (0-100%)
-   - Specific implementation steps
+1. **GAQL QUERIES** for data extraction and analysis:
+   - Performance queries for deeper insights
+   - Keyword performance queries
+   - Ad group analysis queries
+   - Campaign structure queries
 
-2. KEYWORD ANALYZER PERSPECTIVE:
-   - Keyword performance analysis
-   - Search term opportunities
-   - Negative keyword recommendations
-   - Bid adjustment suggestions
+2. **PYTHON CODE** for implementing optimizations:
+   - Bid adjustment code
+   - Keyword management (add/remove/negative keywords)
+   - Budget optimization code
+   - Ad copy testing implementations
+   - Campaign structure improvements
 
-3. PERFORMANCE AUDITOR PERSPECTIVE:
-   - Account structure review
-   - Budget allocation analysis
-   - Quality Score improvements
-   - Conversion tracking validation
+3. **API IMPLEMENTATION STEPS**:
+   - Specific Google Ads API calls needed
+   - Error handling and validation
+   - Batch operations for efficiency
 
-Provide detailed analysis for ENABLED campaigns only from the last 30 days.
-Format as a comprehensive multi-assistant report with clear sections.`;
+Focus on ENABLED campaigns from the last 30 days. Provide production-ready code that can be executed via Google Ads API.`;
 
     // Add the enhanced message to the thread
     const messageResponse = await fetch(`https://api.openai.com/v1/threads/${thread.id}/messages`, {
@@ -86,7 +84,7 @@ Format as a comprehensive multi-assistant report with clear sections.`;
       },
       body: JSON.stringify({
         role: 'user',
-        content: enhancedPrompt
+        content: codeGenerationPrompt
       }),
     });
 
@@ -98,8 +96,8 @@ Format as a comprehensive multi-assistant report with clear sections.`;
 
     console.log('Enhanced message added to thread');
 
-    // Run the primary assistant
-    console.log(`Running comprehensive analysis with assistant ${PRIMARY_ASSISTANT_ID}...`);
+    // Run the code generation assistant
+    console.log(`Running code generation with assistant ${CODE_GENERATION_ASSISTANT_ID}...`);
     
     const runResponse = await fetch(`https://api.openai.com/v1/threads/${thread.id}/runs`, {
       method: 'POST',
@@ -109,7 +107,7 @@ Format as a comprehensive multi-assistant report with clear sections.`;
         'OpenAI-Beta': 'assistants=v2',
       },
       body: JSON.stringify({
-        assistant_id: PRIMARY_ASSISTANT_ID,
+        assistant_id: CODE_GENERATION_ASSISTANT_ID,
       }),
     });
 
@@ -182,21 +180,21 @@ Format as a comprehensive multi-assistant report with clear sections.`;
       const analysis = assistantMessage.content[0].text.value;
       console.log('Comprehensive analysis completed successfully');
       
-      // Format the response with proof of multi-perspective analysis
-      const enhancedAnalysis = `# Comprehensive Multi-Assistant Campaign Analysis
+      // Format the response with code generation details
+      const enhancedAnalysis = `# Google Ads Code Generation & Implementation
 Generated: ${new Date().toISOString()}
-Assistant Used: ${PRIMARY_ASSISTANT_ID} (Multi-perspective analysis)
+Assistant Used: ${CODE_GENERATION_ASSISTANT_ID} (Code Generation Specialist)
 Thread ID: ${thread.id}
 Run ID: ${run.id}
 
-## Analysis Report
+## Generated Code & Implementation Guide
 ${analysis}
 
 ---
-## Verification Details
-✅ Assistant ID: ${PRIMARY_ASSISTANT_ID}
+## Implementation Details
+✅ Assistant ID: ${CODE_GENERATION_ASSISTANT_ID}
 📊 Campaign Period: Last 30 days (ENABLED campaigns only)
-🎯 Analysis Type: Multi-perspective (Optimizer + Keyword + Performance)
+🎯 Analysis Type: GAQL Queries + Python Code Generation
 ⚡ Data Source: Real-time Google Ads API
 🕒 Generated: ${new Date().toLocaleString()}`;
 
@@ -205,8 +203,8 @@ ${analysis}
         analysis: enhancedAnalysis,
         threadId: thread.id,
         runId: run.id,
-        assistantId: PRIMARY_ASSISTANT_ID,
-        analysisType: 'multi-perspective',
+        assistantId: CODE_GENERATION_ASSISTANT_ID,
+        analysisType: 'code-generation',
         timestamp: new Date().toISOString()
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
