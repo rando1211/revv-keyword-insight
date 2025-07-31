@@ -98,7 +98,9 @@ serve(async (req) => {
     }
 
     // Use the first child account for metrics query
-    const firstChildAccount = childAccountsData.results[0].customerClient.clientCustomer;
+    const rawChildAccount = childAccountsData.results[0].customerClient.clientCustomer;
+    // Remove "customers/" prefix if it exists to avoid duplication
+    const firstChildAccount = rawChildAccount.replace('customers/', '');
     console.log("✅ Using child account:", firstChildAccount);
 
     // Step 2: Now query campaigns from the child account

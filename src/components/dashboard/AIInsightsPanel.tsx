@@ -7,12 +7,13 @@ import { useState } from "react";
 import { useToast } from "@/components/ui/use-toast";
 import { generateCampaignAnalysis, generateOptimizationCode } from "@/lib/openai-service";
 import { supabase } from "@/integrations/supabase/client";
+import { useAccount } from "@/contexts/AccountContext";
 
 export const AIInsightsPanel = () => {
   const { toast } = useToast();
+  const { selectedAccountForAnalysis, analysisResults } = useAccount();
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isGeneratingCode, setIsGeneratingCode] = useState(false);
-  const [aiAnalysis, setAiAnalysis] = useState<string>("");
   const [generatedCode, setGeneratedCode] = useState<string>("");
 
   const handleAnalyzeCampaigns = async () => {
@@ -47,7 +48,7 @@ export const AIInsightsPanel = () => {
       }
 
       const analysis = await generateCampaignAnalysis(campaignData);
-      setAiAnalysis(analysis);
+      // This function is no longer needed as analysis comes from account selection
       
       toast({
         title: "AI Analysis Complete",
@@ -121,17 +122,27 @@ export const AIInsightsPanel = () => {
               </Button>
             </div>
 
-            {aiAnalysis && (
+            {analysisResults && selectedAccountForAnalysis && (
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-base">AI Recommendations</CardTitle>
+                  <CardTitle className="text-base">
+                    AI Recommendations for {selectedAccountForAnalysis.name}
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="whitespace-pre-wrap text-sm leading-relaxed">
-                    {aiAnalysis}
+                    {analysisResults}
                   </div>
                 </CardContent>
               </Card>
+            )}
+
+            {!analysisResults && (
+              <div className="text-center py-8 text-muted-foreground">
+                <Brain className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>No analysis results yet.</p>
+                <p className="text-sm">Go to the Accounts tab and click "Analyze with AI" on any account.</p>
+              </div>
             )}
           </TabsContent>
           
