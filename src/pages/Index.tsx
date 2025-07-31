@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { OpenAIIntegration } from "@/components/dashboard/OpenAIIntegration";
+import { AccountSelection } from "@/components/dashboard/AccountSelection";
 import { CampaignsList } from "@/components/dashboard/CampaignsList";
 import { BarChart3, TrendingUp, DollarSign, Target, RefreshCw } from "lucide-react";
 
@@ -84,8 +85,9 @@ const Index = () => {
 
         {/* Main Dashboard */}
         <Tabs defaultValue="overview" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="accounts">🏢 Accounts</TabsTrigger>
             <TabsTrigger value="campaigns">Campaigns</TabsTrigger>
             <TabsTrigger value="ai-insights">AI Insights</TabsTrigger>
             <TabsTrigger value="openai">🤖 OpenAI</TabsTrigger>
@@ -133,6 +135,10 @@ const Index = () => {
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="accounts" className="space-y-6">
+            <AccountSelection />
           </TabsContent>
 
           <TabsContent value="campaigns" className="space-y-6">
