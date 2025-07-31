@@ -10,9 +10,9 @@ import { Key, RefreshCw, CheckCircle, ExternalLink, Copy, AlertCircle } from "lu
 
 export const GoogleAdsSetup = () => {
   const [customerId, setCustomerId] = useState('');
-  const [clientId, setClientId] = useState('114116334601-m099srdl4qskkv2d0g34nkmhnjpko97f.apps.googleusercontent.com');
-  const [clientSecret, setClientSecret] = useState('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');
-  const [refreshToken, setRefreshToken] = useState('');
+  const [clientId, setClientId] = useState('114116334601-ia1mgsfd29lspej2b1lshbs0vmnqok93.apps.googleusercontent.com');
+  const [clientSecret, setClientSecret] = useState('GOCSPX-0NILEF883TKK4snP-e9f0hhEWLA');
+  const [refreshToken, setRefreshToken] = useState('1//04Vbd_EhbB4kzCgYIARAAGAQSNwF-L9IrJaKxme1jYXQmZD9q1DusW0d2jGjl8UPHCAZX9NeGSkSBIK5kgSculI3PDQdRIYeo-GQ');
   const [isConnected, setIsConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [showRefreshTokenHelp, setShowRefreshTokenHelp] = useState(false);
