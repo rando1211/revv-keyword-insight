@@ -96,8 +96,8 @@ export const AccountSelection = () => {
     
     try {
       toast({
-        title: "Starting AI Analysis",
-        description: `Analyzing campaigns for ${account.name}...`,
+        title: "🚀 Starting 3-Step AI Analysis",
+        description: `Initializing advanced AI processing for ${account.name}...`,
       });
 
       // Fetch REAL campaign data for this specific account only
@@ -131,6 +131,27 @@ export const AccountSelection = () => {
         return;
       }
 
+      // Show 3-step progress
+      toast({
+        title: "🎯 Step 1/3: Campaign Analysis",
+        description: "AI analyzing campaign performance and opportunities...",
+      });
+
+      // Add slight delays to show progress (the backend handles the actual sequencing)
+      setTimeout(() => {
+        toast({
+          title: "🔧 Step 2/3: Code Generation", 
+          description: "AI generating GAQL queries and optimization code...",
+        });
+      }, 3000);
+
+      setTimeout(() => {
+        toast({
+          title: "✅ Step 3/3: API Validation",
+          description: "AI validating code compliance and finalizing...",
+        });
+      }, 6000);
+
       const analysis = await generateCampaignAnalysis(campaignData);
       
       // Set the account and results in context
@@ -138,8 +159,8 @@ export const AccountSelection = () => {
       setAnalysisResults(analysis);
       
       toast({
-        title: "✅ AI Analysis Complete",
-        description: `Analysis ready for ${account.name}! Check the AI Insights tab.`,
+        title: "🎉 3-Step AI Analysis Complete!",
+        description: `Full analysis ready for ${account.name}! Check the AI Insights tab.`,
       });
     } catch (error) {
       console.error("Analysis failed:", error);

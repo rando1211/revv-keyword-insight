@@ -43,178 +43,204 @@ serve(async (req) => {
     const thread = await threadResponse.json();
     console.log('Thread created:', thread.id);
 
-    // Use the code generation assistant that creates GAQL and Python implementation code
-    const CODE_GENERATION_ASSISTANT_ID = 'asst_5VL6MJKwByEkR0fAwrUm5yhF';
+    // Define all three assistants in the chain
+    const ANALYSIS_ASSISTANT_ID = 'asst_phXpkgf3V5TRddgpq06wjEtF';        // Step 1: Campaign Analysis
+    const CODE_GENERATION_ASSISTANT_ID = 'asst_5VL6MJKwByEkR0fAwrUm5yhF';   // Step 2: Code Generation  
+    const VALIDATION_ASSISTANT_ID = 'asst_cXMVKXyjDlZN1HJvVpHZikyJ';        // Step 3: API Validation
     
-    // Prompt specifically for the code generation assistant
-    const codeGenerationPrompt = `You are the second AI in a Google Ads optimization chain. Your role is to take campaign data and generate GAQL queries and Python code to implement optimization recommendations via the Google Ads API.
+    // Helper function to run an assistant and wait for completion
+    const runAssistant = async (assistantId: string, prompt: string, stepName: string) => {
+      console.log(`🚀 Step ${stepName}: Running assistant ${assistantId}...`);
+      
+      // Add message to thread
+      const messageResponse = await fetch(`https://api.openai.com/v1/threads/${thread.id}/messages`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${OPENAI_API_KEY}`,
+          'Content-Type': 'application/json',
+          'OpenAI-Beta': 'assistants=v2',
+        },
+        body: JSON.stringify({
+          role: 'user',
+          content: prompt
+        }),
+      });
 
-Campaign Data:
-${JSON.stringify(campaignData, null, 2)}
-
-Based on this campaign data, please provide:
-
-1. **GAQL QUERIES** for data extraction and analysis:
-   - Performance queries for deeper insights
-   - Keyword performance queries
-   - Ad group analysis queries
-   - Campaign structure queries
-
-2. **PYTHON CODE** for implementing optimizations:
-   - Bid adjustment code
-   - Keyword management (add/remove/negative keywords)
-   - Budget optimization code
-   - Ad copy testing implementations
-   - Campaign structure improvements
-
-3. **API IMPLEMENTATION STEPS**:
-   - Specific Google Ads API calls needed
-   - Error handling and validation
-   - Batch operations for efficiency
-
-Focus on ENABLED campaigns from the last 30 days. Provide production-ready code that can be executed via Google Ads API.`;
-
-    // Add the enhanced message to the thread
-    const messageResponse = await fetch(`https://api.openai.com/v1/threads/${thread.id}/messages`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${OPENAI_API_KEY}`,
-        'Content-Type': 'application/json',
-        'OpenAI-Beta': 'assistants=v2',
-      },
-      body: JSON.stringify({
-        role: 'user',
-        content: codeGenerationPrompt
-      }),
-    });
-
-    if (!messageResponse.ok) {
-      const errorData = await messageResponse.text();
-      console.error('Message creation failed:', messageResponse.status, errorData);
-      throw new Error(`OpenAI Message creation error: ${messageResponse.status}`);
-    }
-
-    console.log('Enhanced message added to thread');
-
-    // Run the code generation assistant
-    console.log(`Running code generation with assistant ${CODE_GENERATION_ASSISTANT_ID}...`);
-    
-    const runResponse = await fetch(`https://api.openai.com/v1/threads/${thread.id}/runs`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${OPENAI_API_KEY}`,
-        'Content-Type': 'application/json',
-        'OpenAI-Beta': 'assistants=v2',
-      },
-      body: JSON.stringify({
-        assistant_id: CODE_GENERATION_ASSISTANT_ID,
-      }),
-    });
-
-    if (!runResponse.ok) {
-      const errorData = await runResponse.text();
-      console.error('Run creation failed:', runResponse.status, errorData);
-      throw new Error(`OpenAI Run creation error: ${runResponse.status}`);
-    }
-
-    const run = await runResponse.json();
-    console.log('Assistant run started:', run.id);
-
-    // Wait for completion with optimized polling
-    let runStatus = run;
-    let attempts = 0;
-    const maxAttempts = 25; // Reduced but still reasonable
-    const pollInterval = 800; // Slightly faster polling
-
-    while (runStatus.status === 'queued' || runStatus.status === 'in_progress') {
-      if (attempts >= maxAttempts) {
-        console.error('Assistant run timeout after', maxAttempts, 'attempts');
-        throw new Error('Assistant analysis timeout - please try again');
+      if (!messageResponse.ok) {
+        throw new Error(`Message creation failed for ${stepName}: ${messageResponse.status}`);
       }
+
+      // Run the assistant
+      const runResponse = await fetch(`https://api.openai.com/v1/threads/${thread.id}/runs`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${OPENAI_API_KEY}`,
+          'Content-Type': 'application/json',
+          'OpenAI-Beta': 'assistants=v2',
+        },
+        body: JSON.stringify({
+          assistant_id: assistantId,
+        }),
+      });
+
+      if (!runResponse.ok) {
+        throw new Error(`Run creation failed for ${stepName}: ${runResponse.status}`);
+      }
+
+      const run = await runResponse.json();
       
-      console.log(`Waiting for completion... Status: ${runStatus.status}, Attempt: ${attempts + 1}`);
-      await new Promise(resolve => setTimeout(resolve, pollInterval));
-      
-      const statusResponse = await fetch(`https://api.openai.com/v1/threads/${thread.id}/runs/${run.id}`, {
+      // Wait for completion
+      let runStatus = run;
+      let attempts = 0;
+      const maxAttempts = 25;
+      const pollInterval = 800;
+
+      while (runStatus.status === 'queued' || runStatus.status === 'in_progress') {
+        if (attempts >= maxAttempts) {
+          throw new Error(`${stepName} timeout after ${maxAttempts} attempts`);
+        }
+        
+        console.log(`⏳ ${stepName} Status: ${runStatus.status}, Attempt: ${attempts + 1}`);
+        await new Promise(resolve => setTimeout(resolve, pollInterval));
+        
+        const statusResponse = await fetch(`https://api.openai.com/v1/threads/${thread.id}/runs/${run.id}`, {
+          headers: {
+            'Authorization': `Bearer ${OPENAI_API_KEY}`,
+            'OpenAI-Beta': 'assistants=v2',
+          },
+        });
+        
+        if (!statusResponse.ok) {
+          throw new Error(`Status check failed for ${stepName}: ${statusResponse.status}`);
+        }
+        
+        runStatus = await statusResponse.json();
+        attempts++;
+      }
+
+      if (runStatus.status !== 'completed') {
+        throw new Error(`${stepName} failed with status: ${runStatus.status}`);
+      }
+
+      // Get the latest assistant response
+      const messagesResponse = await fetch(`https://api.openai.com/v1/threads/${thread.id}/messages`, {
         headers: {
           'Authorization': `Bearer ${OPENAI_API_KEY}`,
           'OpenAI-Beta': 'assistants=v2',
         },
       });
-      
-      if (!statusResponse.ok) {
-        const errorData = await statusResponse.text();
-        console.error('Status check failed:', statusResponse.status, errorData);
-        throw new Error(`Assistant status check error: ${statusResponse.status}`);
+
+      if (!messagesResponse.ok) {
+        throw new Error(`Messages retrieval failed for ${stepName}: ${messagesResponse.status}`);
       }
+
+      const messages = await messagesResponse.json();
+      const assistantMessage = messages.data.find((msg: any) => msg.role === 'assistant');
       
-      runStatus = await statusResponse.json();
-      attempts++;
-    }
+      if (!assistantMessage || !assistantMessage.content[0]?.text?.value) {
+        throw new Error(`No response from ${stepName} assistant`);
+      }
 
-    console.log('Final run status:', runStatus.status);
+      console.log(`✅ ${stepName} completed successfully`);
+      return assistantMessage.content[0].text.value;
+    };
 
-    if (runStatus.status !== 'completed') {
-      console.error('Assistant run failed with status:', runStatus.status);
-      throw new Error(`Assistant run failed with status: ${runStatus.status}`);
-    }
+    // Step 1: Campaign Analysis
+    const analysisPrompt = `Analyze this Google Ads campaign data and provide optimization recommendations:
 
-    // Get the assistant's response
-    const messagesResponse = await fetch(`https://api.openai.com/v1/threads/${thread.id}/messages`, {
-      headers: {
-        'Authorization': `Bearer ${OPENAI_API_KEY}`,
-        'OpenAI-Beta': 'assistants=v2',
-      },
-    });
+Campaign Data:
+${JSON.stringify(campaignData, null, 2)}
 
-    if (!messagesResponse.ok) {
-      const errorData = await messagesResponse.text();
-      console.error('Messages retrieval failed:', messagesResponse.status, errorData);
-      throw new Error(`OpenAI Messages retrieval error: ${messagesResponse.status}`);
-    }
+Provide detailed analysis including:
+- Campaign performance insights
+- Optimization opportunities
+- Budget recommendations
+- Keyword analysis
+- Quality score improvements
 
-    const messages = await messagesResponse.json();
-    const assistantMessage = messages.data.find((msg: any) => msg.role === 'assistant');
-    
-    if (assistantMessage && assistantMessage.content[0]?.text?.value) {
-      const analysis = assistantMessage.content[0].text.value;
-      console.log('Comprehensive analysis completed successfully');
-      
-      // Format the response with code generation details
-      const enhancedAnalysis = `# Google Ads Code Generation & Implementation
+Focus on ENABLED campaigns from the last 30 days.`;
+
+    const step1Result = await runAssistant(ANALYSIS_ASSISTANT_ID, analysisPrompt, '1 - Analysis');
+
+    // Step 2: Code Generation
+    const codeGenerationPrompt = `You are the second AI in a Google Ads optimization chain. Based on the analysis from the first AI, generate GAQL queries and Python code:
+
+Previous Analysis:
+${step1Result}
+
+Campaign Data:
+${JSON.stringify(campaignData, null, 2)}
+
+Provide:
+1. GAQL queries for data extraction
+2. Python code for implementing optimizations
+3. API implementation steps
+
+Return everything in JSON format for the next AI to validate.`;
+
+    const step2Result = await runAssistant(CODE_GENERATION_ASSISTANT_ID, codeGenerationPrompt, '2 - Code Generation');
+
+    // Step 3: API Validation
+    const validationPrompt = `You are the third and final AI in the chain. Review the JSON provided by the second AI and ensure API compliance:
+
+Generated Code and Queries:
+${step2Result}
+
+Validate:
+- API call formats are correct
+- GAQL syntax is valid
+- Python code follows Google Ads API standards
+- All required parameters are included
+
+If adjustments are needed, make them. If no adjustments are needed, return the code unchanged.`;
+
+    const step3Result = await runAssistant(VALIDATION_ASSISTANT_ID, validationPrompt, '3 - Validation');
+
+    // Format final response
+    const finalAnalysis = `# 3-Step Google Ads AI Analysis Complete
 Generated: ${new Date().toISOString()}
-Assistant Used: ${CODE_GENERATION_ASSISTANT_ID} (Code Generation Specialist)
 Thread ID: ${thread.id}
-Run ID: ${run.id}
 
-## Generated Code & Implementation Guide
-${analysis}
+## Step 1: Campaign Analysis
+Assistant: ${ANALYSIS_ASSISTANT_ID}
+${step1Result}
 
 ---
-## Implementation Details
-✅ Assistant ID: ${CODE_GENERATION_ASSISTANT_ID}
-📊 Campaign Period: Last 30 days (ENABLED campaigns only)
-🎯 Analysis Type: GAQL Queries + Python Code Generation
+
+## Step 2: Code Generation  
+Assistant: ${CODE_GENERATION_ASSISTANT_ID}
+${step2Result}
+
+---
+
+## Step 3: API Validation & Final Code
+Assistant: ${VALIDATION_ASSISTANT_ID}
+${step3Result}
+
+---
+## Process Summary
+✅ Step 1: Campaign Analysis Complete
+✅ Step 2: Code Generation Complete  
+✅ Step 3: API Validation Complete
+🎯 Process Type: 3-Step AI Chain
 ⚡ Data Source: Real-time Google Ads API
 🕒 Generated: ${new Date().toLocaleString()}`;
 
-      return new Response(JSON.stringify({ 
-        success: true, 
-        analysis: enhancedAnalysis,
-        threadId: thread.id,
-        runId: run.id,
-        assistantId: CODE_GENERATION_ASSISTANT_ID,
-        analysisType: 'code-generation',
-        timestamp: new Date().toISOString()
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    throw new Error('No response from assistant');
+    return new Response(JSON.stringify({ 
+      success: true, 
+      analysis: finalAnalysis,
+      threadId: thread.id,
+      step1Result,
+      step2Result, 
+      step3Result,
+      analysisType: '3-step-chain',
+      timestamp: new Date().toISOString()
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
 
   } catch (error) {
-    console.error('OpenAI Analysis Error:', error);
+    console.error('OpenAI 3-Step Analysis Error:', error);
     return new Response(JSON.stringify({ 
       success: false, 
       error: error.message 
