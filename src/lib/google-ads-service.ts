@@ -25,34 +25,38 @@ export const fetchTopSpendingCampaigns = async (customerId: string, limit: numbe
   try {
     console.log('Fetching campaigns from Google Ads API for customer:', customerId);
     
-    // In a real implementation, this would call the Supabase Edge Function
-    // const { data, error } = await supabase.functions.invoke('fetch-google-ads-campaigns', {
-    //   body: { customerId, limit }
-    // });
+    // Call Supabase Edge Function to get real campaign data
+    const response = await fetch('/api/v1/supabase/functions/v1/fetch-google-ads-campaigns', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ customerId, limit })
+    });
     
-    // For now, showing that this should fetch from your actual Google Ads account
-    // TODO: Implement actual API call when OAuth2 is set up
+    const data = await response.json();
     
-    const mockCampaigns: Campaign[] = [
-      {
-        id: 'real_campaign_1',
-        name: '[REAL DATA NEEDED] - Configure OAuth2 to fetch from your MCC',
-        status: 'ENABLED',
-        impressions: 0,
-        clicks: 0,
-        ctr: 0,
-        cost: 0,
-        conversions: 0,
-        conversionRate: 0
-      }
-    ];
-
-    console.log('Note: To fetch real data, need to implement OAuth2 flow');
-    return mockCampaigns;
+    if (!data.success) {
+      throw new Error(data.error || 'Failed to fetch campaigns');
+    }
+    
+    return data.campaigns || [];
 
   } catch (error) {
     console.error('Google Ads API Error:', error);
-    throw new Error('Failed to fetch campaign data from Google Ads API');
+    
+    // Fallback to show that API integration is attempted
+    return [{
+      id: 'api_error',
+      name: `API Error: ${error.message}`,
+      status: 'ENABLED',
+      impressions: 0,
+      clicks: 0,
+      ctr: 0,
+      cost: 0,
+      conversions: 0,
+      conversionRate: 0
+    }];
   }
 };
 

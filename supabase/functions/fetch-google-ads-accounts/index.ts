@@ -11,15 +11,37 @@ serve(async (req) => {
   }
 
   try {
-    const { customerId } = await req.json();
-    
     // Google Ads API configuration
     const DEVELOPER_TOKEN = "DwIxmnLQLA2T8TyaNnQMcg";
     const API_VERSION = "v18";
     
-    // For now, we'll need OAuth tokens to make real API calls
-    // This is a placeholder structure for the actual Google Ads API integration
+    // Get OAuth tokens from Supabase secrets
+    const CLIENT_ID = Deno.env.get("GOOGLE_ADS_CLIENT_ID");
+    const CLIENT_SECRET = Deno.env.get("GOOGLE_ADS_CLIENT_SECRET");
+    const REFRESH_TOKEN = Deno.env.get("GOOGLE_ADS_REFRESH_TOKEN");
     
+    if (!CLIENT_ID || !CLIENT_SECRET || !REFRESH_TOKEN) {
+      throw new Error("Missing Google Ads OAuth credentials in Supabase secrets");
+    }
+
+    // Get access token
+    const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        client_id: CLIENT_ID,
+        client_secret: CLIENT_SECRET,
+        refresh_token: REFRESH_TOKEN,
+        grant_type: "refresh_token",
+      }),
+    });
+
+    const tokenData = await tokenResponse.json();
+    if (!tokenResponse.ok) {
+      throw new Error(`OAuth token error: ${tokenData.error}`);
+    }
+
+    // Query to get customer accounts from MCC
     const query = `
       SELECT 
         customer_client.descriptive_name,
@@ -29,34 +51,40 @@ serve(async (req) => {
       FROM customer_client
       WHERE customer_client.manager = false
     `;
-    
-    // TODO: Implement actual Google Ads API call
-    // This would require OAuth2 tokens and proper authentication
-    
-    // For now, return structure that shows what the API would return
-    const mockResponse = {
-      accounts: [
-        {
-          id: "1234567890",
-          name: "Account fetched from your MCC",
-          customerId: "123-456-7890",
-          status: "ENABLED",
-          isManager: false
-        }
-      ]
-    };
-    
-    console.log("Google Ads API call would be made here with:", {
-      developerToken: DEVELOPER_TOKEN,
-      customerId,
-      query
-    });
-    
+
+    // Make Google Ads API call
+    const apiResponse = await fetch(
+      `https://googleads.googleapis.com/${API_VERSION}/customers/search`, 
+      {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${tokenData.access_token}`,
+          "developer-token": DEVELOPER_TOKEN,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ query }),
+      }
+    );
+
+    const apiData = await apiResponse.json();
+    if (!apiResponse.ok) {
+      throw new Error(`Google Ads API error: ${apiData.error?.message || 'Unknown error'}`);
+    }
+
+    // Process and format the response
+    const accounts = apiData.results?.map((result: any) => ({
+      id: result.customerClient.id,
+      name: result.customerClient.descriptiveName,
+      customerId: result.customerClient.id,
+      status: result.customerClient.status,
+      isManager: result.customerClient.manager,
+    })) || [];
+
     return new Response(
       JSON.stringify({ 
         success: true, 
-        data: mockResponse,
-        note: "Real API integration requires OAuth2 setup"
+        accounts,
+        total: accounts.length
       }),
       { 
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -69,7 +97,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         error: error.message,
-        note: "Need to implement OAuth2 flow for Google Ads API"
+        success: false
       }),
       { 
         headers: { ...corsHeaders, "Content-Type": "application/json" },

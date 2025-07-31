@@ -17,6 +17,33 @@ serve(async (req) => {
     const DEVELOPER_TOKEN = "DwIxmnLQLA2T8TyaNnQMcg";
     const API_VERSION = "v18";
     
+    // Get OAuth tokens from Supabase secrets
+    const CLIENT_ID = Deno.env.get("GOOGLE_ADS_CLIENT_ID");
+    const CLIENT_SECRET = Deno.env.get("GOOGLE_ADS_CLIENT_SECRET");
+    const REFRESH_TOKEN = Deno.env.get("GOOGLE_ADS_REFRESH_TOKEN");
+    
+    if (!CLIENT_ID || !CLIENT_SECRET || !REFRESH_TOKEN) {
+      throw new Error("Missing Google Ads OAuth credentials in Supabase secrets");
+    }
+
+    // Get access token
+    const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        client_id: CLIENT_ID,
+        client_secret: CLIENT_SECRET,
+        refresh_token: REFRESH_TOKEN,
+        grant_type: "refresh_token",
+      }),
+    });
+
+    const tokenData = await tokenResponse.json();
+    if (!tokenResponse.ok) {
+      throw new Error(`OAuth token error: ${tokenData.error}`);
+    }
+
+    // Query to get campaigns
     const query = `
       SELECT 
         campaign.id,
@@ -33,36 +60,44 @@ serve(async (req) => {
       ORDER BY metrics.cost_micros DESC
       LIMIT 10
     `;
-    
-    // TODO: Implement actual Google Ads API call
-    // This would require OAuth2 tokens and proper authentication
-    
-    console.log("Google Ads Campaign API call would be made here with:", {
-      developerToken: DEVELOPER_TOKEN,
-      customerId,
-      query
-    });
-    
-    // Mock response structure that matches what Google Ads API would return
-    const mockCampaigns = [
+
+    // Make Google Ads API call
+    const apiResponse = await fetch(
+      `https://googleads.googleapis.com/${API_VERSION}/customers/${customerId}/googleAds:search`, 
       {
-        id: "1234567890",
-        name: "Campaign from your actual account",
-        status: "ENABLED",
-        impressions: 500000,
-        clicks: 25000,
-        ctr: 5.0,
-        cost: 15000.00, // cost_micros / 1000000
-        conversions: 500,
-        conversionRate: 2.0
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${tokenData.access_token}`,
+          "developer-token": DEVELOPER_TOKEN,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ query }),
       }
-    ];
-    
+    );
+
+    const apiData = await apiResponse.json();
+    if (!apiResponse.ok) {
+      throw new Error(`Google Ads API error: ${apiData.error?.message || 'Unknown error'}`);
+    }
+
+    // Process and format the response
+    const campaigns = apiData.results?.map((result: any) => ({
+      id: result.campaign.id,
+      name: result.campaign.name,
+      status: result.campaign.status,
+      impressions: parseInt(result.metrics.impressions || "0"),
+      clicks: parseInt(result.metrics.clicks || "0"),
+      ctr: parseFloat(result.metrics.ctr || "0") * 100, // Convert to percentage
+      cost: parseInt(result.metrics.costMicros || "0") / 1000000, // Convert from micros
+      conversions: parseFloat(result.metrics.conversions || "0"),
+      conversionRate: parseFloat(result.metrics.conversionsFromInteractionsRate || "0") * 100,
+    })) || [];
+
     return new Response(
       JSON.stringify({ 
         success: true, 
-        campaigns: mockCampaigns,
-        note: "Real campaign data requires OAuth2 authentication"
+        campaigns,
+        total: campaigns.length
       }),
       { 
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -75,7 +110,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         error: error.message,
-        note: "Need OAuth2 tokens to fetch real campaign data"
+        success: false
       }),
       { 
         headers: { ...corsHeaders, "Content-Type": "application/json" },
