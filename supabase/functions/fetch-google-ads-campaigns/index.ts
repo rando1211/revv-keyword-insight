@@ -65,7 +65,9 @@ serve(async (req) => {
 
     // 🔧 DEBUGGING IMPLEMENTATION - Exactly as specified
     try {
-      const apiUrl = `https://googleads.googleapis.com/v18/customers/${cleanCustomerId}/googleAds:search`;
+      // Use a client account ID instead of MCC ID for metrics queries
+      const clientAccountId = "6392103727"; // First client account: 639-210-3727
+      const apiUrl = `https://googleads.googleapis.com/v18/customers/${clientAccountId}/googleAds:search`;
 
       const query = `
         SELECT
