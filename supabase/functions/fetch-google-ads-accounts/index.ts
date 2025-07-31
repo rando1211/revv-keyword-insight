@@ -12,13 +12,13 @@ serve(async (req) => {
 
   try {
     // Google Ads API configuration
-    const DEVELOPER_TOKEN = "DwIxmnLQLA2T8TyaNnQMcg";
+    const DEVELOPER_TOKEN = Deno.env.get("Developer Token");
     const API_VERSION = "v18";
     
-    // Get OAuth tokens from Supabase secrets or fallback to provided credentials
-    const CLIENT_ID = Deno.env.get("GOOGLE_ADS_CLIENT_ID") || "114116334601-ia1mgsfd29lspej2b1lshbs0vmnqok93.apps.googleusercontent.com";
-    const CLIENT_SECRET = Deno.env.get("GOOGLE_ADS_CLIENT_SECRET") || "GOCSPX-0NILEF883TKK4snP-e9f0hhEWLA";
-    const REFRESH_TOKEN = Deno.env.get("GOOGLE_ADS_REFRESH_TOKEN") || "1//04Vbd_EhbB4kzCgYIARAAGAQSNwF-L9IrJaKxme1jYXQmZD9q1DusW0d2jGjl8UPHCAZX9NeGSkSBIK5kgSculI3PDQdRIYeo-GQ";
+    // Get OAuth tokens from Supabase secrets
+    const CLIENT_ID = Deno.env.get("Client ID");
+    const CLIENT_SECRET = Deno.env.get("Secret");
+    const REFRESH_TOKEN = Deno.env.get("Refresh token");
 
     // Get access token
     const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
