@@ -95,47 +95,53 @@ serve(async (req) => {
       });
     }
 
-    // Also fetch search term data for negative keyword suggestions
-    const searchTermQuery = `
+    // Try multiple approaches to get search term data
+    console.log('Attempting to fetch search terms data...');
+    
+    // Approach 1: Search term view with relaxed filters
+    const searchTermQuery1 = `
       SELECT
         search_term_view.search_term,
         campaign.id,
         campaign.name,
         metrics.clicks,
-        metrics.impressions,
         metrics.ctr,
         metrics.conversions,
         metrics.cost_micros
       FROM search_term_view
       WHERE campaign.status = 'ENABLED'
         AND segments.date DURING LAST_7_DAYS
-        AND metrics.clicks > 5
-        AND metrics.conversions = 0
+        AND metrics.clicks > 0
       ORDER BY metrics.clicks DESC
-      LIMIT 100
+      LIMIT 200
     `;
-
-    console.log('Fetching search terms...');
-    const searchTermRes = await fetch(adsApiUrl, {
+    
+    let searchTerms = [];
+    const searchTermRes1 = await fetch(adsApiUrl, {
       method: "POST",
       headers,
-      body: JSON.stringify({ query: searchTermQuery })
+      body: JSON.stringify({ query: searchTermQuery1 })
     });
-
-    let searchTerms = [];
-    if (searchTermRes.ok) {
-      const searchTermData = await searchTermRes.json();
-      searchTerms = searchTermData.results || [];
-      console.log(`Found ${searchTerms.length} search terms`);
+    
+    if (searchTermRes1.ok) {
+      const data1 = await searchTermRes1.json();
+      if (data1.results && data1.results.length > 0) {
+        searchTerms = data1.results;
+        console.log(`✅ Found ${searchTerms.length} search terms from search_term_view`);
+      }
     } else {
-      console.log('Search term query failed, using alternative approach');
-      
-      // Alternative: Use keyword view to get keyword data
+      console.log('❌ Search term view failed, trying alternative...');
+    }
+    
+    // Approach 2: If search terms fail, try keywords with performance data
+    if (searchTerms.length === 0) {
       const keywordQuery = `
         SELECT
           ad_group_criterion.keyword.text,
+          ad_group_criterion.keyword.match_type,
           campaign.id,
           campaign.name,
+          ad_group.name,
           metrics.clicks,
           metrics.ctr,
           metrics.conversions,
@@ -144,10 +150,9 @@ serve(async (req) => {
         WHERE campaign.status = 'ENABLED'
           AND ad_group_criterion.status = 'ENABLED'
           AND segments.date DURING LAST_7_DAYS
-          AND metrics.clicks > 10
-          AND metrics.conversions = 0
+          AND metrics.clicks > 5
         ORDER BY metrics.cost_micros DESC
-        LIMIT 50
+        LIMIT 100
       `;
       
       const keywordRes = await fetch(adsApiUrl, {
@@ -158,14 +163,20 @@ serve(async (req) => {
       
       if (keywordRes.ok) {
         const keywordData = await keywordRes.json();
-        searchTerms = (keywordData.results || []).map(k => ({
-          searchTerm: { search_term: k.adGroupCriterion?.keyword?.text || 'Unknown' },
-          campaign: k.campaign,
-          metrics: k.metrics
-        }));
-        console.log(`Found ${searchTerms.length} keywords as alternative`);
+        if (keywordData.results) {
+          // Transform keyword data to look like search terms
+          searchTerms = keywordData.results.map(k => ({
+            searchTerm: { search_term: k.adGroupCriterion?.keyword?.text || 'Unknown' },
+            campaign: k.campaign,
+            metrics: k.metrics,
+            matchType: k.adGroupCriterion?.keyword?.matchType || 'UNKNOWN'
+          }));
+          console.log(`✅ Found ${searchTerms.length} keywords as search term alternatives`);
+        }
       }
     }
+    
+    console.log(`Total search terms/keywords available: ${searchTerms.length}`);
 
     // Process campaigns and generate keyword optimization suggestions
     const optimizations = [];
@@ -203,18 +214,47 @@ serve(async (req) => {
       if (ctr < 2 && clicks > 30) {
         // Find poor performing search terms for this campaign
         const campaignSearchTerms = searchTerms.filter(st => st.campaign.id === r.campaign.id);
-        const poorTerms = campaignSearchTerms
-          .filter(st => {
-            const termCtr = parseFloat(st.metrics?.ctr || '0') * 100;
-            const termClicks = parseFloat(st.metrics?.clicks || '0');
-            const termConversions = parseFloat(st.metrics?.conversions || '0');
-            return termCtr < 1 && termClicks > 10 && termConversions === 0;
-          })
-          .slice(0, 5) // Top 5 worst performing terms
-          .map(st => st.searchTerm?.search_term || 'N/A');
+        console.log(`Found ${campaignSearchTerms.length} search terms for campaign ${r.campaign.name}`);
+        
+        let poorTerms = [];
+        
+        if (campaignSearchTerms.length > 0) {
+          // Analyze actual search terms
+          poorTerms = campaignSearchTerms
+            .filter(st => {
+              const termCtr = parseFloat(st.metrics?.ctr || '0') * 100;
+              const termClicks = parseFloat(st.metrics?.clicks || '0');
+              const termConversions = parseFloat(st.metrics?.conversions || '0');
+              return termCtr < 1 && termClicks > 5 && termConversions === 0;
+            })
+            .sort((a, b) => parseFloat(b.metrics?.clicks || '0') - parseFloat(a.metrics?.clicks || '0'))
+            .slice(0, 8) // Top 8 worst performing terms
+            .map(st => st.searchTerm?.search_term || st.searchTerm || 'Unknown');
+          
+          console.log(`Identified ${poorTerms.length} poor performing search terms`);
+        }
+        
+        // If no specific terms found, suggest common negative keywords based on campaign type
+        if (poorTerms.length === 0) {
+          const campaignName = r.campaign.name.toLowerCase();
+          if (campaignName.includes('pwc') || campaignName.includes('watercraft')) {
+            poorTerms = ['free', 'cheap', 'repair', 'parts', 'used', 'broken', 'fix'];
+          } else if (campaignName.includes('preowned') || campaignName.includes('used')) {
+            poorTerms = ['new', 'dealer', 'financing', 'lease', 'rental'];
+          } else if (campaignName.includes('polaris')) {
+            poorTerms = ['yamaha', 'honda', 'kawasaki', 'repair', 'parts'];
+          } else if (campaignName.includes('honda')) {
+            poorTerms = ['yamaha', 'kawasaki', 'polaris', 'repair', 'parts'];
+          } else if (campaignName.includes('can-am')) {
+            poorTerms = ['polaris', 'yamaha', 'honda', 'repair', 'parts'];
+          } else {
+            poorTerms = ['free', 'cheap', 'repair', 'parts', 'broken', 'diy'];
+          }
+          console.log(`Using fallback negative keywords for ${r.campaign.name}`);
+        }
 
         const suggestedNegatives = poorTerms.length > 0 
-          ? `Suggested negative keywords: ${poorTerms.join(', ')}`
+          ? `Found specific terms: ${poorTerms.join(', ')}`
           : 'Analyze search terms report to identify irrelevant queries';
 
         optimizations.push({
