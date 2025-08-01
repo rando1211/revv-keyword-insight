@@ -8,12 +8,13 @@ import { useToast } from "@/components/ui/use-toast";
 import { generateCampaignAnalysis, generateOptimizationCode } from "@/lib/openai-service";
 import { supabase } from "@/integrations/supabase/client";
 import { useAccount } from "@/contexts/AccountContext";
+import { Progress } from "@/components/ui/progress";
 import { OptimizationReview } from "./OptimizationReview";
 
 export const AIInsightsPanel = () => {
   const { toast } = useToast();
-  const { selectedAccountForAnalysis, analysisResults } = useAccount();
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const { selectedAccountForAnalysis, analysisResults, isAnalyzing, analysisStep } = useAccount();
+  
   const [isGeneratingCode, setIsGeneratingCode] = useState(false);
   const [searchTermsData, setSearchTermsData] = useState<any>(null);
   const [isAutoOptimizing, setIsAutoOptimizing] = useState(false);
@@ -21,7 +22,7 @@ export const AIInsightsPanel = () => {
   const [isExecutingOptimizations, setIsExecutingOptimizations] = useState(false);
 
   const handleAnalyzeCampaigns = async () => {
-    setIsAnalyzing(true);
+    
     try {
       // Try to fetch real campaign data first
       let campaignData;
@@ -66,7 +67,7 @@ export const AIInsightsPanel = () => {
         variant: "destructive",
       });
     } finally {
-      setIsAnalyzing(false);
+      
     }
   };
 
@@ -308,7 +309,7 @@ export const AIInsightsPanel = () => {
               </Card>
             )}
 
-            {!analysisResults && (
+            {!analysisResults && !isAnalyzing && (
               <div className="text-center py-8 text-muted-foreground">
                 <Brain className="h-12 w-12 mx-auto mb-4 opacity-50" />
                 <p className="font-medium">No analysis results yet.</p>
@@ -320,6 +321,28 @@ export const AIInsightsPanel = () => {
                     🔍 Only ENABLED campaigns will be analyzed
                     <br />
                     ⚡ Real-time data from Google Ads API
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {isAnalyzing && (
+              <div className="text-center py-8">
+                <Loader2 className="h-12 w-12 mx-auto mb-4 animate-spin text-primary" />
+                <p className="font-medium mb-2">AI Analysis in Progress...</p>
+                <div className="max-w-md mx-auto space-y-3">
+                  <Progress value={(analysisStep / 3) * 100} className="w-full" />
+                  <p className="text-sm text-muted-foreground">
+                    {analysisStep === 1 && "🎯 Step 1/3: Fetching campaign data..."}
+                    {analysisStep === 2 && "🧠 Step 2/3: AI analyzing campaigns..."}
+                    {analysisStep === 3 && "🔧 Step 3/3: Generating optimizations..."}
+                  </p>
+                </div>
+                <div className="mt-4 p-3 bg-muted rounded-lg">
+                  <p className="text-xs text-muted-foreground">
+                    ⚡ Using advanced OpenAI Assistant with 3-step analysis chain
+                    <br />
+                    📊 Processing real-time Google Ads data
                   </p>
                 </div>
               </div>

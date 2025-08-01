@@ -16,9 +16,9 @@ export const AccountSelection = () => {
   const [accounts, setAccounts] = useState<GoogleAdsAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [analyzingAccount, setAnalyzingAccount] = useState<string | null>(null);
-  const [analysisStep, setAnalysisStep] = useState<number>(0);
+  
   const { toast } = useToast();
-  const { setSelectedAccountForAnalysis, setAnalysisResults } = useAccount();
+  const { setSelectedAccountForAnalysis, setAnalysisResults, setIsAnalyzing, setAnalysisStep } = useAccount();
 
   const loadAccounts = async () => {
     try {
@@ -90,6 +90,7 @@ export const AccountSelection = () => {
 
   const handleAnalyzeAccount = async (account: GoogleAdsAccount) => {
     setAnalyzingAccount(account.id);
+    setIsAnalyzing(true);
     setAnalysisStep(1);
     
     // Clear previous analysis results immediately
@@ -166,6 +167,7 @@ export const AccountSelection = () => {
       });
     } finally {
       setAnalyzingAccount(null);
+      setIsAnalyzing(false);
       setAnalysisStep(0);
     }
   };
