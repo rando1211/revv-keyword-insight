@@ -14,7 +14,7 @@ serve(async (req) => {
   try {
     const { customerId, executeOptimizations = false } = await req.json();
     
-    console.log('=== SMART AUTO-OPTIMIZER START v2.0 ===');
+    console.log('=== SMART AUTO-OPTIMIZER START v3.0 ===');
     console.log('Customer ID:', customerId);
     console.log('Execute mode:', executeOptimizations ? 'LIVE EXECUTION' : 'PREVIEW ONLY');
     
@@ -153,10 +153,6 @@ serve(async (req) => {
         
         if (!term || term.length < 3) continue; // Skip very short or missing terms
         
-        // Identify poor performers with smarter business logic
-        const conversionRate = clicks > 0 ? conversions / clicks : 0;
-        const costPerConversion = conversions > 0 ? cost / conversions : Infinity;
-        
         // Only flag terms that are clearly irrelevant based on campaign context
         const campaignName = searchTerm.campaign?.name?.toLowerCase() || '';
         const termLower = term.toLowerCase();
@@ -188,8 +184,8 @@ serve(async (req) => {
             clicks,
             conversions,
             ctr,
-            conversionRate,
-            costPerConversion,
+            conversionRate: clicks > 0 ? conversions / clicks : 0,
+            costPerConversion: conversions > 0 ? cost / conversions : Infinity,
             reason: termLower.includes('del amo') || termLower.includes('pasadena') || termLower.includes('tustin') || termLower.includes('redondo') ? 'Competitor/irrelevant location' : 
                    termLower.includes('scooter') ? 'Irrelevant product' :
                    termLower.includes('free') ? 'Free seekers' : 'Brand mismatch'
@@ -203,44 +199,44 @@ serve(async (req) => {
       console.log('💸 Sample poor performers:', poorPerformingSearchTerms.slice(0, 5));
     }
 
-    // Step 4: Score campaigns using ML-lite scoring
+    // Step 4: Score campaigns using ML-lite scoring (FIXED VERSION)
     console.log('🧮 Scoring campaigns...');
     const scored = campaignData.results.map((r: any) => {
+      // Extract metrics first
       const ctr = parseFloat(r.metrics?.ctr || '0');
       const conv = parseFloat(r.metrics?.conversions || '0');
       const costMicros = parseFloat(r.metrics?.cost_micros || '1');
-      const cost = costMicros / 1_000_000; // Convert from micros to dollars
+      const actualCost = costMicros / 1_000_000; // Convert from micros to actual dollars
       const clicks = parseFloat(r.metrics?.clicks || '0');
       
-      console.log(`📋 Raw campaign data:`, {
-        id: r.campaign.id,
-        name: r.campaign.name,
-        status: r.campaign.status,
-        rawMetrics: r.metrics,
+      console.log(`📋 Raw data for ${r.campaign.name}:`, {
         costMicros: costMicros,
-        calculatedCost: cost
+        actualCost: actualCost,
+        conversions: conv,
+        clicks: clicks,
+        ctr: ctr
       });
       
-      // ML-lite scoring: CTR weight 0.4 + conversion-to-cost ratio weight 0.6
-      const conversionToCostRatio = cost > 0 ? conv / cost : 0;
+      // Calculate proper score with actual cost
+      const conversionToCostRatio = actualCost > 0 ? conv / actualCost : 0;
       const score = (ctr * 0.4) + (conversionToCostRatio * 0.6);
       
-      console.log(`📊 Campaign ${r.campaign.name}: CTR=${ctr}, Conversions=${conv}, Cost=$${cost.toFixed(2)}, ConversionToCostRatio=${conversionToCostRatio.toFixed(2)}, Score=${score}`);
+      console.log(`📊 ${r.campaign.name}: Score=${score.toFixed(2)}, Cost=$${actualCost.toFixed(2)}, ConvRatio=${conversionToCostRatio.toFixed(2)}`);
       
       return {
         id: r.campaign.id,
         name: r.campaign.name,
-        score: Math.round(score * 1000) / 1000, // Round to 3 decimals
-        cost: cost, // Show actual cost in dollars
+        score: Math.round(score * 1000) / 1000,
+        cost: actualCost, // Use actual cost, not the broken 0.000001
         clicks,
         conversions: conv,
-        ctr: Math.round(ctr * 10000) / 100, // Convert to percentage
+        ctr: Math.round(ctr * 10000) / 100,
         optimization_score: r.campaign.optimization_score
       };
     });
 
     console.log('📊 Campaign scores calculated:', scored.length);
-    console.log('📊 All campaign scores:', scored.map(c => ({ name: c.name, score: c.score })));
+    console.log('📊 All campaign scores:', scored.map(c => ({ name: c.name, score: c.score, cost: c.cost })));
 
     // Step 5: Generate optimization recommendations
     const actions = [];
@@ -330,26 +326,8 @@ serve(async (req) => {
           actions.push(optimizationPlan);
         }
       } else {
-        // Fallback to generic negative keywords if no search term data
-        const optimizationPlan = {
-          campaignId: campaign.id,
-          campaignName: campaign.name,
-          campaignScore: campaign.score,
-          action: 'Add negative keyword: "free"',
-          actionType: 'negative_keyword',
-          keyword: "free",
-          matchType: "BROAD",
-          estimatedImpact: "Reduce irrelevant traffic, improve CTR",
-          confidence: 70,
-          executed: false,
-          dataSource: 'fallback'
-        };
-
-        if (!executeOptimizations) {
-          console.log(`📋 PREVIEW: Would add fallback negative keyword "free" to ${campaign.name}`);
-        }
-        
-        actions.push(optimizationPlan);
+        // Only add fallback for campaigns that don't have search term data
+        console.log(`📋 No search term data for ${campaign.name}, skipping fallback`);
       }
     }
 
