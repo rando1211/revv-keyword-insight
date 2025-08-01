@@ -14,7 +14,7 @@ serve(async (req) => {
   try {
     const { customerId, executeOptimizations = false } = await req.json();
     
-    console.log('=== SMART AUTO-OPTIMIZER START ===');
+    console.log('=== SMART AUTO-OPTIMIZER START v2.0 ===');
     console.log('Customer ID:', customerId);
     console.log('Execute mode:', executeOptimizations ? 'LIVE EXECUTION' : 'PREVIEW ONLY');
     
