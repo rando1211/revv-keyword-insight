@@ -17,3 +17,9 @@ verify_jwt = false
 
 [functions.test-google-ads-api]
 verify_jwt = false
+
+[functions.smart-auto-optimizer]
+verify_jwt = false
+
+[functions.fixed-auto-optimizer]
+verify_jwt = false
