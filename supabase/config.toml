@@ -27,5 +27,8 @@ verify_jwt = false
 [functions.simple-optimizer]
 verify_jwt = false
 
+[functions.search-terms-report]
+verify_jwt = false
+
 [functions.keyword-optimizer]
 verify_jwt = false

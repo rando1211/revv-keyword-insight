@@ -168,6 +168,36 @@ export const AIInsightsPanel = () => {
     }
   };
 
+  const testSearchTermsReport = async () => {
+    if (!selectedAccountForAnalysis) return;
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('search-terms-report', {
+        body: { 
+          customerId: selectedAccountForAnalysis.customerId,
+          campaignId: '16490039697' // PWC (PM) campaign ID
+        }
+      });
+      
+      if (error) throw error;
+      
+      console.log('Search Terms Report:', data);
+      toast({
+        title: "Search Terms Report",
+        description: `Found ${data.totalFound} search terms - check console for details`,
+      });
+      
+    } catch (error) {
+      console.error("Search terms test failed:", error);
+      toast({
+        title: "Search Terms Test Failed", 
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+
   // Parse optimizations from AI analysis results
   const parsedOptimizations = useMemo(() => {
     if (!analysisResults || !selectedAccountForAnalysis) return [];
@@ -323,18 +353,29 @@ export const AIInsightsPanel = () => {
           <TabsContent value="optimizations" className="space-y-4">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">Campaign Optimizations</h3>
-              <Button 
-                onClick={handleSmartAutoOptimization}
-                disabled={isAutoOptimizing || !selectedAccountForAnalysis}
-                className="flex items-center gap-2"
-              >
-                {isAutoOptimizing ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Bot className="h-4 w-4" />
-                )}
-                {isAutoOptimizing ? "Auto-Optimizing..." : "Smart Auto-Optimize"}
-              </Button>
+              <div className="flex gap-2">
+                <Button 
+                  onClick={testSearchTermsReport}
+                  disabled={!selectedAccountForAnalysis}
+                  size="sm"
+                  variant="outline"
+                  className="flex items-center gap-2"
+                >
+                  🔍 Test Search Terms
+                </Button>
+                <Button 
+                  onClick={handleSmartAutoOptimization}
+                  disabled={isAutoOptimizing || !selectedAccountForAnalysis}
+                  className="flex items-center gap-2"
+                >
+                  {isAutoOptimizing ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Bot className="h-4 w-4" />
+                  )}
+                  {isAutoOptimizing ? "Auto-Optimizing..." : "Smart Auto-Optimize"}
+                </Button>
+              </div>
             </div>
 
             {autoOptimizationResults && (
