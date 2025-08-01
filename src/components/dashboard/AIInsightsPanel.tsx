@@ -360,38 +360,88 @@ export const AIInsightsPanel = () => {
               <Card className="mb-4">
                 <CardHeader>
                   <CardTitle className="text-base flex items-center gap-2">
-                    🔍 Search Terms Report - PWC (PM)
+                    🔍 Search Terms Report
                   </CardTitle>
                   <p className="text-sm text-muted-foreground">
-                    Found {searchTermsData.totalFound} search terms - Here are the wasteful ones to add as negative keywords:
+                    Found {searchTermsData.totalFound} search terms from your campaigns
                   </p>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-3 max-h-96 overflow-y-auto">
-                    {searchTermsData.searchTerms?.slice(0, 20).map((term: any, index: number) => {
-                      const searchTerm = term.searchTermView?.searchTerm || term.search_term_view?.search_term || 'Unknown';
-                      const clicks = parseInt(term.metrics?.clicks || '0');
-                      const conversions = parseFloat(term.metrics?.conversions || '0');
-                      
-                      return (
-                        <div key={index} className="flex items-center justify-between p-3 bg-red-50 dark:bg-red-900/20 rounded border">
-                          <div className="flex-1">
-                            <span className="text-sm font-mono">-{searchTerm}</span>
-                            <div className="text-xs text-muted-foreground mt-1">
-                              {clicks} clicks, {conversions} conversions
-                            </div>
-                          </div>
-                          <Badge variant="destructive" className="text-xs">
-                            Add as Negative
-                          </Badge>
-                        </div>
-                      );
-                    })}
+                  <div className="border rounded-lg overflow-hidden">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead className="bg-muted">
+                          <tr>
+                            <th className="text-left p-3 font-medium">Search Term</th>
+                            <th className="text-left p-3 font-medium">Match Type</th>
+                            <th className="text-left p-3 font-medium">Added/Excluded</th>
+                            <th className="text-left p-3 font-medium">Campaign</th>
+                            <th className="text-right p-3 font-medium">Clicks</th>
+                            <th className="text-right p-3 font-medium">Impr.</th>
+                            <th className="text-right p-3 font-medium">CTR</th>
+                            <th className="text-right p-3 font-medium">Cost</th>
+                            <th className="text-right p-3 font-medium">Conv.</th>
+                            <th className="text-left p-3 font-medium">Recommendation</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {searchTermsData.searchTerms?.slice(0, 20).map((term: any, index: number) => {
+                            const searchTerm = term.searchTermView?.searchTerm || term.search_term_view?.search_term || 'Unknown';
+                            const clicks = parseInt(term.metrics?.clicks || '0');
+                            const impressions = parseInt(term.metrics?.impressions || '0');
+                            const conversions = parseFloat(term.metrics?.conversions || '0');
+                            const cost = term.metrics?.cost_micros ? (parseInt(term.metrics.cost_micros) / 1000000) : 0;
+                            const ctr = impressions > 0 ? (clicks / impressions * 100) : 0;
+                            const shouldBeNegative = clicks > 0 && conversions === 0;
+                            
+                            return (
+                              <tr key={index} className="border-t hover:bg-muted/50">
+                                <td className="p-3 font-medium max-w-48 truncate" title={searchTerm}>
+                                  {searchTerm}
+                                </td>
+                                <td className="p-3 text-muted-foreground">
+                                  Phrase match
+                                </td>
+                                <td className="p-3">
+                                  <span className={`inline-flex px-2 py-1 rounded-full text-xs ${
+                                    shouldBeNegative ? 'bg-gray-100 text-gray-700' : 'bg-green-100 text-green-700'
+                                  }`}>
+                                    {shouldBeNegative ? 'None' : 'Added'}
+                                  </span>
+                                </td>
+                                <td className="p-3 text-muted-foreground max-w-32 truncate">
+                                  {term.campaign?.name || 'PWC (PM)'}
+                                </td>
+                                <td className="p-3 text-right">{clicks}</td>
+                                <td className="p-3 text-right">{impressions.toLocaleString()}</td>
+                                <td className="p-3 text-right">{ctr.toFixed(2)}%</td>
+                                <td className="p-3 text-right">${cost.toFixed(2)}</td>
+                                <td className="p-3 text-right">{conversions.toFixed(2)}</td>
+                                <td className="p-3">
+                                  {shouldBeNegative && clicks > 0 && (
+                                    <span className="inline-flex px-2 py-1 bg-red-100 text-red-800 rounded text-xs">
+                                      Add as negative
+                                    </span>
+                                  )}
+                                  {conversions > 0 && clicks > 5 && (
+                                    <span className="inline-flex px-2 py-1 bg-green-100 text-green-800 rounded text-xs">
+                                      High performer
+                                    </span>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                   <div className="mt-4 p-3 bg-muted rounded-lg">
-                    <div className="text-sm font-medium">Recommendation:</div>
+                    <div className="text-sm font-medium">Analysis Summary:</div>
                     <div className="text-xs text-muted-foreground mt-1">
-                      Copy these search terms and add them as negative keywords to your PWC (PM) campaign to prevent wasted spend.
+                      {searchTermsData.searchTerms?.filter((term: any) => 
+                        (parseInt(term.metrics?.clicks || '0') > 0) && (parseFloat(term.metrics?.conversions || '0') === 0)
+                      ).length || 0} search terms recommended for negative keyword addition to improve campaign efficiency.
                     </div>
                   </div>
                 </CardContent>
