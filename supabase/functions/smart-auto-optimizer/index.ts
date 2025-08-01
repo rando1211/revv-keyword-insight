@@ -59,9 +59,9 @@ serve(async (req) => {
       'Content-Type': 'application/json',
     };
 
-    // Step 1: Fetch top campaigns with metrics
+    // Step 1: Fetch campaigns and their search terms
     console.log('📊 Fetching campaign data...');
-    const baseQuery = `
+    const campaignQuery = `
       SELECT
         campaign.id,
         campaign.name,
@@ -79,22 +79,22 @@ serve(async (req) => {
       LIMIT 10
     `;
 
-    const baseRes = await fetch(adsApiUrl, {
+    const campaignRes = await fetch(adsApiUrl, {
       method: "POST",
       headers,
-      body: JSON.stringify({ query: baseQuery })
+      body: JSON.stringify({ query: campaignQuery })
     });
 
-    if (!baseRes.ok) {
-      const errorText = await baseRes.text();
+    if (!campaignRes.ok) {
+      const errorText = await campaignRes.text();
       console.error('Campaign fetch error:', errorText);
       throw new Error(`Failed to fetch campaigns: ${errorText}`);
     }
 
-    const baseData = await baseRes.json();
-    console.log('📈 Campaigns fetched:', baseData.results?.length || 0);
+    const campaignData = await campaignRes.json();
+    console.log('📈 Campaigns fetched:', campaignData.results?.length || 0);
 
-    if (!baseData.results || baseData.results.length === 0) {
+    if (!campaignData.results || campaignData.results.length === 0) {
       return new Response(JSON.stringify({
         success: true,
         message: 'No campaigns found for optimization',
@@ -105,9 +105,87 @@ serve(async (req) => {
       });
     }
 
-    // Step 2: Score campaigns using ML-lite scoring
+    // Step 2: Fetch search terms for each campaign
+    console.log('🔍 Fetching search terms for analysis...');
+    const searchTermsQuery = `
+      SELECT
+        campaign.id,
+        campaign.name,
+        search_term_view.search_term,
+        metrics.cost_micros,
+        metrics.clicks,
+        metrics.conversions,
+        metrics.ctr
+      FROM search_term_view
+      WHERE campaign.status = 'ENABLED'
+        AND segments.date DURING LAST_30_DAYS
+        AND metrics.cost_micros > 1000000
+        AND metrics.clicks > 3
+      ORDER BY metrics.cost_micros DESC
+      LIMIT 100
+    `;
+
+    const searchTermsRes = await fetch(adsApiUrl, {
+      method: "POST", 
+      headers,
+      body: JSON.stringify({ query: searchTermsQuery })
+    });
+
+    let searchTermsData = { results: [] };
+    if (searchTermsRes.ok) {
+      searchTermsData = await searchTermsRes.json();
+      console.log('🔍 Search terms fetched:', searchTermsData.results?.length || 0);
+    } else {
+      console.log('⚠️ Could not fetch search terms, using campaign-level optimization only');
+    }
+
+    // Step 3: Analyze search terms for negative keywords
+    console.log('🔍 Analyzing search terms for negative keyword opportunities...');
+    const poorPerformingSearchTerms = [];
+    
+    if (searchTermsData.results && searchTermsData.results.length > 0) {
+      for (const searchTerm of searchTermsData.results) {
+        const cost = parseFloat(searchTerm.metrics?.cost_micros || '0') / 1_000_000;
+        const conversions = parseFloat(searchTerm.metrics?.conversions || '0');
+        const clicks = parseFloat(searchTerm.metrics?.clicks || '0');
+        const ctr = parseFloat(searchTerm.metrics?.ctr || '0');
+        
+        // Identify poor performers: high cost, low/no conversions, low CTR
+        const conversionRate = clicks > 0 ? conversions / clicks : 0;
+        const costPerConversion = conversions > 0 ? cost / conversions : Infinity;
+        
+        // Poor performing criteria
+        const isPoorPerformer = (
+          (cost > 10 && conversions === 0) || // Spent $10+ with no conversions
+          (clicks > 5 && conversions === 0 && ctr < 0.02) || // 5+ clicks, no conversions, low CTR
+          (costPerConversion > 100) // Very expensive conversions
+        );
+        
+        if (isPoorPerformer) {
+          poorPerformingSearchTerms.push({
+            term: searchTerm.search_term_view?.search_term,
+            campaignId: searchTerm.campaign?.id,
+            campaignName: searchTerm.campaign?.name,
+            cost,
+            clicks,
+            conversions,
+            ctr,
+            conversionRate,
+            costPerConversion,
+            reason: conversions === 0 ? 'No conversions' : 'High cost per conversion'
+          });
+        }
+      }
+    }
+    
+    console.log(`💸 Poor performing search terms found: ${poorPerformingSearchTerms.length}`);
+    if (poorPerformingSearchTerms.length > 0) {
+      console.log('💸 Sample poor performers:', poorPerformingSearchTerms.slice(0, 5));
+    }
+
+    // Step 4: Score campaigns using ML-lite scoring
     console.log('🧮 Scoring campaigns...');
-    const scored = baseData.results.map((r: any) => {
+    const scored = campaignData.results.map((r: any) => {
       console.log(`📋 Raw campaign data:`, {
         id: r.campaign.id,
         name: r.campaign.name,
@@ -142,80 +220,115 @@ serve(async (req) => {
     console.log('📊 Campaign scores calculated:', scored.length);
     console.log('📊 All campaign scores:', scored.map(c => ({ name: c.name, score: c.score })));
 
-    // Step 3: Filter high-performing campaigns (score > 0.5)
-    const highPerformingCampaigns = scored.filter(c => c.score > 0.5);
-    console.log(`🎯 High-performing campaigns identified: ${highPerformingCampaigns.length}`);
-    console.log('🎯 High-performing campaign details:', highPerformingCampaigns);
-
+    // Step 5: Generate optimization recommendations
     const actions = [];
     
-    // Step 4: Generate optimization recommendations
+    // For high-performing campaigns, add data-driven negative keywords
+    const highPerformingCampaigns = scored.filter(c => c.score > 0.3); // Lowered threshold
+    console.log(`🎯 Campaigns for optimization: ${highPerformingCampaigns.length}`);
+    
     for (const campaign of highPerformingCampaigns) {
       console.log(`🔧 Planning optimization for: ${campaign.name} (Score: ${campaign.score})`);
       
-      const optimizationPlan = {
-        campaignId: campaign.id,
-        campaignName: campaign.name,
-        campaignScore: campaign.score,
-        action: 'Add negative keyword: "free"',
-        actionType: 'negative_keyword',
-        keyword: "free",
-        matchType: "BROAD",
-        estimatedImpact: "Reduce irrelevant traffic, improve CTR",
-        confidence: 85,
-        executed: false
-      };
-
-      if (executeOptimizations) {
-        try {
-          console.log(`🔧 EXECUTING optimization for: ${campaign.name}`);
+      // Find poor performing search terms for this specific campaign
+      const campaignPoorTerms = poorPerformingSearchTerms.filter(
+        term => term.campaignId === campaign.id
+      );
+      
+      if (campaignPoorTerms.length > 0) {
+        // Use actual poor performing search terms
+        const negativeKeywords = campaignPoorTerms
+          .slice(0, 3) // Limit to top 3 worst performers
+          .map(term => term.term)
+          .filter(term => term && term.length > 2); // Basic validation
           
-          // Add negative keyword "free" to reduce irrelevant traffic
-          const mutateUrl = `https://googleads.googleapis.com/v18/customers/${cleanCustomerId}/campaignCriteria:mutate`;
-          const operation = {
-            operations: [{
-              create: {
-                campaign: `customers/${cleanCustomerId}/campaigns/${campaign.id}`,
-                keyword: {
-                  text: "free",
-                  match_type: "BROAD"
-                },
-                negative: true
-              }
-            }]
+        for (const keyword of negativeKeywords) {
+          const optimizationPlan = {
+            campaignId: campaign.id,
+            campaignName: campaign.name,
+            campaignScore: campaign.score,
+            action: `Add negative keyword: "${keyword}"`,
+            actionType: 'negative_keyword',
+            keyword: keyword,
+            matchType: "BROAD",
+            estimatedImpact: `Stop wasteful spend on "${keyword}" - saved $${campaignPoorTerms.find(t => t.term === keyword)?.cost.toFixed(2) || '0'}`,
+            confidence: 90,
+            executed: false,
+            dataSource: 'search_term_analysis'
           };
 
-          const mutateRes = await fetch(mutateUrl, {
-            method: "POST",
-            headers,
-            body: JSON.stringify(operation)
-          });
+          if (executeOptimizations) {
+            try {
+              console.log(`🔧 EXECUTING optimization for: ${campaign.name} - Adding "${keyword}"`);
+              
+              const mutateUrl = `https://googleads.googleapis.com/v18/customers/${cleanCustomerId}/campaignCriteria:mutate`;
+              const operation = {
+                operations: [{
+                  create: {
+                    campaign: `customers/${cleanCustomerId}/campaigns/${campaign.id}`,
+                    keyword: {
+                      text: keyword,
+                      match_type: "BROAD"
+                    },
+                    negative: true
+                  }
+                }]
+              };
 
-          const mutateResult = await mutateRes.text();
-          const success = mutateRes.ok;
-          
-          optimizationPlan.executed = true;
-          optimizationPlan.success = success;
-          optimizationPlan.status = mutateRes.status;
-          optimizationPlan.response = success ? 'Successfully added negative keyword' : mutateResult;
+              const mutateRes = await fetch(mutateUrl, {
+                method: "POST",
+                headers,
+                body: JSON.stringify(operation)
+              });
 
-          if (success) {
-            console.log(`✅ Successfully executed: ${campaign.name}`);
+              const mutateResult = await mutateRes.text();
+              const success = mutateRes.ok;
+              
+              optimizationPlan.executed = true;
+              optimizationPlan.success = success;
+              optimizationPlan.status = mutateRes.status;
+              optimizationPlan.response = success ? `Successfully added negative keyword "${keyword}"` : mutateResult;
+
+              if (success) {
+                console.log(`✅ Successfully added "${keyword}" to ${campaign.name}`);
+              } else {
+                console.log(`❌ Failed to add "${keyword}" to ${campaign.name} - ${mutateResult}`);
+              }
+              
+            } catch (error) {
+              console.error(`💥 Error executing optimization ${campaign.name}:`, error);
+              optimizationPlan.executed = true;
+              optimizationPlan.success = false;
+              optimizationPlan.error = error.message;
+            }
           } else {
-            console.log(`❌ Failed to execute: ${campaign.name} - ${mutateResult}`);
+            console.log(`📋 PREVIEW: Would add negative keyword "${keyword}" to ${campaign.name}`);
           }
-          
-        } catch (error) {
-          console.error(`💥 Error executing optimization ${campaign.name}:`, error);
-          optimizationPlan.executed = true;
-          optimizationPlan.success = false;
-          optimizationPlan.error = error.message;
+
+          actions.push(optimizationPlan);
         }
       } else {
-        console.log(`📋 PREVIEW: Would add negative keyword "free" to ${campaign.name}`);
-      }
+        // Fallback to generic negative keywords if no search term data
+        const optimizationPlan = {
+          campaignId: campaign.id,
+          campaignName: campaign.name,
+          campaignScore: campaign.score,
+          action: 'Add negative keyword: "free"',
+          actionType: 'negative_keyword',
+          keyword: "free",
+          matchType: "BROAD",
+          estimatedImpact: "Reduce irrelevant traffic, improve CTR",
+          confidence: 70,
+          executed: false,
+          dataSource: 'fallback'
+        };
 
-      actions.push(optimizationPlan);
+        if (!executeOptimizations) {
+          console.log(`📋 PREVIEW: Would add fallback negative keyword "free" to ${campaign.name}`);
+        }
+        
+        actions.push(optimizationPlan);
+      }
     }
 
     const successfulOptimizations = actions.filter(a => a.success).length;
