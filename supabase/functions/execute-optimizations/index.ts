@@ -131,9 +131,11 @@ serve(async (req) => {
             }]
           };
         } else {
-          // Fallback to original endpoint if type is unknown
-          apiEndpoint = optimization.apiEndpoint;
-          requestPayload = optimization.payload;
+          // For custom rules and other types, replace placeholders
+          apiEndpoint = optimization.apiEndpoint.replace(/{customerId}/g, cleanCustomerId);
+          requestPayload = JSON.parse(
+            JSON.stringify(optimization.payload).replace(/{customerId}/g, cleanCustomerId)
+          );
         }
         
         console.log(`📍 Corrected API Endpoint: ${apiEndpoint}`);
