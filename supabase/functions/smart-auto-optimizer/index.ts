@@ -157,23 +157,26 @@ serve(async (req) => {
         const conversionRate = clicks > 0 ? conversions / clicks : 0;
         const costPerConversion = conversions > 0 ? cost / conversions : Infinity;
         
-        // Only flag terms that are clearly irrelevant or problematic
+        // Only flag terms that are clearly irrelevant based on campaign context
+        const campaignName = searchTerm.campaign?.name?.toLowerCase() || '';
+        const termLower = term.toLowerCase();
+        
         const isIrrelevantTerm = (
           // Competitor names or locations that aren't the business
-          term.includes('del amo') ||
-          term.includes('pasadena') ||
-          term.includes('tustin') ||
-          term.includes('redondo') ||
+          termLower.includes('del amo') ||
+          termLower.includes('pasadena') ||
+          termLower.includes('tustin') ||
+          termLower.includes('redondo') ||
           // Clearly unrelated products
-          term.includes('scooter repair') ||
-          term.includes('electric scooter') ||
-          term.includes('grom') || // Honda Grom is a small motorcycle, not what most dealers focus on
+          termLower.includes('scooter repair') ||
+          termLower.includes('electric scooter') ||
+          // Brand mismatch - only flag if searching for wrong brand
+          (campaignName.includes('honda') && (termLower.includes('yamaha') || termLower.includes('kawasaki') || termLower.includes('ducati') || termLower.includes('can-am'))) ||
+          (campaignName.includes('yamaha') && (termLower.includes('honda') || termLower.includes('kawasaki') || termLower.includes('ducati') || termLower.includes('can-am'))) ||
+          (campaignName.includes('ducati') && (termLower.includes('honda') || termLower.includes('yamaha') || termLower.includes('kawasaki') || termLower.includes('can-am'))) ||
+          (campaignName.includes('can-am') && (termLower.includes('honda') || termLower.includes('yamaha') || termLower.includes('kawasaki') || termLower.includes('ducati'))) ||
           // Free/cheap seekers with no intent to buy
-          (term.includes('free') && cost > 5 && conversions === 0) ||
-          // Very specific model searches that don't convert and cost a lot
-          (cost > 20 && conversions === 0 && clicks > 10 && (
-            term.includes('for sale') && term.length > 15 // Very specific "for sale" searches that don't convert
-          ))
+          (termLower.includes('free') && cost > 5 && conversions === 0)
         );
         
         if (isIrrelevantTerm) {
@@ -187,9 +190,9 @@ serve(async (req) => {
             ctr,
             conversionRate,
             costPerConversion,
-            reason: term.includes('del amo') || term.includes('pasadena') || term.includes('tustin') || term.includes('redondo') ? 'Competitor/irrelevant location' : 
-                   term.includes('scooter') || term.includes('grom') ? 'Irrelevant product' :
-                   term.includes('free') ? 'Free seekers' : 'Poor converting specific search'
+            reason: termLower.includes('del amo') || termLower.includes('pasadena') || termLower.includes('tustin') || termLower.includes('redondo') ? 'Competitor/irrelevant location' : 
+                   termLower.includes('scooter') ? 'Irrelevant product' :
+                   termLower.includes('free') ? 'Free seekers' : 'Brand mismatch'
           });
         }
       }
