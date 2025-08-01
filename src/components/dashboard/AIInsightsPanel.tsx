@@ -95,12 +95,14 @@ export const AIInsightsPanel = () => {
       
       setAutoOptimizationResults(data);
       
-      const hasOptimizations = data.optimizations && data.optimizations.length > 0;
+      const hasOptimizations = (data.actions && data.actions.length > 0) || (data.optimizations && data.optimizations.length > 0);
+      const optimizationCount = data.actions?.length || data.optimizations?.length || 0;
+      
       toast({
         title: "Smart Auto-Optimization Preview",
         description: hasOptimizations 
-          ? `Found ${data.optimizations.length} optimization opportunities. Review before executing.`
-          : "No high-performing campaigns found for optimization.",
+          ? `Found ${optimizationCount} AI-powered optimization opportunities. Review before executing.`
+          : "No optimization opportunities found in the analyzed campaigns.",
       });
     } catch (error) {
       console.error("Smart auto-optimization failed:", error);
@@ -396,11 +398,12 @@ export const AIInsightsPanel = () => {
                     </div>
                   </div>
                   
-                  {autoOptimizationResults.optimizations && autoOptimizationResults.optimizations.length > 0 && (
+                  {(autoOptimizationResults.actions || autoOptimizationResults.optimizations) && 
+                   (autoOptimizationResults.actions?.length > 0 || autoOptimizationResults.optimizations?.length > 0) && (
                     <div className="space-y-4">
                       <div className="flex items-center justify-between">
-                        <h4 className="font-medium">Optimization Actions:</h4>
-                        {!autoOptimizationResults.optimizations.some((a: any) => a.executed) && (
+                        <h4 className="font-medium">AI Optimization Actions:</h4>
+                        {!(autoOptimizationResults.actions || autoOptimizationResults.optimizations)?.some((a: any) => a.executed) && (
                           <Button 
                             onClick={handleExecuteOptimizations}
                             disabled={isExecutingOptimizations}
@@ -416,12 +419,14 @@ export const AIInsightsPanel = () => {
                           </Button>
                         )}
                       </div>
-                      {autoOptimizationResults.optimizations.map((action: any, index: number) => (
+                      {(autoOptimizationResults.actions || autoOptimizationResults.optimizations || []).map((action: any, index: number) => (
                         <div key={index} className="flex items-center justify-between p-3 bg-muted rounded">
                           <div className="flex-1">
                             <p className="text-sm font-medium">{action.campaignName}</p>
                             <p className="text-xs text-muted-foreground">{action.action}</p>
-                            <p className="text-xs text-blue-600">Score: {action.campaignScore}</p>
+                            {action.aiReason && (
+                              <p className="text-xs text-blue-600 mt-1">🤖 AI: {action.aiReason}</p>
+                            )}
                             {action.estimatedImpact && (
                               <p className="text-xs text-green-600 mt-1">📈 {action.estimatedImpact}</p>
                             )}
