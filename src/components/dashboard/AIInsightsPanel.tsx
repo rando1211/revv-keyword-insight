@@ -149,20 +149,28 @@ export const AIInsightsPanel = () => {
   const testSearchTermsReport = async () => {
     if (!selectedAccountForAnalysis) return;
     
+    // Use the first campaign from auto-optimization results if available, otherwise use PWC (PM)
+    const campaignId = autoOptimizationResults?.optimizations?.[0]?.campaignId || '16490039697';
+    
     try {
       const { data, error } = await supabase.functions.invoke('search-terms-report', {
         body: { 
           customerId: selectedAccountForAnalysis.customerId,
-          campaignId: '16490039697' // PWC (PM) campaign ID
+          campaignId: campaignId
         }
       });
       
       if (error) throw error;
       
-      setSearchTermsData(data);
+      setSearchTermsData({
+        ...data,
+        campaignId: campaignId,
+        campaignName: autoOptimizationResults?.optimizations?.[0]?.campaignName || 'PWC (PM)'
+      });
+      
       toast({
         title: "Search Terms Report",
-        description: `Found ${data.totalFound} search terms - displayed below`,
+        description: `Found ${data.totalFound} search terms for campaign`,
       });
       
     } catch (error) {
@@ -360,10 +368,10 @@ export const AIInsightsPanel = () => {
               <Card className="mb-4">
                 <CardHeader>
                   <CardTitle className="text-base flex items-center gap-2">
-                    🔍 Search Terms Report
+                    🔍 Search Terms Report - {searchTermsData.campaignName || 'Campaign'}
                   </CardTitle>
                   <p className="text-sm text-muted-foreground">
-                    Found {searchTermsData.totalFound} search terms from your campaigns
+                    Found {searchTermsData.totalFound} search terms from campaign {searchTermsData.campaignId}
                   </p>
                 </CardHeader>
                 <CardContent>
