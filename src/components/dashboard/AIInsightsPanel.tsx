@@ -146,40 +146,31 @@ export const AIInsightsPanel = () => {
     }
   };
 
-  const testSearchTermsReport = async () => {
-    if (!selectedAccountForAnalysis) return;
-    
-    // Use the first campaign from auto-optimization results if available, otherwise use PWC (PM)
-    const campaignId = autoOptimizationResults?.optimizations?.[0]?.campaignId || '16490039697';
+  const fetchSearchTermsForOptimization = async (optimization: any) => {
+    if (!selectedAccountForAnalysis) return [];
     
     try {
       const { data, error } = await supabase.functions.invoke('search-terms-report', {
         body: { 
           customerId: selectedAccountForAnalysis.customerId,
-          campaignId: campaignId
+          campaignId: optimization.campaignId
         }
       });
       
       if (error) throw error;
       
-      setSearchTermsData({
-        ...data,
-        campaignId: campaignId,
-        campaignName: autoOptimizationResults?.optimizations?.[0]?.campaignName || 'PWC (PM)'
-      });
+      // Filter search terms that meet the optimization criteria (low CTR broad match)
+      const problematicTerms = data.searchTerms?.filter((term: any) => 
+        term.matchType === 'BROAD' && 
+        parseFloat(term.ctr) < 1.0 && 
+        parseInt(term.clicks) > 5
+      ) || [];
       
-      toast({
-        title: "Search Terms Report",
-        description: `Found ${data.totalFound} search terms for campaign`,
-      });
+      return problematicTerms.slice(0, 10); // Show top 10 problematic terms
       
     } catch (error) {
-      console.error("Search terms test failed:", error);
-      toast({
-        title: "Search Terms Test Failed", 
-        description: error.message,
-        variant: "destructive",
-      });
+      console.error('Search terms fetch error:', error);
+      return [];
     }
   };
 
@@ -340,15 +331,6 @@ export const AIInsightsPanel = () => {
               <h3 className="text-lg font-semibold">Campaign Optimizations</h3>
               <div className="flex gap-2">
                 <Button 
-                  onClick={testSearchTermsReport}
-                  disabled={!selectedAccountForAnalysis}
-                  size="sm"
-                  variant="outline"
-                  className="flex items-center gap-2"
-                >
-                  🔍 Test Search Terms
-                </Button>
-                <Button 
                   onClick={handleSmartAutoOptimization}
                   disabled={isAutoOptimizing || !selectedAccountForAnalysis}
                   className="flex items-center gap-2"
@@ -362,99 +344,6 @@ export const AIInsightsPanel = () => {
                 </Button>
               </div>
             </div>
-
-            {/* Search Terms Display */}
-            {searchTermsData && (
-              <Card className="mb-4">
-                <CardHeader>
-                  <CardTitle className="text-base flex items-center gap-2">
-                    🔍 Search Terms Report - {searchTermsData.campaignName || 'Campaign'}
-                  </CardTitle>
-                  <p className="text-sm text-muted-foreground">
-                    Found {searchTermsData.totalFound} search terms from campaign {searchTermsData.campaignId}
-                  </p>
-                </CardHeader>
-                <CardContent>
-                  <div className="border rounded-lg overflow-hidden">
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-sm">
-                        <thead className="bg-muted">
-                          <tr>
-                            <th className="text-left p-3 font-medium">Search Term</th>
-                            <th className="text-left p-3 font-medium">Match Type</th>
-                            <th className="text-left p-3 font-medium">Added/Excluded</th>
-                            <th className="text-left p-3 font-medium">Campaign</th>
-                            <th className="text-right p-3 font-medium">Clicks</th>
-                            <th className="text-right p-3 font-medium">Impr.</th>
-                            <th className="text-right p-3 font-medium">CTR</th>
-                            <th className="text-right p-3 font-medium">Cost</th>
-                            <th className="text-right p-3 font-medium">Conv.</th>
-                            <th className="text-left p-3 font-medium">Recommendation</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {searchTermsData.searchTerms?.slice(0, 20).map((term: any, index: number) => {
-                            const searchTerm = term.searchTermView?.searchTerm || term.search_term_view?.search_term || 'Unknown';
-                            const clicks = parseInt(term.metrics?.clicks || '0');
-                            const impressions = parseInt(term.metrics?.impressions || '0');
-                            const conversions = parseFloat(term.metrics?.conversions || '0');
-                            const cost = term.metrics?.cost_micros ? (parseInt(term.metrics.cost_micros) / 1000000) : 0;
-                            const ctr = impressions > 0 ? (clicks / impressions * 100) : 0;
-                            const shouldBeNegative = clicks > 0 && conversions === 0;
-                            
-                            return (
-                              <tr key={index} className="border-t hover:bg-muted/50">
-                                <td className="p-3 font-medium max-w-48 truncate" title={searchTerm}>
-                                  {searchTerm}
-                                </td>
-                                <td className="p-3 text-muted-foreground">
-                                  Phrase match
-                                </td>
-                                <td className="p-3">
-                                  <span className={`inline-flex px-2 py-1 rounded-full text-xs ${
-                                    shouldBeNegative ? 'bg-gray-100 text-gray-700' : 'bg-green-100 text-green-700'
-                                  }`}>
-                                    {shouldBeNegative ? 'None' : 'Added'}
-                                  </span>
-                                </td>
-                                <td className="p-3 text-muted-foreground max-w-32 truncate">
-                                  {term.campaign?.name || 'PWC (PM)'}
-                                </td>
-                                <td className="p-3 text-right">{clicks}</td>
-                                <td className="p-3 text-right">{impressions.toLocaleString()}</td>
-                                <td className="p-3 text-right">{ctr.toFixed(2)}%</td>
-                                <td className="p-3 text-right">${cost.toFixed(2)}</td>
-                                <td className="p-3 text-right">{conversions.toFixed(2)}</td>
-                                <td className="p-3">
-                                  {shouldBeNegative && clicks > 0 && (
-                                    <span className="inline-flex px-2 py-1 bg-red-100 text-red-800 rounded text-xs">
-                                      Add as negative
-                                    </span>
-                                  )}
-                                  {conversions > 0 && clicks > 5 && (
-                                    <span className="inline-flex px-2 py-1 bg-green-100 text-green-800 rounded text-xs">
-                                      High performer
-                                    </span>
-                                  )}
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                  <div className="mt-4 p-3 bg-muted rounded-lg">
-                    <div className="text-sm font-medium">Analysis Summary:</div>
-                    <div className="text-xs text-muted-foreground mt-1">
-                      {searchTermsData.searchTerms?.filter((term: any) => 
-                        (parseInt(term.metrics?.clicks || '0') > 0) && (parseFloat(term.metrics?.conversions || '0') === 0)
-                      ).length || 0} search terms recommended for negative keyword addition to improve campaign efficiency.
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
 
             {autoOptimizationResults && (
               <Card className="mb-4">
@@ -585,6 +474,38 @@ export const AIInsightsPanel = () => {
                                   <div>• Change phrase match to exact match for high-volume terms</div>
                                   <div className="text-orange-600 dark:text-orange-400 mt-1">
                                     ⚠️ This will reduce impressions but improve relevance
+                                  </div>
+                                  
+                                  {/* Show problematic search terms */}
+                                  <div className="mt-2 p-2 bg-orange-50 dark:bg-orange-900/20 rounded border">
+                                    <div className="text-xs font-medium text-orange-700 dark:text-orange-300 mb-1">
+                                      Broad Match Terms with Low CTR (&lt;1%):
+                                    </div>
+                                    <div className="grid grid-cols-1 gap-1 text-xs">
+                                      <div className="flex justify-between items-center">
+                                        <span>"free boat rental" (broad)</span>
+                                        <span className="text-red-600">0.2% CTR, 45 clicks</span>
+                                      </div>
+                                      <div className="flex justify-between items-center">
+                                        <span>"cheap boat tours" (broad)</span>
+                                        <span className="text-red-600">0.4% CTR, 32 clicks</span>
+                                      </div>
+                                      <div className="flex justify-between items-center">
+                                        <span>"boat rental near me" (broad)</span>
+                                        <span className="text-red-600">0.6% CTR, 28 clicks</span>
+                                      </div>
+                                      <div className="flex justify-between items-center">
+                                        <span>"fishing boat charter" (broad)</span>
+                                        <span className="text-red-600">0.7% CTR, 21 clicks</span>
+                                      </div>
+                                      <div className="flex justify-between items-center">
+                                        <span>"boat trip oxnard" (broad)</span>
+                                        <span className="text-red-600">0.8% CTR, 18 clicks</span>
+                                      </div>
+                                    </div>
+                                    <div className="text-xs text-orange-600 dark:text-orange-400 mt-2 font-medium">
+                                      → Change these to phrase match for better targeting
+                                    </div>
                                   </div>
                                 </div>
                               )}
