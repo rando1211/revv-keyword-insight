@@ -216,20 +216,20 @@ serve(async (req) => {
       const ctr = parseFloat(r.metrics?.ctr || '0');
       const conv = parseFloat(r.metrics?.conversions || '0');
       const costMicros = parseFloat(r.metrics?.cost_micros || '1');
-      const cost = costMicros / 1_000_000; // Convert from micros
+      const cost = costMicros / 1_000_000; // Convert from micros to dollars
       const clicks = parseFloat(r.metrics?.clicks || '0');
       
       // ML-lite scoring: CTR weight 0.4 + conversion-to-cost ratio weight 0.6
       const conversionToCostRatio = cost > 0 ? conv / cost : 0;
       const score = (ctr * 0.4) + (conversionToCostRatio * 0.6);
       
-      console.log(`📊 Campaign ${r.campaign.name}: CTR=${ctr}, Conversions=${conv}, Cost=$${cost}, Score=${score}`);
+      console.log(`📊 Campaign ${r.campaign.name}: CTR=${ctr}, Conversions=${conv}, Cost=$${cost.toFixed(2)}, ConversionToCostRatio=${conversionToCostRatio.toFixed(2)}, Score=${score}`);
       
       return {
         id: r.campaign.id,
         name: r.campaign.name,
         score: Math.round(score * 1000) / 1000, // Round to 3 decimals
-        cost,
+        cost: cost, // Show actual cost in dollars
         clicks,
         conversions: conv,
         ctr: Math.round(ctr * 10000) / 100, // Convert to percentage
