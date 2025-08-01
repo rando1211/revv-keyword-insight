@@ -74,7 +74,6 @@ serve(async (req) => {
       FROM campaign
       WHERE campaign.status = 'ENABLED'
         AND segments.date DURING LAST_30_DAYS
-        AND metrics.cost_micros > 0
       ORDER BY metrics.cost_micros DESC
       LIMIT 10
     `;
