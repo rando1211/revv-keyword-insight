@@ -379,19 +379,19 @@ export const AIInsightsPanel = () => {
                 <CardContent>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                     <div className="text-center">
-                      <p className="text-2xl font-bold text-primary">{autoOptimizationResults.summary.totalCampaigns}</p>
+                      <p className="text-2xl font-bold text-primary">{autoOptimizationResults.summary?.totalCampaigns || 0}</p>
                       <p className="text-xs text-muted-foreground">Campaigns Analyzed</p>
                     </div>
                     <div className="text-center">
-                      <p className="text-2xl font-bold text-blue-600">{autoOptimizationResults.summary.highPerformingCampaigns}</p>
+                      <p className="text-2xl font-bold text-blue-600">{autoOptimizationResults.summary?.highPerformingCampaigns || 0}</p>
                       <p className="text-xs text-muted-foreground">High-Performing</p>
                     </div>
                     <div className="text-center">
-                      <p className="text-2xl font-bold text-orange-600">{autoOptimizationResults.summary.optimizationsFound || 0}</p>
-                      <p className="text-xs text-muted-foreground">Optimizations Applied</p>
+                      <p className="text-2xl font-bold text-orange-600">{autoOptimizationResults.summary?.optimizationsFound || autoOptimizationResults.optimizations?.length || 0}</p>
+                      <p className="text-xs text-muted-foreground">Optimizations Found</p>
                     </div>
                     <div className="text-center">
-                      <p className="text-2xl font-bold text-green-600">{autoOptimizationResults.summary.optimizationsSuccessful}</p>
+                      <p className="text-2xl font-bold text-green-600">{autoOptimizationResults.summary?.optimizationsSuccessful || 0}</p>
                       <p className="text-xs text-muted-foreground">Successful</p>
                     </div>
                   </div>
