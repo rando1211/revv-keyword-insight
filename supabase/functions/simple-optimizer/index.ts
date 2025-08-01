@@ -59,22 +59,27 @@ serve(async (req) => {
       'Content-Type': 'application/json',
     };
 
-    // Use the EXACT query from the working function
+    // Focus on keyword-level analysis to find optimization opportunities
     const query = `
       SELECT
         campaign.id,
         campaign.name,
-        campaign.status,
+        ad_group.id,
+        ad_group.name,
+        ad_group_criterion.keyword.text,
+        ad_group_criterion.keyword.match_type,
         metrics.cost_micros,
         metrics.clicks,
         metrics.ctr,
         metrics.conversions
-      FROM campaign
+      FROM keyword_view
       WHERE campaign.status = 'ENABLED'
+        AND ad_group.status = 'ENABLED'
+        AND ad_group_criterion.status = 'ENABLED'
         AND segments.date DURING LAST_30_DAYS
-        AND metrics.cost_micros > 0
+        AND metrics.cost_micros > 100000
       ORDER BY metrics.cost_micros DESC
-      LIMIT 10
+      LIMIT 50
     `;
 
     console.log('📊 Fetching campaigns with working query...');
@@ -103,14 +108,17 @@ serve(async (req) => {
       });
     }
 
-    // Convert to the same format as the working function
-    const campaigns = campaignData.results.map((r: any) => {
+    // Convert keyword data and find optimization opportunities
+    const keywords = campaignData.results.map((r: any) => {
       const costMicros = parseFloat(r.metrics?.cost_micros || '0');
       const cost = costMicros / 1_000_000; // Convert to dollars
       return {
-        id: r.campaign.id,
-        name: r.campaign.name,
-        status: r.campaign.status,
+        campaignId: r.campaign.id,
+        campaignName: r.campaign.name,
+        adGroupId: r.ad_group?.id,
+        adGroupName: r.ad_group?.name,
+        keyword: r.ad_group_criterion?.keyword?.text,
+        matchType: r.ad_group_criterion?.keyword?.match_type,
         cost: cost,
         clicks: parseFloat(r.metrics?.clicks || '0'),
         ctr: parseFloat(r.metrics?.ctr || '0') * 100, // Convert to percentage
@@ -118,51 +126,60 @@ serve(async (req) => {
       };
     });
 
-    console.log(`📈 Processed ${campaigns.length} campaigns`);
+    console.log(`📈 Processed ${keywords.length} keywords`);
 
-    // Simple analysis based on actual data
+    // Find keywords that need optimization
     const optimizations = [];
 
-    for (const campaign of campaigns) {
-      console.log(`🔍 Analyzing: ${campaign.name} - Cost: $${campaign.cost}, CTR: ${campaign.ctr}%, Conversions: ${campaign.conversions}`);
+    for (const kw of keywords) {
+      console.log(`🔍 Analyzing keyword: "${kw.keyword}" - Cost: $${kw.cost}, CTR: ${kw.ctr}%, Conversions: ${kw.conversions}`);
       
-      // Simple rules based on real metrics
-      if (campaign.cost > 1000 && campaign.conversions < 5) {
+      // High cost, no conversions = add as negative or pause
+      if (kw.cost > 50 && kw.conversions === 0) {
         optimizations.push({
-          campaignId: campaign.id,
-          campaignName: campaign.name,
-          type: 'high_cost_low_conversions',
-          action: `Review budget for "${campaign.name}"`,
-          description: `Campaign has high cost ($${campaign.cost.toFixed(2)}) but only ${campaign.conversions} conversions`,
+          campaignId: kw.campaignId,
+          campaignName: kw.campaignName,
+          keyword: kw.keyword,
+          matchType: kw.matchType,
+          type: 'high_cost_no_conversions',
+          action: `Consider pausing keyword "${kw.keyword}"`,
+          description: `Spent $${kw.cost.toFixed(2)} with 0 conversions`,
           priority: 'high',
-          estimatedSavings: Math.round(campaign.cost * 0.3), // Suggest 30% budget reduction
-          confidence: 85
-        });
-      }
-
-      if (campaign.ctr < 2 && campaign.cost > 500) {
-        optimizations.push({
-          campaignId: campaign.id,
-          campaignName: campaign.name,
-          type: 'low_ctr',
-          action: `Improve ad copy for "${campaign.name}"`,
-          description: `Low CTR (${campaign.ctr}%) suggests ads need optimization`,
-          priority: 'medium',
-          estimatedSavings: Math.round(campaign.cost * 0.15),
-          confidence: 75
-        });
-      }
-
-      if (campaign.conversions === 0 && campaign.cost > 200) {
-        optimizations.push({
-          campaignId: campaign.id,
-          campaignName: campaign.name,
-          type: 'no_conversions',
-          action: `Pause or review keywords for "${campaign.name}"`,
-          description: `No conversions despite $${campaign.cost.toFixed(2)} spend`,
-          priority: 'high',
-          estimatedSavings: Math.round(campaign.cost * 0.5),
+          estimatedSavings: Math.round(kw.cost),
           confidence: 95
+        });
+      }
+
+      // Low CTR = keyword relevance issue
+      if (kw.ctr < 2 && kw.cost > 20) {
+        optimizations.push({
+          campaignId: kw.campaignId,
+          campaignName: kw.campaignName,
+          keyword: kw.keyword,
+          matchType: kw.matchType,
+          type: 'low_ctr',
+          action: `Improve relevance for "${kw.keyword}"`,
+          description: `Low CTR (${kw.ctr.toFixed(2)}%) suggests poor ad-keyword match`,
+          priority: 'medium',
+          estimatedSavings: Math.round(kw.cost * 0.3),
+          confidence: 80
+        });
+      }
+
+      // High cost per click = bid too high
+      const cpc = kw.clicks > 0 ? kw.cost / kw.clicks : 0;
+      if (cpc > 10 && kw.cost > 30) {
+        optimizations.push({
+          campaignId: kw.campaignId,
+          campaignName: kw.campaignName,
+          keyword: kw.keyword,
+          matchType: kw.matchType,
+          type: 'high_cpc',
+          action: `Reduce bid for "${kw.keyword}"`,
+          description: `High cost per click ($${cpc.toFixed(2)}) - consider lowering bid`,
+          priority: 'medium',
+          estimatedSavings: Math.round(kw.cost * 0.25),
+          confidence: 75
         });
       }
     }
@@ -170,22 +187,22 @@ serve(async (req) => {
     console.log(`🎯 Generated ${optimizations.length} optimization recommendations`);
 
     // Calculate summary
-    const totalSpend = campaigns.reduce((sum, c) => sum + c.cost, 0);
-    const totalConversions = campaigns.reduce((sum, c) => sum + c.conversions, 0);
-    const avgCTR = campaigns.reduce((sum, c) => sum + c.ctr, 0) / campaigns.length;
+    const totalSpend = keywords.reduce((sum, kw) => sum + kw.cost, 0);
+    const totalConversions = keywords.reduce((sum, kw) => sum + kw.conversions, 0);
+    const avgCTR = keywords.length > 0 ? keywords.reduce((sum, kw) => sum + kw.ctr, 0) / keywords.length : 0;
     const potentialSavings = optimizations.reduce((sum, o) => sum + o.estimatedSavings, 0);
 
     return new Response(JSON.stringify({
       success: true,
       summary: {
-        totalCampaigns: campaigns.length,
+        totalKeywords: keywords.length,
         totalSpend: Math.round(totalSpend * 100) / 100,
         totalConversions: Math.round(totalConversions * 100) / 100,
         avgCTR: Math.round(avgCTR * 100) / 100,
         optimizationsFound: optimizations.length,
         potentialSavings: potentialSavings
       },
-      campaigns: campaigns,
+      keywords: keywords,
       optimizations: optimizations,
       timestamp: new Date().toISOString()
     }), {
