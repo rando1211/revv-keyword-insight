@@ -95,88 +95,82 @@ serve(async (req) => {
       });
     }
 
-    // Try multiple approaches to get search term data
-    console.log('Attempting to fetch search terms data...');
+    // Get actual search terms report with detailed debugging
+    console.log('=== FETCHING SEARCH TERMS REPORT ===');
     
-    // Approach 1: Search term view with relaxed filters
-    const searchTermQuery1 = `
+    // First try: Most basic search term query
+    const searchTermQuery = `
       SELECT
         search_term_view.search_term,
         campaign.id,
         campaign.name,
+        ad_group.name,
         metrics.clicks,
+        metrics.impressions,
         metrics.ctr,
         metrics.conversions,
         metrics.cost_micros
       FROM search_term_view
-      WHERE campaign.status = 'ENABLED'
-        AND segments.date DURING LAST_7_DAYS
-        AND metrics.clicks > 0
+      WHERE segments.date DURING LAST_30_DAYS
       ORDER BY metrics.clicks DESC
-      LIMIT 200
+      LIMIT 100
     `;
-    
-    let searchTerms = [];
-    const searchTermRes1 = await fetch(adsApiUrl, {
+
+    console.log('Executing search term query...');
+    const searchTermRes = await fetch(adsApiUrl, {
       method: "POST",
       headers,
-      body: JSON.stringify({ query: searchTermQuery1 })
+      body: JSON.stringify({ query: searchTermQuery })
     });
+
+    console.log('Search term response status:', searchTermRes.status);
+    let searchTerms = [];
     
-    if (searchTermRes1.ok) {
-      const data1 = await searchTermRes1.json();
-      if (data1.results && data1.results.length > 0) {
-        searchTerms = data1.results;
-        console.log(`✅ Found ${searchTerms.length} search terms from search_term_view`);
+    if (searchTermRes.ok) {
+      const searchTermData = await searchTermRes.json();
+      console.log('Search term response data:', JSON.stringify(searchTermData, null, 2));
+      
+      if (searchTermData.results) {
+        searchTerms = searchTermData.results;
+        console.log(`✅ SUCCESS: Found ${searchTerms.length} actual search terms`);
+        
+        // Log first few search terms for debugging
+        searchTerms.slice(0, 3).forEach((term, idx) => {
+          console.log(`Search term ${idx + 1}: "${term.searchTermView?.searchTerm || term.search_term_view?.search_term}" - Campaign: ${term.campaign?.name} - Clicks: ${term.metrics?.clicks}`);
+        });
+      } else {
+        console.log('❌ No results in search term response');
       }
     } else {
-      console.log('❌ Search term view failed, trying alternative...');
-    }
-    
-    // Approach 2: If search terms fail, try keywords with performance data
-    if (searchTerms.length === 0) {
-      const keywordQuery = `
+      const errorText = await searchTermRes.text();
+      console.log('❌ Search term query failed:', errorText);
+      
+      // Try alternative query without date filter
+      console.log('Trying alternative search term query...');
+      const altQuery = `
         SELECT
-          ad_group_criterion.keyword.text,
-          ad_group_criterion.keyword.match_type,
+          search_term_view.search_term,
           campaign.id,
           campaign.name,
-          ad_group.name,
           metrics.clicks,
-          metrics.ctr,
-          metrics.conversions,
-          metrics.cost_micros
-        FROM keyword_view
-        WHERE campaign.status = 'ENABLED'
-          AND ad_group_criterion.status = 'ENABLED'
-          AND segments.date DURING LAST_7_DAYS
-          AND metrics.clicks > 5
-        ORDER BY metrics.cost_micros DESC
-        LIMIT 100
+          metrics.conversions
+        FROM search_term_view
+        ORDER BY metrics.clicks DESC
+        LIMIT 50
       `;
       
-      const keywordRes = await fetch(adsApiUrl, {
+      const altRes = await fetch(adsApiUrl, {
         method: "POST",
         headers,
-        body: JSON.stringify({ query: keywordQuery })
+        body: JSON.stringify({ query: altQuery })
       });
       
-      if (keywordRes.ok) {
-        const keywordData = await keywordRes.json();
-        if (keywordData.results) {
-          // Transform keyword data to look like search terms
-          searchTerms = keywordData.results.map(k => ({
-            searchTerm: { search_term: k.adGroupCriterion?.keyword?.text || 'Unknown' },
-            campaign: k.campaign,
-            metrics: k.metrics,
-            matchType: k.adGroupCriterion?.keyword?.matchType || 'UNKNOWN'
-          }));
-          console.log(`✅ Found ${searchTerms.length} keywords as search term alternatives`);
-        }
+      if (altRes.ok) {
+        const altData = await altRes.json();
+        searchTerms = altData.results || [];
+        console.log(`✅ Alternative query found ${searchTerms.length} search terms`);
       }
     }
-    
-    console.log(`Total search terms/keywords available: ${searchTerms.length}`);
 
     // Process campaigns and generate keyword optimization suggestions
     const optimizations = [];
@@ -229,7 +223,7 @@ serve(async (req) => {
             })
             .sort((a, b) => parseFloat(b.metrics?.clicks || '0') - parseFloat(a.metrics?.clicks || '0'))
             .slice(0, 8) // Top 8 worst performing terms
-            .map(st => st.searchTerm?.search_term || st.searchTerm || 'Unknown');
+            .map(st => st.searchTermView?.searchTerm || st.search_term_view?.search_term || st.searchTerm?.search_term || 'Unknown');
           
           console.log(`Identified ${poorTerms.length} poor performing search terms`);
         }
