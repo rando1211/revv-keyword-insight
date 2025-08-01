@@ -15,7 +15,7 @@ export const AIInsightsPanel = () => {
   const { selectedAccountForAnalysis, analysisResults } = useAccount();
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isGeneratingCode, setIsGeneratingCode] = useState(false);
-  const [generatedCode, setGeneratedCode] = useState<string>("");
+  const [searchTermsData, setSearchTermsData] = useState<any>(null);
   const [isAutoOptimizing, setIsAutoOptimizing] = useState(false);
   const [autoOptimizationResults, setAutoOptimizationResults] = useState<any>(null);
   const [isExecutingOptimizations, setIsExecutingOptimizations] = useState(false);
@@ -70,28 +70,6 @@ export const AIInsightsPanel = () => {
     }
   };
 
-  const handleGenerateCode = async () => {
-    setIsGeneratingCode(true);
-    try {
-      const recommendation = "Increase bids for high-performing keywords with CTR > 5% by 15%";
-      const code = await generateOptimizationCode(recommendation);
-      setGeneratedCode(code);
-      
-      toast({
-        title: "Code Generated",
-        description: "Optimization script created successfully",
-      });
-    } catch (error) {
-      console.error("Code generation failed:", error);
-      toast({
-        title: "Code Generation Failed", 
-        description: "Unable to generate optimization code",
-        variant: "destructive",
-      });
-    } finally {
-      setIsGeneratingCode(false);
-    }
-  };
 
   const handleSmartAutoOptimization = async () => {
     if (!selectedAccountForAnalysis) {
@@ -181,10 +159,10 @@ export const AIInsightsPanel = () => {
       
       if (error) throw error;
       
-      console.log('Search Terms Report:', data);
+      setSearchTermsData(data);
       toast({
         title: "Search Terms Report",
-        description: `Found ${data.totalFound} search terms - check console for details`,
+        description: `Found ${data.totalFound} search terms - displayed below`,
       });
       
     } catch (error) {
@@ -290,10 +268,9 @@ export const AIInsightsPanel = () => {
       </CardHeader>
       <CardContent>
         <Tabs defaultValue="analysis" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="analysis">Analysis</TabsTrigger>
             <TabsTrigger value="optimizations">Optimizations</TabsTrigger>
-            <TabsTrigger value="code">Code</TabsTrigger>
             <TabsTrigger value="status">Status</TabsTrigger>
           </TabsList>
           
@@ -377,6 +354,49 @@ export const AIInsightsPanel = () => {
                 </Button>
               </div>
             </div>
+
+            {/* Search Terms Display */}
+            {searchTermsData && (
+              <Card className="mb-4">
+                <CardHeader>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    🔍 Search Terms Report - PWC (PM)
+                  </CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    Found {searchTermsData.totalFound} search terms - Here are the wasteful ones to add as negative keywords:
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3 max-h-96 overflow-y-auto">
+                    {searchTermsData.searchTerms?.slice(0, 20).map((term: any, index: number) => {
+                      const searchTerm = term.searchTermView?.searchTerm || term.search_term_view?.search_term || 'Unknown';
+                      const clicks = parseInt(term.metrics?.clicks || '0');
+                      const conversions = parseFloat(term.metrics?.conversions || '0');
+                      
+                      return (
+                        <div key={index} className="flex items-center justify-between p-3 bg-red-50 dark:bg-red-900/20 rounded border">
+                          <div className="flex-1">
+                            <span className="text-sm font-mono">-{searchTerm}</span>
+                            <div className="text-xs text-muted-foreground mt-1">
+                              {clicks} clicks, {conversions} conversions
+                            </div>
+                          </div>
+                          <Badge variant="destructive" className="text-xs">
+                            Add as Negative
+                          </Badge>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="mt-4 p-3 bg-muted rounded-lg">
+                    <div className="text-sm font-medium">Recommendation:</div>
+                    <div className="text-xs text-muted-foreground mt-1">
+                      Copy these search terms and add them as negative keywords to your PWC (PM) campaign to prevent wasted spend.
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {autoOptimizationResults && (
               <Card className="mb-4">
@@ -605,53 +625,12 @@ export const AIInsightsPanel = () => {
                   }
                 ]}
               />
-            ) : !autoOptimizationResults && (
+            ) : !autoOptimizationResults && !searchTermsData && (
               <div className="text-center py-8 text-muted-foreground">
                 <Zap className="h-12 w-12 mx-auto mb-4 opacity-50" />
                 <p className="font-medium">No optimizations available yet.</p>
-                <p className="text-sm">Run Smart Auto-Optimization or AI analysis first.</p>
+                <p className="text-sm">Run Smart Auto-Optimization or Test Search Terms first.</p>
               </div>
-            )}
-          </TabsContent>
-          
-          <TabsContent value="code" className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold">AI Generated Code</h3>
-              <Button 
-                onClick={handleGenerateCode}
-                disabled={isGeneratingCode}
-                className="flex items-center gap-2"
-              >
-                {isGeneratingCode ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Code className="h-4 w-4" />
-                )}
-                {isGeneratingCode ? "Generating..." : "Generate Code"}
-              </Button>
-            </div>
-
-            {generatedCode && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <Code className="h-4 w-4" />
-                    Optimization Script
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="bg-muted p-4 rounded-lg overflow-x-auto">
-                    <pre className="text-sm">
-                      <code>{generatedCode}</code>
-                    </pre>
-                  </div>
-                  <div className="flex gap-2 mt-4">
-                    <Button variant="outline" size="sm">Download</Button>
-                    <Button variant="outline" size="sm">Copy</Button>
-                    <Button size="sm">Deploy</Button>
-                  </div>
-                </CardContent>
-              </Card>
             )}
           </TabsContent>
 
