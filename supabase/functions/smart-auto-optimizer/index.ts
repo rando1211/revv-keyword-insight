@@ -12,10 +12,11 @@ serve(async (req) => {
   }
 
   try {
-    const { customerId } = await req.json();
+    const { customerId, executeOptimizations = false } = await req.json();
     
     console.log('=== SMART AUTO-OPTIMIZER START ===');
     console.log('Customer ID:', customerId);
+    console.log('Execute mode:', executeOptimizations ? 'LIVE EXECUTION' : 'PREVIEW ONLY');
     
     // Get credentials from environment
     const GOOGLE_CLIENT_ID = Deno.env.get('Client ID');
@@ -148,62 +149,73 @@ serve(async (req) => {
 
     const actions = [];
     
-    // Step 4: Auto-optimize high-scoring campaigns
+    // Step 4: Generate optimization recommendations
     for (const campaign of highPerformingCampaigns) {
-      try {
-        console.log(`🔧 Optimizing campaign: ${campaign.name} (Score: ${campaign.score})`);
-        
-        // Add negative keyword "free" to reduce irrelevant traffic
-        const mutateUrl = `https://googleads.googleapis.com/v18/customers/${cleanCustomerId}/campaignCriteria:mutate`;
-        const operation = {
-          operations: [{
-            create: {
-              campaign: `customers/${cleanCustomerId}/campaigns/${campaign.id}`,
-              keyword: {
-                text: "free",
-                match_type: "BROAD"
-              },
-              negative: true
-            }
-          }]
-        };
+      console.log(`🔧 Planning optimization for: ${campaign.name} (Score: ${campaign.score})`);
+      
+      const optimizationPlan = {
+        campaignId: campaign.id,
+        campaignName: campaign.name,
+        campaignScore: campaign.score,
+        action: 'Add negative keyword: "free"',
+        actionType: 'negative_keyword',
+        keyword: "free",
+        matchType: "BROAD",
+        estimatedImpact: "Reduce irrelevant traffic, improve CTR",
+        confidence: 85,
+        executed: false
+      };
 
-        const mutateRes = await fetch(mutateUrl, {
-          method: "POST",
-          headers,
-          body: JSON.stringify(operation)
-        });
+      if (executeOptimizations) {
+        try {
+          console.log(`🔧 EXECUTING optimization for: ${campaign.name}`);
+          
+          // Add negative keyword "free" to reduce irrelevant traffic
+          const mutateUrl = `https://googleads.googleapis.com/v18/customers/${cleanCustomerId}/campaignCriteria:mutate`;
+          const operation = {
+            operations: [{
+              create: {
+                campaign: `customers/${cleanCustomerId}/campaigns/${campaign.id}`,
+                keyword: {
+                  text: "free",
+                  match_type: "BROAD"
+                },
+                negative: true
+              }
+            }]
+          };
 
-        const mutateResult = await mutateRes.text();
-        const success = mutateRes.ok;
-        
-        actions.push({
-          campaignId: campaign.id,
-          campaignName: campaign.name,
-          campaignScore: campaign.score,
-          action: 'Added negative keyword: "free"',
-          success,
-          status: mutateRes.status,
-          response: success ? 'Successfully added negative keyword' : mutateResult
-        });
+          const mutateRes = await fetch(mutateUrl, {
+            method: "POST",
+            headers,
+            body: JSON.stringify(operation)
+          });
 
-        if (success) {
-          console.log(`✅ Successfully optimized: ${campaign.name}`);
-        } else {
-          console.log(`❌ Failed to optimize: ${campaign.name} - ${mutateResult}`);
+          const mutateResult = await mutateRes.text();
+          const success = mutateRes.ok;
+          
+          optimizationPlan.executed = true;
+          optimizationPlan.success = success;
+          optimizationPlan.status = mutateRes.status;
+          optimizationPlan.response = success ? 'Successfully added negative keyword' : mutateResult;
+
+          if (success) {
+            console.log(`✅ Successfully executed: ${campaign.name}`);
+          } else {
+            console.log(`❌ Failed to execute: ${campaign.name} - ${mutateResult}`);
+          }
+          
+        } catch (error) {
+          console.error(`💥 Error executing optimization ${campaign.name}:`, error);
+          optimizationPlan.executed = true;
+          optimizationPlan.success = false;
+          optimizationPlan.error = error.message;
         }
-        
-      } catch (error) {
-        console.error(`💥 Error optimizing campaign ${campaign.name}:`, error);
-        actions.push({
-          campaignId: campaign.id,
-          campaignName: campaign.name,
-          campaignScore: campaign.score,
-          action: 'Add negative keyword',
-          success: false,
-          error: error.message
-        });
+      } else {
+        console.log(`📋 PREVIEW: Would add negative keyword "free" to ${campaign.name}`);
       }
+
+      actions.push(optimizationPlan);
     }
 
     const successfulOptimizations = actions.filter(a => a.success).length;

@@ -18,6 +18,7 @@ export const AIInsightsPanel = () => {
   const [generatedCode, setGeneratedCode] = useState<string>("");
   const [isAutoOptimizing, setIsAutoOptimizing] = useState(false);
   const [autoOptimizationResults, setAutoOptimizationResults] = useState<any>(null);
+  const [isExecutingOptimizations, setIsExecutingOptimizations] = useState(false);
 
   const handleAnalyzeCampaigns = async () => {
     setIsAnalyzing(true);
@@ -105,16 +106,22 @@ export const AIInsightsPanel = () => {
     setIsAutoOptimizing(true);
     try {
       const { data, error } = await supabase.functions.invoke('smart-auto-optimizer', {
-        body: { customerId: selectedAccountForAnalysis.customerId }
+        body: { 
+          customerId: selectedAccountForAnalysis.customerId,
+          executeOptimizations: false // Preview mode only
+        }
       });
       
       if (error) throw error;
       
       setAutoOptimizationResults(data);
       
+      const hasOptimizations = data.actions && data.actions.length > 0;
       toast({
-        title: "Smart Auto-Optimization Complete",
-        description: `${data.summary.optimizationsSuccessful}/${data.summary.optimizationsAttempted} optimizations applied successfully`,
+        title: "Smart Auto-Optimization Preview",
+        description: hasOptimizations 
+          ? `Found ${data.actions.length} optimization opportunities. Review before executing.`
+          : "No high-performing campaigns found for optimization.",
       });
     } catch (error) {
       console.error("Smart auto-optimization failed:", error);
@@ -125,6 +132,39 @@ export const AIInsightsPanel = () => {
       });
     } finally {
       setIsAutoOptimizing(false);
+    }
+  };
+
+  const handleExecuteOptimizations = async () => {
+    if (!selectedAccountForAnalysis || !autoOptimizationResults) return;
+
+    setIsExecutingOptimizations(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('smart-auto-optimizer', {
+        body: { 
+          customerId: selectedAccountForAnalysis.customerId,
+          executeOptimizations: true // Execute mode
+        }
+      });
+      
+      if (error) throw error;
+      
+      setAutoOptimizationResults(data);
+      
+      const successCount = data.actions?.filter((a: any) => a.executed && a.success).length || 0;
+      toast({
+        title: "Optimizations Executed",
+        description: `${successCount}/${data.actions?.length || 0} optimizations applied successfully to live campaigns.`,
+      });
+    } catch (error) {
+      console.error("Optimization execution failed:", error);
+      toast({
+        title: "Execution Failed",
+        description: "Unable to execute optimizations",
+        variant: "destructive",
+      });
+    } finally {
+      setIsExecutingOptimizations(false);
     }
   };
 
@@ -326,18 +366,52 @@ export const AIInsightsPanel = () => {
                   </div>
                   
                   {autoOptimizationResults.actions.length > 0 && (
-                    <div className="space-y-2">
-                      <h4 className="font-medium">Optimization Actions:</h4>
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-medium">Optimization Actions:</h4>
+                        {!autoOptimizationResults.actions.some((a: any) => a.executed) && (
+                          <Button 
+                            onClick={handleExecuteOptimizations}
+                            disabled={isExecutingOptimizations}
+                            size="sm"
+                            className="flex items-center gap-2"
+                          >
+                            {isExecutingOptimizations ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Play className="h-4 w-4" />
+                            )}
+                            {isExecutingOptimizations ? "Executing..." : "Execute All"}
+                          </Button>
+                        )}
+                      </div>
                       {autoOptimizationResults.actions.map((action: any, index: number) => (
-                        <div key={index} className="flex items-center justify-between p-2 bg-muted rounded">
-                          <div>
+                        <div key={index} className="flex items-center justify-between p-3 bg-muted rounded">
+                          <div className="flex-1">
                             <p className="text-sm font-medium">{action.campaignName}</p>
                             <p className="text-xs text-muted-foreground">{action.action}</p>
                             <p className="text-xs text-blue-600">Score: {action.campaignScore}</p>
+                            {action.estimatedImpact && (
+                              <p className="text-xs text-green-600 mt-1">📈 {action.estimatedImpact}</p>
+                            )}
                           </div>
-                          <Badge variant={action.success ? "default" : "destructive"}>
-                            {action.success ? "Success" : "Failed"}
-                          </Badge>
+                          <div className="flex flex-col items-end gap-1">
+                            <Badge variant={
+                              action.executed 
+                                ? (action.success ? "default" : "destructive")
+                                : "outline"
+                            }>
+                              {action.executed 
+                                ? (action.success ? "✅ Executed" : "❌ Failed") 
+                                : "📋 Preview"
+                              }
+                            </Badge>
+                            {action.confidence && (
+                              <span className="text-xs text-muted-foreground">
+                                {action.confidence}% confidence
+                              </span>
+                            )}
+                          </div>
                         </div>
                       ))}
                     </div>
