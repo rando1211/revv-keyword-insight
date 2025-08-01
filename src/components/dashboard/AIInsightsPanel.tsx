@@ -420,6 +420,61 @@ export const AIInsightsPanel = () => {
               </Card>
             )}
 
+            {autoOptimizationResults && autoOptimizationResults.optimizations && autoOptimizationResults.optimizations.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Zap className="h-4 w-4" />
+                    Smart Auto-Optimization Results
+                  </CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    Found {autoOptimizationResults.optimizations.length} keyword optimization opportunities
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {autoOptimizationResults.optimizations.map((opt: any, index: number) => (
+                      <div key={index} className="border rounded-lg p-4">
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="flex-1">
+                            <h4 className="font-medium text-sm">{opt.action}</h4>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {opt.description}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2 text-xs">
+                            <Badge variant={
+                              opt.priority === 'high' ? 'destructive' :
+                              opt.priority === 'medium' ? 'default' : 'secondary'
+                            }>
+                              {opt.priority} impact
+                            </Badge>
+                            <span className="text-muted-foreground">
+                              {opt.confidence}% confidence
+                            </span>
+                          </div>
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          Estimated savings: ${opt.estimatedSavings}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  {autoOptimizationResults.summary && (
+                    <div className="mt-4 p-3 bg-muted rounded-lg">
+                      <div className="text-sm font-medium">Summary</div>
+                      <div className="text-xs text-muted-foreground mt-1">
+                        {autoOptimizationResults.summary.totalCampaigns} campaigns analyzed • 
+                        {autoOptimizationResults.summary.optimizationsFound} optimizations found • 
+                        ${autoOptimizationResults.summary.potentialSavings} potential savings
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
             {analysisResults && selectedAccountForAnalysis && parsedOptimizations.length > 0 ? (
               <OptimizationReview
                 optimizations={parsedOptimizations}
