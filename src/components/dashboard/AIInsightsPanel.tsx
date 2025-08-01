@@ -441,6 +441,20 @@ export const AIInsightsPanel = () => {
                             <p className="text-xs text-muted-foreground mt-1">
                               {opt.description}
                             </p>
+                            {opt.details?.suggestedNegativeKeywords && opt.details.suggestedNegativeKeywords.length > 0 && (
+                              <div className="mt-2 p-2 bg-red-50 dark:bg-red-900/20 rounded border">
+                                <div className="text-xs font-medium text-red-700 dark:text-red-300 mb-1">
+                                  Suggested Negative Keywords:
+                                </div>
+                                <div className="flex flex-wrap gap-1">
+                                  {opt.details.suggestedNegativeKeywords.map((keyword: string, idx: number) => (
+                                    <span key={idx} className="px-2 py-1 bg-red-100 dark:bg-red-800/30 text-red-700 dark:text-red-300 text-xs rounded">
+                                      -{keyword}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
                           </div>
                           <div className="flex items-center gap-2 text-xs">
                             <Badge variant={

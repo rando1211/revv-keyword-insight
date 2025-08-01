@@ -95,6 +95,37 @@ serve(async (req) => {
       });
     }
 
+    // Also fetch search term data for negative keyword suggestions
+    const searchTermQuery = `
+      SELECT
+        search_term_view.search_term,
+        campaign.id,
+        campaign.name,
+        metrics.clicks,
+        metrics.impressions,
+        metrics.ctr,
+        metrics.conversions,
+        metrics.cost_micros
+      FROM search_term_view
+      WHERE campaign.status = 'ENABLED'
+        AND segments.date DURING LAST_30_DAYS
+        AND metrics.impressions > 100
+      ORDER BY metrics.cost_micros DESC
+      LIMIT 50
+    `;
+
+    const searchTermRes = await fetch(adsApiUrl, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ query: searchTermQuery })
+    });
+
+    let searchTerms = [];
+    if (searchTermRes.ok) {
+      const searchTermData = await searchTermRes.json();
+      searchTerms = searchTermData.results || [];
+    }
+
     // Process campaigns and generate keyword optimization suggestions
     const optimizations = [];
 
@@ -129,15 +160,36 @@ serve(async (req) => {
       }
 
       if (ctr < 2 && clicks > 30) {
+        // Find poor performing search terms for this campaign
+        const campaignSearchTerms = searchTerms.filter(st => st.campaign.id === r.campaign.id);
+        const poorTerms = campaignSearchTerms
+          .filter(st => {
+            const termCtr = parseFloat(st.metrics?.ctr || '0') * 100;
+            const termClicks = parseFloat(st.metrics?.clicks || '0');
+            const termConversions = parseFloat(st.metrics?.conversions || '0');
+            return termCtr < 1 && termClicks > 10 && termConversions === 0;
+          })
+          .slice(0, 5) // Top 5 worst performing terms
+          .map(st => st.searchTerm?.search_term || 'N/A');
+
+        const suggestedNegatives = poorTerms.length > 0 
+          ? `Suggested negative keywords: ${poorTerms.join(', ')}`
+          : 'Analyze search terms report to identify irrelevant queries';
+
         optimizations.push({
           campaignId: r.campaign.id,
           campaignName: r.campaign.name,
           type: 'negative_keywords',
           action: `Add negative keywords to "${r.campaign.name}"`,
-          description: `Low CTR (${ctr.toFixed(1)}%) with ${clicks} clicks - add negative keywords to improve relevance`,
+          description: `Low CTR (${ctr.toFixed(1)}%) with ${clicks} clicks - add negative keywords to improve relevance. ${suggestedNegatives}`,
           priority: 'medium',
           estimatedSavings: Math.round(clicks * 1.5),
-          confidence: 85
+          confidence: 85,
+          details: {
+            suggestedNegativeKeywords: poorTerms,
+            currentCTR: ctr.toFixed(1) + '%',
+            totalClicks: clicks
+          }
         });
       }
 
