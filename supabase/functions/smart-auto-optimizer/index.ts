@@ -206,18 +206,20 @@ serve(async (req) => {
     // Step 4: Score campaigns using ML-lite scoring
     console.log('🧮 Scoring campaigns...');
     const scored = campaignData.results.map((r: any) => {
-      console.log(`📋 Raw campaign data:`, {
-        id: r.campaign.id,
-        name: r.campaign.name,
-        status: r.campaign.status,
-        rawMetrics: r.metrics
-      });
-      
       const ctr = parseFloat(r.metrics?.ctr || '0');
       const conv = parseFloat(r.metrics?.conversions || '0');
       const costMicros = parseFloat(r.metrics?.cost_micros || '1');
       const cost = costMicros / 1_000_000; // Convert from micros to dollars
       const clicks = parseFloat(r.metrics?.clicks || '0');
+      
+      console.log(`📋 Raw campaign data:`, {
+        id: r.campaign.id,
+        name: r.campaign.name,
+        status: r.campaign.status,
+        rawMetrics: r.metrics,
+        costMicros: costMicros,
+        calculatedCost: cost
+      });
       
       // ML-lite scoring: CTR weight 0.4 + conversion-to-cost ratio weight 0.6
       const conversionToCostRatio = cost > 0 ? conv / cost : 0;
