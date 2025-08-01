@@ -71,8 +71,9 @@ serve(async (req) => {
         metrics.ctr,
         metrics.conversions
       FROM campaign
-      WHERE segments.date DURING LAST_30_DAYS
-        AND campaign.status = 'ENABLED'
+      WHERE campaign.status = 'ENABLED'
+        AND segments.date DURING LAST_30_DAYS
+        AND metrics.cost_micros > 0
       ORDER BY metrics.cost_micros DESC
       LIMIT 10
     `;
@@ -106,6 +107,13 @@ serve(async (req) => {
     // Step 2: Score campaigns using ML-lite scoring
     console.log('🧮 Scoring campaigns...');
     const scored = baseData.results.map((r: any) => {
+      console.log(`📋 Raw campaign data:`, {
+        id: r.campaign.id,
+        name: r.campaign.name,
+        status: r.campaign.status,
+        rawMetrics: r.metrics
+      });
+      
       const ctr = parseFloat(r.metrics?.ctr || '0');
       const conv = parseFloat(r.metrics?.conversions || '0');
       const costMicros = parseFloat(r.metrics?.cost_micros || '1');
