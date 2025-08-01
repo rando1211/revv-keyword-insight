@@ -119,8 +119,8 @@ serve(async (req) => {
       FROM search_term_view
       WHERE campaign.status = 'ENABLED'
         AND segments.date DURING LAST_30_DAYS
-        AND metrics.cost_micros > 1000000
-        AND metrics.clicks > 3
+        AND metrics.cost_micros > 100000
+        AND metrics.clicks > 1
       ORDER BY metrics.cost_micros DESC
       LIMIT 100
     `;
