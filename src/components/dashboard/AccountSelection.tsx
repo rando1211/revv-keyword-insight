@@ -16,6 +16,7 @@ export const AccountSelection = () => {
   const [accounts, setAccounts] = useState<GoogleAdsAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [analyzingAccount, setAnalyzingAccount] = useState<string | null>(null);
+  const [analysisStep, setAnalysisStep] = useState<number>(0);
   const { toast } = useToast();
   const { setSelectedAccountForAnalysis, setAnalysisResults } = useAccount();
 
@@ -89,18 +90,19 @@ export const AccountSelection = () => {
 
   const handleAnalyzeAccount = async (account: GoogleAdsAccount) => {
     setAnalyzingAccount(account.id);
+    setAnalysisStep(1);
     
     // Clear previous analysis results immediately
     setAnalysisResults(null);
     setSelectedAccountForAnalysis(null);
     
     try {
+      // Step 1: Fetch campaign data
       toast({
-        title: "🚀 Starting 3-Step AI Analysis",
-        description: `Initializing advanced AI processing for ${account.name}...`,
+        title: "🎯 Step 1/3: Fetching Campaign Data",
+        description: `Loading active campaigns for ${account.name}...`,
       });
 
-      // Fetch REAL campaign data for this specific account only
       let campaignData = [];
       try {
         const { data, error } = await supabase.functions.invoke('fetch-google-ads-campaigns', {
@@ -131,26 +133,19 @@ export const AccountSelection = () => {
         return;
       }
 
-      // Show 3-step progress
+      // Step 2: AI Analysis
+      setAnalysisStep(2);
       toast({
-        title: "🎯 Step 1/3: Campaign Analysis",
-        description: "AI analyzing campaign performance and opportunities...",
+        title: "🧠 Step 2/3: AI Campaign Analysis",
+        description: "AI analyzing campaign performance, keywords, and opportunities...",
       });
 
-      // Add slight delays to show progress (the backend handles the actual sequencing)
-      setTimeout(() => {
-        toast({
-          title: "🔧 Step 2/3: Code Generation", 
-          description: "AI generating GAQL queries and optimization code...",
-        });
-      }, 3000);
-
-      setTimeout(() => {
-        toast({
-          title: "✅ Step 3/3: API Validation",
-          description: "AI validating code compliance and finalizing...",
-        });
-      }, 6000);
+      // Step 3: Code Generation & Validation
+      setAnalysisStep(3);
+      toast({
+        title: "🔧 Step 3/3: Generating Optimizations",
+        description: "AI generating GAQL queries and validation checks...",
+      });
 
       const analysis = await generateCampaignAnalysis(campaignData);
       
@@ -159,8 +154,8 @@ export const AccountSelection = () => {
       setAnalysisResults(analysis);
       
       toast({
-        title: "🎉 3-Step AI Analysis Complete!",
-        description: `Full analysis ready for ${account.name}! Check the AI Insights tab.`,
+        title: "🎉 AI Analysis Complete!",
+        description: `Ready! Check the AI Insights tab for ${campaignData.length} campaign optimizations.`,
       });
     } catch (error) {
       console.error("Analysis failed:", error);
@@ -171,6 +166,7 @@ export const AccountSelection = () => {
       });
     } finally {
       setAnalyzingAccount(null);
+      setAnalysisStep(0);
     }
   };
 
@@ -227,17 +223,8 @@ export const AccountSelection = () => {
                   </Badge>
                 </div>
                 
-                <div className="grid grid-cols-2 gap-4 text-sm text-muted-foreground">
-                  <div>
-                    <span className="font-medium">Customer ID:</span>
-                    <br />
-                    {account.customerId}
-                  </div>
-                  <div>
-                    <span className="font-medium">Status:</span>
-                    <br />
-                    {account.status}
-                  </div>
+                <div className="text-sm text-muted-foreground">
+                  <span className="font-medium">Customer ID:</span> {account.customerId}
                 </div>
               </div>
               
