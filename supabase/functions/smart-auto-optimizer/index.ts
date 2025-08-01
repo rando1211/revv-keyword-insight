@@ -6,6 +6,88 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// AI-powered search term classification using OpenAI
+async function classifySearchTermsWithAI(searchTerms: any[], campaignContext: string) {
+  const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+  if (!OPENAI_API_KEY) {
+    console.log('⚠️ No OpenAI API key found, falling back to rule-based optimization');
+    return [];
+  }
+
+  console.log('🤖 Analyzing search terms with AI...');
+  
+  // Prepare data for AI analysis
+  const analysisData = searchTerms.slice(0, 20).map(term => ({
+    term: term.searchTermView?.searchTerm || term.search_term_view?.search_term,
+    impressions: parseInt(term.metrics?.impressions || '0'),
+    clicks: parseInt(term.metrics?.clicks || '0'),
+    conversions: parseFloat(term.metrics?.conversions || '0'),
+    cost: parseFloat(term.metrics?.cost_micros || '0') / 1_000_000,
+    ctr: parseFloat(term.metrics?.ctr || '0'),
+    campaignName: term.campaign?.name
+  })).filter(t => t.term && t.term.length > 2);
+
+  const prompt = `You are a PPC expert analyzing Google Ads search terms. 
+Campaign Context: ${campaignContext}
+
+Analyze each search term and classify it:
+- BOOST: High commercial intent, good performance, increase bid
+- BLOCK: Wasteful spend, irrelevant, add as negative keyword  
+- TEST: Unclear performance, monitor or modify match type
+- REFINE: Good intent but needs optimization
+
+Consider:
+- Commercial intent (buying signals vs research)
+- Relevance to campaign
+- Performance metrics (CTR, conversions, cost)
+- Brand mismatches
+- Geographic relevance
+
+Return JSON array with: {"term": "...", "action": "BOOST|BLOCK|TEST|REFINE", "reason": "brief explanation", "confidence": 0-100}
+
+Search Terms Data:
+${JSON.stringify(analysisData, null, 2)}`;
+
+  try {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${OPENAI_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: 'You are a Google Ads optimization expert. Always respond with valid JSON only.' },
+          { role: 'user', content: prompt }
+        ],
+        temperature: 0.1,
+        max_tokens: 2000
+      }),
+    });
+
+    if (!response.ok) {
+      console.error('OpenAI API error:', await response.text());
+      return [];
+    }
+
+    const result = await response.json();
+    const aiResponse = result.choices[0].message.content;
+    
+    try {
+      const classifications = JSON.parse(aiResponse);
+      console.log('🤖 AI classified', classifications.length, 'search terms');
+      return classifications;
+    } catch (parseError) {
+      console.error('Failed to parse AI response:', parseError);
+      return [];
+    }
+  } catch (error) {
+    console.error('OpenAI classification error:', error);
+    return [];
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -139,45 +221,39 @@ serve(async (req) => {
       console.log('⚠️ Could not fetch search terms, using campaign-level optimization only');
     }
 
-    // Step 3: Analyze search terms for negative keywords (smarter filtering)
-    console.log('🔍 Analyzing search terms for negative keyword opportunities...');
-    const poorPerformingSearchTerms = [];
+    // Step 3: AI-powered search term analysis
+    console.log('🤖 Starting AI-powered search term analysis...');
+    const aiClassifications = [];
+    const blockTerms = [];
+    const boostTerms = [];
+    const testTerms = [];
+    const refineTerms = [];
     
     if (searchTermsData.results && searchTermsData.results.length > 0) {
-      for (const searchTerm of searchTermsData.results) {
-        const cost = parseFloat(searchTerm.metrics?.cost_micros || '0') / 1_000_000;
-        const conversions = parseFloat(searchTerm.metrics?.conversions || '0');
-        const clicks = parseFloat(searchTerm.metrics?.clicks || '0');
-        const ctr = parseFloat(searchTerm.metrics?.ctr || '0');
-        const term = searchTerm.searchTermView?.searchTerm || searchTerm.search_term_view?.search_term;
+      // Build campaign context for AI
+      const campaignNames = [...new Set(campaignData.results.map(c => c.campaign.name))];
+      const campaignContext = `Campaigns: ${campaignNames.join(', ')}. Business appears to be in automotive/motorcycle industry.`;
+      
+      // Get AI classifications
+      const aiResults = await classifySearchTermsWithAI(searchTermsData.results, campaignContext);
+      
+      if (aiResults.length > 0) {
+        console.log('🤖 AI analysis complete. Processing recommendations...');
         
-        if (!term || term.length < 3) continue; // Skip very short or missing terms
-        
-        // Only flag terms that are clearly irrelevant based on campaign context
-        const campaignName = searchTerm.campaign?.name?.toLowerCase() || '';
-        const termLower = term.toLowerCase();
-        
-        const isIrrelevantTerm = (
-          // Competitor names or locations that aren't the business
-          termLower.includes('del amo') ||
-          termLower.includes('pasadena') ||
-          termLower.includes('tustin') ||
-          termLower.includes('redondo') ||
-          // Clearly unrelated products
-          termLower.includes('scooter repair') ||
-          termLower.includes('electric scooter') ||
-          // Brand mismatch - only flag if searching for wrong brand
-          (campaignName.includes('honda') && (termLower.includes('yamaha') || termLower.includes('kawasaki') || termLower.includes('ducati') || termLower.includes('can-am'))) ||
-          (campaignName.includes('yamaha') && (termLower.includes('honda') || termLower.includes('kawasaki') || termLower.includes('ducati') || termLower.includes('can-am'))) ||
-          (campaignName.includes('ducati') && (termLower.includes('honda') || termLower.includes('yamaha') || termLower.includes('kawasaki') || termLower.includes('can-am'))) ||
-          (campaignName.includes('can-am') && (termLower.includes('honda') || termLower.includes('yamaha') || termLower.includes('kawasaki') || termLower.includes('ducati'))) ||
-          // Free/cheap seekers with no intent to buy
-          (termLower.includes('free') && cost > 5 && conversions === 0)
-        );
-        
-        if (isIrrelevantTerm) {
-          poorPerformingSearchTerms.push({
-            term,
+        for (const aiResult of aiResults) {
+          const searchTerm = searchTermsData.results.find(st => 
+            (st.searchTermView?.searchTerm || st.search_term_view?.search_term) === aiResult.term
+          );
+          
+          if (!searchTerm) continue;
+          
+          const cost = parseFloat(searchTerm.metrics?.cost_micros || '0') / 1_000_000;
+          const conversions = parseFloat(searchTerm.metrics?.conversions || '0');
+          const clicks = parseFloat(searchTerm.metrics?.clicks || '0');
+          const ctr = parseFloat(searchTerm.metrics?.ctr || '0');
+          
+          const termData = {
+            term: aiResult.term,
             campaignId: searchTerm.campaign?.id,
             campaignName: searchTerm.campaign?.name,
             cost,
@@ -186,17 +262,72 @@ serve(async (req) => {
             ctr,
             conversionRate: clicks > 0 ? conversions / clicks : 0,
             costPerConversion: conversions > 0 ? cost / conversions : Infinity,
-            reason: termLower.includes('del amo') || termLower.includes('pasadena') || termLower.includes('tustin') || termLower.includes('redondo') ? 'Competitor/irrelevant location' : 
-                   termLower.includes('scooter') ? 'Irrelevant product' :
-                   termLower.includes('free') ? 'Free seekers' : 'Brand mismatch'
-          });
+            reason: aiResult.reason,
+            confidence: aiResult.confidence,
+            aiAction: aiResult.action
+          };
+          
+          aiClassifications.push(termData);
+          
+          // Sort into action buckets
+          switch (aiResult.action) {
+            case 'BLOCK':
+              blockTerms.push(termData);
+              break;
+            case 'BOOST':
+              boostTerms.push(termData);
+              break;
+            case 'TEST':
+              testTerms.push(termData);
+              break;
+            case 'REFINE':
+              refineTerms.push(termData);
+              break;
+          }
+        }
+        
+        console.log('🤖 AI Classification Results:');
+        console.log(`   🚫 BLOCK: ${blockTerms.length} terms`);
+        console.log(`   ✅ BOOST: ${boostTerms.length} terms`);
+        console.log(`   🧪 TEST: ${testTerms.length} terms`);
+        console.log(`   🔧 REFINE: ${refineTerms.length} terms`);
+        
+      } else {
+        console.log('⚠️ AI classification failed, falling back to rule-based analysis');
+        // Fallback to original rule-based logic for critical cases only
+        for (const searchTerm of searchTermsData.results) {
+          const cost = parseFloat(searchTerm.metrics?.cost_micros || '0') / 1_000_000;
+          const conversions = parseFloat(searchTerm.metrics?.conversions || '0');
+          const term = searchTerm.searchTermView?.searchTerm || searchTerm.search_term_view?.search_term;
+          
+          if (!term || term.length < 3) continue;
+          
+          const termLower = term.toLowerCase();
+          
+          // Only flag obviously wasteful terms as fallback
+          if ((termLower.includes('free') && cost > 10 && conversions === 0) ||
+              termLower.includes('scooter repair') ||
+              termLower.includes('electric scooter')) {
+            blockTerms.push({
+              term,
+              campaignId: searchTerm.campaign?.id,
+              campaignName: searchTerm.campaign?.name,
+              cost,
+              clicks: parseFloat(searchTerm.metrics?.clicks || '0'),
+              conversions,
+              ctr: parseFloat(searchTerm.metrics?.ctr || '0'),
+              reason: 'Rule-based fallback: wasteful term detected',
+              confidence: 85,
+              aiAction: 'BLOCK'
+            });
+          }
         }
       }
     }
     
-    console.log(`💸 Poor performing search terms found: ${poorPerformingSearchTerms.length}`);
-    if (poorPerformingSearchTerms.length > 0) {
-      console.log('💸 Sample poor performers:', poorPerformingSearchTerms.slice(0, 5));
+    console.log(`🎯 Terms identified for blocking: ${blockTerms.length}`);
+    if (blockTerms.length > 0) {
+      console.log('🎯 Sample block candidates:', blockTerms.slice(0, 3).map(t => `${t.term} (${t.reason})`));
     }
 
     // Step 4: Score campaigns using ML-lite scoring (FIXED VERSION)
@@ -246,38 +377,37 @@ serve(async (req) => {
     console.log(`🎯 Campaigns for optimization: ${highPerformingCampaigns.length}`);
     
     for (const campaign of highPerformingCampaigns) {
-      console.log(`🔧 Planning optimization for: ${campaign.name} (Score: ${campaign.score})`);
+      console.log(`🔧 Planning AI-driven optimization for: ${campaign.name} (Score: ${campaign.score})`);
       
-      // Find poor performing search terms for this specific campaign
-      const campaignPoorTerms = poorPerformingSearchTerms.filter(
-        term => term.campaignId === campaign.id
-      );
+      // Find AI-classified terms for this campaign
+      const campaignBlockTerms = blockTerms.filter(term => term.campaignId === campaign.id);
+      const campaignBoostTerms = boostTerms.filter(term => term.campaignId === campaign.id);
       
-      if (campaignPoorTerms.length > 0) {
-        // Use actual poor performing search terms
-        const negativeKeywords = campaignPoorTerms
-          .slice(0, 3) // Limit to top 3 worst performers
-          .map(term => term.term)
-          .filter(term => term && term.length > 2); // Basic validation
+      // Process BLOCK terms (add as negative keywords)
+      if (campaignBlockTerms.length > 0) {
+        const topBlockTerms = campaignBlockTerms
+          .sort((a, b) => b.cost - a.cost) // Sort by cost (highest first)
+          .slice(0, 3); // Limit to top 3
           
-        for (const keyword of negativeKeywords) {
+        for (const termData of topBlockTerms) {
           const optimizationPlan = {
             campaignId: campaign.id,
             campaignName: campaign.name,
             campaignScore: campaign.score,
-            action: `Add negative keyword: "${keyword}"`,
+            action: `🚫 Block wasteful term: "${termData.term}"`,
             actionType: 'negative_keyword',
-            keyword: keyword,
+            keyword: termData.term,
             matchType: "BROAD",
-            estimatedImpact: `Stop wasteful spend on "${keyword}" - saved $${campaignPoorTerms.find(t => t.term === keyword)?.cost.toFixed(2) || '0'}`,
-            confidence: 90,
+            estimatedImpact: `AI identified wasteful spend - Save $${termData.cost.toFixed(2)}`,
+            confidence: termData.confidence,
+            aiReason: termData.reason,
             executed: false,
-            dataSource: 'search_term_analysis'
+            dataSource: 'ai_classification'
           };
 
           if (executeOptimizations) {
             try {
-              console.log(`🔧 EXECUTING optimization for: ${campaign.name} - Adding "${keyword}"`);
+              console.log(`🔧 EXECUTING optimization for: ${campaign.name} - Adding "${termData.term}"`);
               
               const mutateUrl = `https://googleads.googleapis.com/v18/customers/${cleanCustomerId}/campaignCriteria:mutate`;
               const operation = {
@@ -285,7 +415,7 @@ serve(async (req) => {
                   create: {
                     campaign: `customers/${cleanCustomerId}/campaigns/${campaign.id}`,
                     keyword: {
-                      text: keyword,
+                      text: termData.term,
                       match_type: "BROAD"
                     },
                     negative: true
@@ -305,12 +435,12 @@ serve(async (req) => {
               optimizationPlan.executed = true;
               optimizationPlan.success = success;
               optimizationPlan.status = mutateRes.status;
-              optimizationPlan.response = success ? `Successfully added negative keyword "${keyword}"` : mutateResult;
+              optimizationPlan.response = success ? `Successfully added negative keyword "${termData.term}"` : mutateResult;
 
               if (success) {
-                console.log(`✅ Successfully added "${keyword}" to ${campaign.name}`);
+                console.log(`✅ Successfully added "${termData.term}" to ${campaign.name}`);
               } else {
-                console.log(`❌ Failed to add "${keyword}" to ${campaign.name} - ${mutateResult}`);
+                console.log(`❌ Failed to add "${termData.term}" to ${campaign.name} - ${mutateResult}`);
               }
               
             } catch (error) {
@@ -320,14 +450,66 @@ serve(async (req) => {
               optimizationPlan.error = error.message;
             }
           } else {
-            console.log(`📋 PREVIEW: Would add negative keyword "${keyword}" to ${campaign.name}`);
+            console.log(`📋 PREVIEW: Would add negative keyword "${termData.term}" to ${campaign.name}`);
           }
 
           actions.push(optimizationPlan);
         }
-      } else {
-        // Only add fallback for campaigns that don't have search term data
-        console.log(`📋 No search term data for ${campaign.name}, skipping fallback`);
+      }
+      
+      // Process BOOST terms (increase bids - for preview only as this needs bid strategy changes)
+      if (campaignBoostTerms.length > 0) {
+        const topBoostTerms = campaignBoostTerms
+          .sort((a, b) => b.conversions - a.conversions) // Sort by conversions
+          .slice(0, 2); // Limit to top 2
+          
+        for (const termData of topBoostTerms) {
+          const boostPlan = {
+            campaignId: campaign.id,
+            campaignName: campaign.name,
+            campaignScore: campaign.score,
+            action: `✅ Boost high-performing term: "${termData.term}"`,
+            actionType: 'boost_keyword',
+            keyword: termData.term,
+            estimatedImpact: `AI identified high-potential term - ${termData.conversions} conversions`,
+            confidence: termData.confidence,
+            aiReason: termData.reason,
+            executed: false,
+            dataSource: 'ai_classification',
+            note: 'Boost recommendations require manual bid adjustments or bidding strategy changes'
+          };
+          
+          console.log(`📋 BOOST RECOMMENDATION: "${termData.term}" in ${campaign.name} - ${termData.reason}`);
+          actions.push(boostPlan);
+        }
+      }
+      
+      // Process TEST terms (monitoring recommendations)
+      if (testTerms.filter(t => t.campaignId === campaign.id).length > 0) {
+        const campaignTestTerms = testTerms.filter(t => t.campaignId === campaign.id).slice(0, 1);
+        for (const termData of campaignTestTerms) {
+          const testPlan = {
+            campaignId: campaign.id,
+            campaignName: campaign.name,
+            campaignScore: campaign.score,
+            action: `🧪 Monitor term: "${termData.term}"`,
+            actionType: 'monitor_keyword',
+            keyword: termData.term,
+            estimatedImpact: `AI suggests monitoring for pattern changes`,
+            confidence: termData.confidence,
+            aiReason: termData.reason,
+            executed: false,
+            dataSource: 'ai_classification',
+            note: 'Continue monitoring performance before making changes'
+          };
+          
+          console.log(`📋 TEST RECOMMENDATION: "${termData.term}" in ${campaign.name} - ${termData.reason}`);
+          actions.push(testPlan);
+        }
+      }
+      
+      if (campaignBlockTerms.length === 0 && campaignBoostTerms.length === 0) {
+        console.log(`📋 No AI recommendations for ${campaign.name}`);
       }
     }
 
