@@ -116,6 +116,8 @@ serve(async (req) => {
       const conversionToCostRatio = cost > 0 ? conv / cost : 0;
       const score = (ctr * 0.4) + (conversionToCostRatio * 0.6);
       
+      console.log(`📊 Campaign ${r.campaign.name}: CTR=${ctr}, Conversions=${conv}, Cost=$${cost}, Score=${score}`);
+      
       return {
         id: r.campaign.id,
         name: r.campaign.name,
@@ -128,11 +130,13 @@ serve(async (req) => {
       };
     });
 
-    console.log('📊 Campaign scores calculated');
+    console.log('📊 Campaign scores calculated:', scored.length);
+    console.log('📊 All campaign scores:', scored.map(c => ({ name: c.name, score: c.score })));
 
     // Step 3: Filter high-performing campaigns (score > 0.5)
     const highPerformingCampaigns = scored.filter(c => c.score > 0.5);
     console.log(`🎯 High-performing campaigns identified: ${highPerformingCampaigns.length}`);
+    console.log('🎯 High-performing campaign details:', highPerformingCampaigns);
 
     const actions = [];
     
