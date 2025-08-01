@@ -139,7 +139,7 @@ serve(async (req) => {
       console.log('⚠️ Could not fetch search terms, using campaign-level optimization only');
     }
 
-    // Step 3: Analyze search terms for negative keywords
+    // Step 3: Analyze search terms for negative keywords (smarter filtering)
     console.log('🔍 Analyzing search terms for negative keyword opportunities...');
     const poorPerformingSearchTerms = [];
     
@@ -149,21 +149,36 @@ serve(async (req) => {
         const conversions = parseFloat(searchTerm.metrics?.conversions || '0');
         const clicks = parseFloat(searchTerm.metrics?.clicks || '0');
         const ctr = parseFloat(searchTerm.metrics?.ctr || '0');
+        const term = searchTerm.searchTermView?.searchTerm || searchTerm.search_term_view?.search_term;
         
-        // Identify poor performers: high cost, low/no conversions, low CTR
+        if (!term || term.length < 3) continue; // Skip very short or missing terms
+        
+        // Identify poor performers with smarter business logic
         const conversionRate = clicks > 0 ? conversions / clicks : 0;
         const costPerConversion = conversions > 0 ? cost / conversions : Infinity;
         
-        // Poor performing criteria
-        const isPoorPerformer = (
-          (cost > 10 && conversions === 0) || // Spent $10+ with no conversions
-          (clicks > 5 && conversions === 0 && ctr < 0.02) || // 5+ clicks, no conversions, low CTR
-          (costPerConversion > 100) // Very expensive conversions
+        // Only flag terms that are clearly irrelevant or problematic
+        const isIrrelevantTerm = (
+          // Competitor names or locations that aren't the business
+          term.includes('del amo') ||
+          term.includes('pasadena') ||
+          term.includes('tustin') ||
+          term.includes('redondo') ||
+          // Clearly unrelated products
+          term.includes('scooter repair') ||
+          term.includes('electric scooter') ||
+          term.includes('grom') || // Honda Grom is a small motorcycle, not what most dealers focus on
+          // Free/cheap seekers with no intent to buy
+          (term.includes('free') && cost > 5 && conversions === 0) ||
+          // Very specific model searches that don't convert and cost a lot
+          (cost > 20 && conversions === 0 && clicks > 10 && (
+            term.includes('for sale') && term.length > 15 // Very specific "for sale" searches that don't convert
+          ))
         );
         
-        if (isPoorPerformer) {
+        if (isIrrelevantTerm) {
           poorPerformingSearchTerms.push({
-            term: searchTerm.searchTermView?.searchTerm || searchTerm.search_term_view?.search_term,
+            term,
             campaignId: searchTerm.campaign?.id,
             campaignName: searchTerm.campaign?.name,
             cost,
@@ -172,7 +187,9 @@ serve(async (req) => {
             ctr,
             conversionRate,
             costPerConversion,
-            reason: conversions === 0 ? 'No conversions' : 'High cost per conversion'
+            reason: term.includes('del amo') || term.includes('pasadena') || term.includes('tustin') || term.includes('redondo') ? 'Competitor/irrelevant location' : 
+                   term.includes('scooter') || term.includes('grom') ? 'Irrelevant product' :
+                   term.includes('free') ? 'Free seekers' : 'Poor converting specific search'
           });
         }
       }
