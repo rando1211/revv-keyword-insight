@@ -330,39 +330,59 @@ serve(async (req) => {
       console.log('🎯 Sample block candidates:', blockTerms.slice(0, 3).map(t => `${t.term} (${t.reason})`));
     }
 
-    // Step 4: Score campaigns using ML-lite scoring (FIXED VERSION)
-    console.log('🧮 Scoring campaigns...');
+    // Step 4: Improved campaign scoring for real-world scenarios
+    console.log('🧮 Scoring campaigns with adaptive algorithm...');
     const scored = campaignData.results.map((r: any) => {
       // Extract metrics first
       const ctr = parseFloat(r.metrics?.ctr || '0');
       const conv = parseFloat(r.metrics?.conversions || '0');
       const costMicros = parseFloat(r.metrics?.cost_micros || '1');
-      const actualCost = costMicros / 1_000_000; // Convert from micros to actual dollars
+      const actualCost = costMicros / 1_000_000;
       const clicks = parseFloat(r.metrics?.clicks || '0');
+      const impressions = parseFloat(r.metrics?.impressions || '0');
       
       console.log(`📋 Raw data for ${r.campaign.name}:`, {
         costMicros: costMicros,
         actualCost: actualCost,
         conversions: conv,
         clicks: clicks,
-        ctr: ctr
+        ctr: ctr,
+        impressions: impressions
       });
       
-      // Calculate proper score with actual cost
-      const conversionToCostRatio = actualCost > 0 ? conv / actualCost : 0;
-      const score = (ctr * 0.4) + (conversionToCostRatio * 0.6);
+      // Adaptive scoring for campaigns with low/no activity
+      let score = 0;
       
-      console.log(`📊 ${r.campaign.name}: Score=${score.toFixed(2)}, Cost=$${actualCost.toFixed(2)}, ConvRatio=${conversionToCostRatio.toFixed(2)}`);
+      if (actualCost > 0 && clicks > 0) {
+        // Active campaigns: use performance-based scoring
+        const conversionToCostRatio = conv / actualCost;
+        score = (ctr * 40) + (conversionToCostRatio * 60); // Scale up for realistic CTR values
+      } else if (impressions > 0) {
+        // Campaigns with impressions but no clicks/cost: potential for optimization
+        score = Math.min(impressions / 1000, 0.5); // Base score on impression volume
+      } else {
+        // New/inactive campaigns: give base score for analysis potential
+        score = 0.1; // Minimum score to allow analysis
+      }
+      
+      // Add Google's optimization score if available
+      const googleOptScore = parseFloat(r.campaign?.optimization_score || '0');
+      if (googleOptScore > 0) {
+        score += googleOptScore * 0.1; // Factor in Google's recommendations
+      }
+      
+      console.log(`📊 ${r.campaign.name}: Score=${score.toFixed(3)}, Cost=$${actualCost.toFixed(2)}, GoogleOptScore=${googleOptScore}`);
       
       return {
         id: r.campaign.id,
         name: r.campaign.name,
         score: Math.round(score * 1000) / 1000,
-        cost: actualCost, // Use actual cost, not the broken 0.000001
+        cost: actualCost,
         clicks,
         conversions: conv,
         ctr: Math.round(ctr * 10000) / 100,
-        optimization_score: r.campaign.optimization_score
+        optimization_score: googleOptScore,
+        impressions: impressions
       };
     });
 
@@ -372,11 +392,12 @@ serve(async (req) => {
     // Step 5: Generate optimization recommendations
     const actions = [];
     
-    // For high-performing campaigns, add data-driven negative keywords
-    const highPerformingCampaigns = scored.filter(c => c.score > 0.3); // Lowered threshold
-    console.log(`🎯 Campaigns for optimization: ${highPerformingCampaigns.length}`);
+    // For campaigns eligible for optimization (adaptive threshold)
+    const eligibleCampaigns = scored.filter(c => c.score >= 0.1); // Much lower threshold for real-world scenarios
+    console.log(`🎯 Campaigns eligible for optimization: ${eligibleCampaigns.length}`);
+    console.log(`🎯 Campaign eligibility details:`, eligibleCampaigns.map(c => ({ name: c.name, score: c.score, eligible: c.score >= 0.1 })));
     
-    for (const campaign of highPerformingCampaigns) {
+    for (const campaign of eligibleCampaigns) {
       console.log(`🔧 Planning AI-driven optimization for: ${campaign.name} (Score: ${campaign.score})`);
       
       // Find AI-classified terms for this campaign
@@ -520,12 +541,12 @@ serve(async (req) => {
       success: true,
       summary: {
         totalCampaigns: scored.length,
-        highPerformingCampaigns: highPerformingCampaigns.length,
+        highPerformingCampaigns: eligibleCampaigns.length,
         optimizationsAttempted: actions.length,
         optimizationsSuccessful: successfulOptimizations
       },
       campaigns: scored,
-      optimizedCampaigns: highPerformingCampaigns,
+      optimizedCampaigns: eligibleCampaigns,
       actions,
       timestamp: new Date().toISOString()
     }), {
