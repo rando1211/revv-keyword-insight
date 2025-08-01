@@ -330,83 +330,45 @@ serve(async (req) => {
       console.log('🎯 Sample block candidates:', blockTerms.slice(0, 3).map(t => `${t.term} (${t.reason})`));
     }
 
-    // Step 4: Improved campaign scoring for real-world scenarios
-    console.log('🧮 Scoring campaigns with adaptive algorithm...');
-    const scored = campaignData.results.map((r: any) => {
-      // Extract metrics first
-      const ctr = parseFloat(r.metrics?.ctr || '0');
-      const conv = parseFloat(r.metrics?.conversions || '0');
-      const costMicros = parseFloat(r.metrics?.cost_micros || '1');
-      const actualCost = costMicros / 1_000_000;
-      const clicks = parseFloat(r.metrics?.clicks || '0');
-      const impressions = parseFloat(r.metrics?.impressions || '0');
-      
-      console.log(`📋 Raw data for ${r.campaign.name}:`, {
-        costMicros: costMicros,
-        actualCost: actualCost,
-        conversions: conv,
-        clicks: clicks,
-        ctr: ctr,
-        impressions: impressions
-      });
-      
-      // Adaptive scoring for campaigns with low/no activity
-      let score = 0;
-      
-      if (actualCost > 0 && clicks > 0) {
-        // Active campaigns: use performance-based scoring
-        const conversionToCostRatio = conv / actualCost;
-        score = (ctr * 40) + (conversionToCostRatio * 60); // Scale up for realistic CTR values
-      } else if (impressions > 0) {
-        // Campaigns with impressions but no clicks/cost: potential for optimization
-        score = Math.min(impressions / 1000, 0.5); // Base score on impression volume
-      } else {
-        // New/inactive campaigns: give base score for analysis potential
-        score = 0.1; // Minimum score to allow analysis
-      }
-      
-      // Add Google's optimization score if available
-      const googleOptScore = parseFloat(r.campaign?.optimization_score || '0');
-      if (googleOptScore > 0) {
-        score += googleOptScore * 0.1; // Factor in Google's recommendations
-      }
-      
-      console.log(`📊 ${r.campaign.name}: Score=${score.toFixed(3)}, Cost=$${actualCost.toFixed(2)}, GoogleOptScore=${googleOptScore}`);
-      
-      return {
-        id: r.campaign.id,
-        name: r.campaign.name,
-        score: Math.round(score * 1000) / 1000,
-        cost: actualCost,
-        clicks,
-        conversions: conv,
-        ctr: Math.round(ctr * 10000) / 100,
-        optimization_score: googleOptScore,
-        impressions: impressions
-      };
-    });
+    // Step 4: Simple campaign list (no complex scoring needed)
+    console.log('📋 Processing campaigns for keyword analysis...');
+    const campaigns = campaignData.results.map((r: any) => ({
+      id: r.campaign.id,
+      name: r.campaign.name,
+      status: r.campaign.status
+    }));
+    
+    console.log(`📊 Found ${campaigns.length} campaigns for keyword analysis`);
 
-    console.log('📊 Campaign scores calculated:', scored.length);
-    console.log('📊 All campaign scores:', scored.map(c => ({ name: c.name, score: c.score, cost: c.cost })));
-
-    // Step 5: Generate optimization recommendations
+    // Step 5: Generate optimization actions based on AI classification
     const actions = [];
     
-    // For campaigns eligible for optimization (adaptive threshold)
-    const eligibleCampaigns = scored.filter(c => c.score >= 0.1); // Much lower threshold for real-world scenarios
-    console.log(`🎯 Campaigns eligible for optimization: ${eligibleCampaigns.length}`);
-    console.log(`🎯 Campaign eligibility details:`, eligibleCampaigns.map(c => ({ name: c.name, score: c.score, eligible: c.score >= 0.1 })));
+    // Process ALL campaigns that have search terms, regardless of performance
+    console.log('🤖 Starting AI-powered keyword optimization for all campaigns...');
     
-    for (const campaign of eligibleCampaigns) {
-      console.log(`🔧 Planning AI-driven optimization for: ${campaign.name} (Score: ${campaign.score})`);
+    // Group AI recommendations by campaign
+    const campaignMap = new Map();
+    campaigns.forEach(c => campaignMap.set(c.id, c));
+    
+    // Process BLOCK terms (add as negative keywords)
+    if (blockTerms.length > 0) {
+      console.log(`🚫 Processing ${blockTerms.length} BLOCK recommendations`);
       
-      // Find AI-classified terms for this campaign
-      const campaignBlockTerms = blockTerms.filter(term => term.campaignId === campaign.id);
-      const campaignBoostTerms = boostTerms.filter(term => term.campaignId === campaign.id);
+      // Group by campaign
+      const blockByCampaign = new Map();
+      blockTerms.forEach(term => {
+        if (!blockByCampaign.has(term.campaignId)) {
+          blockByCampaign.set(term.campaignId, []);
+        }
+        blockByCampaign.get(term.campaignId).push(term);
+      });
       
-      // Process BLOCK terms (add as negative keywords)
-      if (campaignBlockTerms.length > 0) {
-        const topBlockTerms = campaignBlockTerms
+      // Process each campaign's block terms
+      for (const [campaignId, terms] of blockByCampaign) {
+        const campaign = campaignMap.get(campaignId);
+        if (!campaign) continue;
+        
+        const topBlockTerms = terms
           .sort((a, b) => b.cost - a.cost) // Sort by cost (highest first)
           .slice(0, 3); // Limit to top 3
           
@@ -414,7 +376,6 @@ serve(async (req) => {
           const optimizationPlan = {
             campaignId: campaign.id,
             campaignName: campaign.name,
-            campaignScore: campaign.score,
             action: `🚫 Block wasteful term: "${termData.term}"`,
             actionType: 'negative_keyword',
             keyword: termData.term,
@@ -477,18 +438,32 @@ serve(async (req) => {
           actions.push(optimizationPlan);
         }
       }
+    }
+    
+    // Process BOOST terms (for recommendations only)
+    if (boostTerms.length > 0) {
+      console.log(`✅ Processing ${boostTerms.length} BOOST recommendations`);
       
-      // Process BOOST terms (increase bids - for preview only as this needs bid strategy changes)
-      if (campaignBoostTerms.length > 0) {
-        const topBoostTerms = campaignBoostTerms
-          .sort((a, b) => b.conversions - a.conversions) // Sort by conversions
-          .slice(0, 2); // Limit to top 2
+      const boostByCampaign = new Map();
+      boostTerms.forEach(term => {
+        if (!boostByCampaign.has(term.campaignId)) {
+          boostByCampaign.set(term.campaignId, []);
+        }
+        boostByCampaign.get(term.campaignId).push(term);
+      });
+      
+      for (const [campaignId, terms] of boostByCampaign) {
+        const campaign = campaignMap.get(campaignId);
+        if (!campaign) continue;
+        
+        const topBoostTerms = terms
+          .sort((a, b) => b.conversions - a.conversions)
+          .slice(0, 2);
           
         for (const termData of topBoostTerms) {
           const boostPlan = {
             campaignId: campaign.id,
             campaignName: campaign.name,
-            campaignScore: campaign.score,
             action: `✅ Boost high-performing term: "${termData.term}"`,
             actionType: 'boost_keyword',
             keyword: termData.term,
@@ -497,22 +472,37 @@ serve(async (req) => {
             aiReason: termData.reason,
             executed: false,
             dataSource: 'ai_classification',
-            note: 'Boost recommendations require manual bid adjustments or bidding strategy changes'
+            note: 'Boost recommendations require manual bid adjustments'
           };
           
           console.log(`📋 BOOST RECOMMENDATION: "${termData.term}" in ${campaign.name} - ${termData.reason}`);
           actions.push(boostPlan);
         }
       }
+    }
+    
+    // Process TEST terms (monitoring recommendations)
+    if (testTerms.length > 0) {
+      console.log(`🧪 Processing ${testTerms.length} TEST recommendations`);
       
-      // Process TEST terms (monitoring recommendations)
-      if (testTerms.filter(t => t.campaignId === campaign.id).length > 0) {
-        const campaignTestTerms = testTerms.filter(t => t.campaignId === campaign.id).slice(0, 1);
-        for (const termData of campaignTestTerms) {
+      const testByCampaign = new Map();
+      testTerms.forEach(term => {
+        if (!testByCampaign.has(term.campaignId)) {
+          testByCampaign.set(term.campaignId, []);
+        }
+        testByCampaign.get(term.campaignId).push(term);
+      });
+      
+      for (const [campaignId, terms] of testByCampaign) {
+        const campaign = campaignMap.get(campaignId);
+        if (!campaign) continue;
+        
+        const topTestTerms = terms.slice(0, 1); // One per campaign
+        
+        for (const termData of topTestTerms) {
           const testPlan = {
             campaignId: campaign.id,
             campaignName: campaign.name,
-            campaignScore: campaign.score,
             action: `🧪 Monitor term: "${termData.term}"`,
             actionType: 'monitor_keyword',
             keyword: termData.term,
@@ -528,26 +518,33 @@ serve(async (req) => {
           actions.push(testPlan);
         }
       }
-      
-      if (campaignBlockTerms.length === 0 && campaignBoostTerms.length === 0) {
-        console.log(`📋 No AI recommendations for ${campaign.name}`);
-      }
     }
 
     const successfulOptimizations = actions.filter(a => a.success).length;
-    console.log(`🎉 Auto-optimization complete: ${successfulOptimizations}/${actions.length} successful`);
+    console.log(`🎉 AI-powered optimization complete: ${successfulOptimizations}/${actions.length} successful`);
 
     return new Response(JSON.stringify({
       success: true,
       summary: {
-        totalCampaigns: scored.length,
-        highPerformingCampaigns: eligibleCampaigns.length,
+        totalCampaigns: campaigns.length,
         optimizationsAttempted: actions.length,
-        optimizationsSuccessful: successfulOptimizations
+        optimizationsSuccessful: successfulOptimizations,
+        aiClassifications: {
+          block: blockTerms.length,
+          boost: boostTerms.length,
+          test: testTerms.length,
+          refine: refineTerms.length
+        }
       },
-      campaigns: scored,
-      optimizedCampaigns: eligibleCampaigns,
+      campaigns: campaigns,
       actions,
+      aiInsights: {
+        totalTermsAnalyzed: aiClassifications.length,
+        blockTerms: blockTerms.length,
+        boostTerms: boostTerms.length,
+        testTerms: testTerms.length,
+        refineTerms: refineTerms.length
+      },
       timestamp: new Date().toISOString()
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
