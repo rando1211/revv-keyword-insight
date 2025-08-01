@@ -84,6 +84,8 @@ serve(async (req) => {
       body: JSON.stringify({ query: campaignQuery })
     });
 
+    console.log('📋 Campaign API Response Status:', campaignRes.status);
+    
     if (!campaignRes.ok) {
       const errorText = await campaignRes.text();
       console.error('Campaign fetch error:', errorText);
@@ -91,6 +93,7 @@ serve(async (req) => {
     }
 
     const campaignData = await campaignRes.json();
+    console.log('📈 Raw API Response:', JSON.stringify(campaignData, null, 2));
     console.log('📈 Campaigns fetched:', campaignData.results?.length || 0);
 
     if (!campaignData.results || campaignData.results.length === 0) {
