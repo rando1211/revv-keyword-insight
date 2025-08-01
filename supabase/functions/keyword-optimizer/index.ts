@@ -107,43 +107,55 @@ serve(async (req) => {
 
       console.log(`Campaign: ${r.campaign.name} - Cost: $${cost}, CTR: ${ctr}%, Conversions: ${conversions}`);
 
-      // Generate keyword-focused recommendations
-      if (cost > 500 && conversions === 0) {
+      // Generate keyword-focused recommendations based on performance data
+      if (clicks > 50 && conversions === 0) {
         optimizations.push({
           campaignId: r.campaign.id,
           campaignName: r.campaign.name,
           type: 'keyword_optimization',
-          action: `Pause poor performing keywords in "${r.campaign.name}"`,
-          description: `$${cost.toFixed(2)} spent with 0 conversions - review and pause wasteful keywords`,
+          action: `Review and pause poor performing keywords in "${r.campaign.name}"`,
+          description: `${clicks} clicks with 0 conversions - identify and pause wasteful keywords`,
           priority: 'high',
-          estimatedSavings: Math.round(cost * 0.6),
+          estimatedSavings: Math.round(clicks * 2), // Estimated $2 per click saved
           confidence: 95
         });
       }
 
-      if (ctr < 3 && cost > 200) {
+      if (ctr < 2 && clicks > 30) {
         optimizations.push({
           campaignId: r.campaign.id,
           campaignName: r.campaign.name,
           type: 'negative_keywords',
           action: `Add negative keywords to "${r.campaign.name}"`,
-          description: `Low CTR (${ctr.toFixed(1)}%) - add negative keywords to prevent irrelevant clicks`,
+          description: `Low CTR (${ctr.toFixed(1)}%) with ${clicks} clicks - add negative keywords to improve relevance`,
           priority: 'medium',
-          estimatedSavings: Math.round(cost * 0.3),
+          estimatedSavings: Math.round(clicks * 1.5),
           confidence: 85
         });
       }
 
-      const cpc = clicks > 0 ? cost / clicks : 0;
-      if (cpc > 8 && cost > 300) {
+      if (ctr > 8 && conversions > 100) {
         optimizations.push({
           campaignId: r.campaign.id,
           campaignName: r.campaign.name,
-          type: 'bid_optimization',
-          action: `Lower keyword bids in "${r.campaign.name}"`,
-          description: `High CPC ($${cpc.toFixed(2)}) - reduce bids on expensive keywords`,
+          type: 'keyword_expansion',
+          action: `Expand high-performing keywords in "${r.campaign.name}"`,
+          description: `High CTR (${ctr.toFixed(1)}%) with ${conversions.toFixed(0)} conversions - identify and expand successful keywords`,
+          priority: 'high',
+          estimatedSavings: Math.round(conversions * 3), // Potential revenue increase
+          confidence: 90
+        });
+      }
+
+      if (ctr < 1 && clicks > 20) {
+        optimizations.push({
+          campaignId: r.campaign.id,
+          campaignName: r.campaign.name,
+          type: 'keyword_review',
+          action: `Review keyword match types in "${r.campaign.name}"`,
+          description: `Very low CTR (${ctr.toFixed(1)}%) - switch broad match keywords to phrase or exact match`,
           priority: 'medium',
-          estimatedSavings: Math.round(cost * 0.25),
+          estimatedSavings: Math.round(clicks * 1.2),
           confidence: 80
         });
       }
