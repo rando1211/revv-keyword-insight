@@ -95,7 +95,7 @@ export const AccountSelection = () => {
     
     // Clear previous analysis results immediately
     setAnalysisResults(null);
-    setSelectedAccountForAnalysis(null);
+    setSelectedAccountForAnalysis(account);
     
     try {
       // Step 1: Fetch campaign data
