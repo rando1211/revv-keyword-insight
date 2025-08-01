@@ -441,6 +441,47 @@ export const AIInsightsPanel = () => {
                             <p className="text-xs text-muted-foreground mt-1">
                               {opt.description}
                             </p>
+                            
+                            {/* Show what will be changed */}
+                            <div className="mt-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded border">
+                              <div className="text-xs font-medium text-blue-700 dark:text-blue-300 mb-2">
+                                📋 What will be changed:
+                              </div>
+                              
+                              {opt.type === 'negative_keywords' && (
+                                <div className="space-y-1 text-xs">
+                                  <div>• Access search terms report for {opt.campaignName}</div>
+                                  <div>• Identify search terms with 0 conversions and high clicks</div>
+                                  <div>• Add these terms as negative keywords at campaign level</div>
+                                  <div className="text-orange-600 dark:text-orange-400 mt-1">
+                                    ⚠️ Current CTR: {opt.details?.currentCTR} with {opt.details?.totalClicks} clicks
+                                  </div>
+                                </div>
+                              )}
+                              
+                              {opt.type === 'keyword_review' && (
+                                <div className="space-y-1 text-xs">
+                                  <div>• Review all broad match keywords in {opt.campaignName}</div>
+                                  <div>• Change broad match to phrase match for better control</div>
+                                  <div>• Change phrase match to exact match for high-volume terms</div>
+                                  <div className="text-orange-600 dark:text-orange-400 mt-1">
+                                    ⚠️ This will reduce impressions but improve relevance
+                                  </div>
+                                </div>
+                              )}
+                              
+                              {opt.type === 'keyword_expansion' && (
+                                <div className="space-y-1 text-xs">
+                                  <div>• Identify top-performing keywords in {opt.campaignName}</div>
+                                  <div>• Create new ad groups with similar keyword variations</div>
+                                  <div>• Increase bids on high-converting keyword themes</div>
+                                  <div className="text-green-600 dark:text-green-400 mt-1">
+                                    ✅ High CTR campaign - expand successful patterns
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+
                             {opt.details?.suggestedNegativeKeywords && opt.details.suggestedNegativeKeywords.length > 0 && (
                               <div className="mt-2 p-2 bg-red-50 dark:bg-red-900/20 rounded border">
                                 <div className="text-xs font-medium text-red-700 dark:text-red-300 mb-1">
