@@ -105,7 +105,7 @@ export const AIInsightsPanel = () => {
 
     setIsAutoOptimizing(true);
     try {
-      const { data, error } = await supabase.functions.invoke('simple-optimizer', {
+      const { data, error } = await supabase.functions.invoke('keyword-optimizer', {
         body: { 
           customerId: selectedAccountForAnalysis.customerId,
           executeOptimizations: false // Preview mode only
@@ -140,7 +140,7 @@ export const AIInsightsPanel = () => {
 
     setIsExecutingOptimizations(true);
     try {
-      const { data, error } = await supabase.functions.invoke('simple-optimizer', {
+      const { data, error } = await supabase.functions.invoke('keyword-optimizer', {
         body: { 
           customerId: selectedAccountForAnalysis.customerId,
           executeOptimizations: true // Execute mode

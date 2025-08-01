@@ -26,3 +26,6 @@ verify_jwt = false
 
 [functions.simple-optimizer]
 verify_jwt = false
+
+[functions.keyword-optimizer]
+verify_jwt = false
