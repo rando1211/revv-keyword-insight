@@ -108,12 +108,14 @@ serve(async (req) => {
         metrics.cost_micros
       FROM search_term_view
       WHERE campaign.status = 'ENABLED'
-        AND segments.date DURING LAST_30_DAYS
-        AND metrics.impressions > 100
-      ORDER BY metrics.cost_micros DESC
-      LIMIT 50
+        AND segments.date DURING LAST_7_DAYS
+        AND metrics.clicks > 5
+        AND metrics.conversions = 0
+      ORDER BY metrics.clicks DESC
+      LIMIT 100
     `;
 
+    console.log('Fetching search terms...');
     const searchTermRes = await fetch(adsApiUrl, {
       method: "POST",
       headers,
@@ -124,6 +126,45 @@ serve(async (req) => {
     if (searchTermRes.ok) {
       const searchTermData = await searchTermRes.json();
       searchTerms = searchTermData.results || [];
+      console.log(`Found ${searchTerms.length} search terms`);
+    } else {
+      console.log('Search term query failed, using alternative approach');
+      
+      // Alternative: Use keyword view to get keyword data
+      const keywordQuery = `
+        SELECT
+          ad_group_criterion.keyword.text,
+          campaign.id,
+          campaign.name,
+          metrics.clicks,
+          metrics.ctr,
+          metrics.conversions,
+          metrics.cost_micros
+        FROM keyword_view
+        WHERE campaign.status = 'ENABLED'
+          AND ad_group_criterion.status = 'ENABLED'
+          AND segments.date DURING LAST_7_DAYS
+          AND metrics.clicks > 10
+          AND metrics.conversions = 0
+        ORDER BY metrics.cost_micros DESC
+        LIMIT 50
+      `;
+      
+      const keywordRes = await fetch(adsApiUrl, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ query: keywordQuery })
+      });
+      
+      if (keywordRes.ok) {
+        const keywordData = await keywordRes.json();
+        searchTerms = (keywordData.results || []).map(k => ({
+          searchTerm: { search_term: k.adGroupCriterion?.keyword?.text || 'Unknown' },
+          campaign: k.campaign,
+          metrics: k.metrics
+        }));
+        console.log(`Found ${searchTerms.length} keywords as alternative`);
+      }
     }
 
     // Process campaigns and generate keyword optimization suggestions
