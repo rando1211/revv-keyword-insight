@@ -105,7 +105,14 @@ serve(async (req) => {
       const ctr = parseFloat(r.metrics?.ctr || '0') * 100;
       const conversions = parseFloat(r.metrics?.conversions || '0');
 
-      console.log(`Campaign: ${r.campaign.name} - Cost: $${cost}, CTR: ${ctr}%, Conversions: ${conversions}`);
+      console.log(`Campaign: ${r.campaign.name} - Cost: $${cost}, CTR: ${ctr}%, Conversions: ${conversions}, Clicks: ${clicks}`);
+
+      // Debug the actual values to understand why no optimizations are generated
+      console.log(`Checking thresholds for ${r.campaign.name}:`);
+      console.log(`- clicks > 50? ${clicks} > 50 = ${clicks > 50}`);
+      console.log(`- conversions === 0? ${conversions} === 0 = ${conversions === 0}`);
+      console.log(`- ctr < 2? ${ctr} < 2 = ${ctr < 2}`);
+      console.log(`- clicks > 30? ${clicks} > 30 = ${clicks > 30}`);
 
       // Generate keyword-focused recommendations based on performance data
       if (clicks > 50 && conversions === 0) {
