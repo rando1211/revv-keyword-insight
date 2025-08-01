@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Brain, Code, TrendingUp, AlertTriangle, CheckCircle, Loader2, Play, Zap } from "lucide-react";
+import { Brain, Code, TrendingUp, AlertTriangle, CheckCircle, Loader2, Play, Zap, Bot } from "lucide-react";
 import { useState, useMemo } from "react";
 import { useToast } from "@/components/ui/use-toast";
 import { generateCampaignAnalysis, generateOptimizationCode } from "@/lib/openai-service";
@@ -16,6 +16,8 @@ export const AIInsightsPanel = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isGeneratingCode, setIsGeneratingCode] = useState(false);
   const [generatedCode, setGeneratedCode] = useState<string>("");
+  const [isAutoOptimizing, setIsAutoOptimizing] = useState(false);
+  const [autoOptimizationResults, setAutoOptimizationResults] = useState<any>(null);
 
   const handleAnalyzeCampaigns = async () => {
     setIsAnalyzing(true);
@@ -87,6 +89,42 @@ export const AIInsightsPanel = () => {
       });
     } finally {
       setIsGeneratingCode(false);
+    }
+  };
+
+  const handleSmartAutoOptimization = async () => {
+    if (!selectedAccountForAnalysis) {
+      toast({
+        title: "No Account Selected",
+        description: "Please select an account to run smart auto-optimization",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsAutoOptimizing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('smart-auto-optimizer', {
+        body: { customerId: selectedAccountForAnalysis.customerId }
+      });
+      
+      if (error) throw error;
+      
+      setAutoOptimizationResults(data);
+      
+      toast({
+        title: "Smart Auto-Optimization Complete",
+        description: `${data.summary.optimizationsSuccessful}/${data.summary.optimizationsAttempted} optimizations applied successfully`,
+      });
+    } catch (error) {
+      console.error("Smart auto-optimization failed:", error);
+      toast({
+        title: "Auto-Optimization Failed",
+        description: "Unable to run smart auto-optimization",
+        variant: "destructive",
+      });
+    } finally {
+      setIsAutoOptimizing(false);
     }
   };
 
@@ -243,6 +281,71 @@ export const AIInsightsPanel = () => {
           </TabsContent>
           
           <TabsContent value="optimizations" className="space-y-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">Campaign Optimizations</h3>
+              <Button 
+                onClick={handleSmartAutoOptimization}
+                disabled={isAutoOptimizing || !selectedAccountForAnalysis}
+                className="flex items-center gap-2"
+              >
+                {isAutoOptimizing ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Bot className="h-4 w-4" />
+                )}
+                {isAutoOptimizing ? "Auto-Optimizing..." : "Smart Auto-Optimize"}
+              </Button>
+            </div>
+
+            {autoOptimizationResults && (
+              <Card className="mb-4">
+                <CardHeader>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Bot className="h-4 w-4 text-green-600" />
+                    Smart Auto-Optimization Results
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                    <div className="text-center">
+                      <p className="text-2xl font-bold text-primary">{autoOptimizationResults.summary.totalCampaigns}</p>
+                      <p className="text-xs text-muted-foreground">Campaigns Analyzed</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-2xl font-bold text-blue-600">{autoOptimizationResults.summary.highPerformingCampaigns}</p>
+                      <p className="text-xs text-muted-foreground">High-Performing</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-2xl font-bold text-orange-600">{autoOptimizationResults.summary.optimizationsAttempted}</p>
+                      <p className="text-xs text-muted-foreground">Optimizations Applied</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-2xl font-bold text-green-600">{autoOptimizationResults.summary.optimizationsSuccessful}</p>
+                      <p className="text-xs text-muted-foreground">Successful</p>
+                    </div>
+                  </div>
+                  
+                  {autoOptimizationResults.actions.length > 0 && (
+                    <div className="space-y-2">
+                      <h4 className="font-medium">Optimization Actions:</h4>
+                      {autoOptimizationResults.actions.map((action: any, index: number) => (
+                        <div key={index} className="flex items-center justify-between p-2 bg-muted rounded">
+                          <div>
+                            <p className="text-sm font-medium">{action.campaignName}</p>
+                            <p className="text-xs text-muted-foreground">{action.action}</p>
+                            <p className="text-xs text-blue-600">Score: {action.campaignScore}</p>
+                          </div>
+                          <Badge variant={action.success ? "default" : "destructive"}>
+                            {action.success ? "Success" : "Failed"}
+                          </Badge>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
             {analysisResults && selectedAccountForAnalysis && parsedOptimizations.length > 0 ? (
               <OptimizationReview
                 optimizations={parsedOptimizations}
@@ -277,11 +380,11 @@ export const AIInsightsPanel = () => {
                   }
                 ]}
               />
-            ) : (
+            ) : !autoOptimizationResults && (
               <div className="text-center py-8 text-muted-foreground">
                 <Zap className="h-12 w-12 mx-auto mb-4 opacity-50" />
                 <p className="font-medium">No optimizations available yet.</p>
-                <p className="text-sm">Run an AI analysis first to generate optimization recommendations.</p>
+                <p className="text-sm">Run Smart Auto-Optimization or AI analysis first.</p>
               </div>
             )}
           </TabsContent>
