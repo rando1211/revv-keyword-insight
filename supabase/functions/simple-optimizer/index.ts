@@ -17,30 +17,108 @@ serve(async (req) => {
     console.log('=== SIMPLE OPTIMIZER START ===');
     console.log('Customer ID:', customerId);
     
-    // Use the existing working fetch-google-ads-campaigns function
-    const campaignsResponse = await fetch(`${req.url.split('/functions/')[0]}/functions/v1/fetch-google-ads-campaigns`, {
+    // Get credentials from environment
+    const GOOGLE_CLIENT_ID = Deno.env.get('Client ID');
+    const GOOGLE_CLIENT_SECRET = Deno.env.get('Secret');
+    const GOOGLE_REFRESH_TOKEN = Deno.env.get('Refresh token');
+    const DEVELOPER_TOKEN = Deno.env.get('Developer Token');
+    
+    if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET || !GOOGLE_REFRESH_TOKEN || !DEVELOPER_TOKEN) {
+      throw new Error('Missing required Google API credentials');
+    }
+    
+    // Get fresh access token
+    console.log('🔄 Getting access token...');
+    const oauthResponse = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': req.headers.get('Authorization') || '',
-        'apikey': req.headers.get('apikey') || '',
-      },
-      body: JSON.stringify({ customerId, limit: 10 })
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        client_id: GOOGLE_CLIENT_ID,
+        client_secret: GOOGLE_CLIENT_SECRET,
+        refresh_token: GOOGLE_REFRESH_TOKEN,
+        grant_type: 'refresh_token',
+      }),
     });
 
-    if (!campaignsResponse.ok) {
-      throw new Error(`Failed to fetch campaigns: ${campaignsResponse.statusText}`);
+    const oauthData = await oauthResponse.json();
+    if (!oauthResponse.ok) {
+      throw new Error(`OAuth failed: ${oauthData.error}`);
+    }
+    
+    const { access_token } = oauthData;
+    console.log('✅ Got access token');
+
+    // Fetch campaigns using the EXACT same query that was working
+    const cleanCustomerId = customerId.replace('customers/', '');
+    const adsApiUrl = `https://googleads.googleapis.com/v18/customers/${cleanCustomerId}/googleAds:search`;
+
+    const headers = {
+      'Authorization': `Bearer ${access_token}`,
+      'developer-token': DEVELOPER_TOKEN,
+      'login-customer-id': '9301596383',
+      'Content-Type': 'application/json',
+    };
+
+    // Use the EXACT query from the working function
+    const query = `
+      SELECT
+        campaign.id,
+        campaign.name,
+        campaign.status,
+        metrics.cost_micros,
+        metrics.clicks,
+        metrics.ctr,
+        metrics.conversions
+      FROM campaign
+      WHERE campaign.status = 'ENABLED'
+        AND segments.date DURING LAST_30_DAYS
+        AND metrics.cost_micros > 0
+      ORDER BY metrics.cost_micros DESC
+      LIMIT 10
+    `;
+
+    console.log('📊 Fetching campaigns with working query...');
+    const campaignRes = await fetch(adsApiUrl, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ query })
+    });
+
+    if (!campaignRes.ok) {
+      const errorText = await campaignRes.text();
+      throw new Error(`Campaign fetch failed: ${errorText}`);
     }
 
-    const campaignsData = await campaignsResponse.json();
-    console.log('📊 Campaigns Response:', campaignsData);
+    const campaignData = await campaignRes.json();
+    console.log('📈 Raw response:', campaignData);
 
-    if (!campaignsData.success || !campaignsData.campaigns) {
-      throw new Error('No campaigns data returned');
+    if (!campaignData.results || campaignData.results.length === 0) {
+      return new Response(JSON.stringify({
+        success: true,
+        message: 'No campaigns found',
+        campaigns: [],
+        optimizations: []
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
-    const campaigns = campaignsData.campaigns;
-    console.log(`📈 Found ${campaigns.length} campaigns`);
+    // Convert to the same format as the working function
+    const campaigns = campaignData.results.map((r: any) => {
+      const costMicros = parseFloat(r.metrics?.cost_micros || '0');
+      const cost = costMicros / 1_000_000; // Convert to dollars
+      return {
+        id: r.campaign.id,
+        name: r.campaign.name,
+        status: r.campaign.status,
+        cost: cost,
+        clicks: parseFloat(r.metrics?.clicks || '0'),
+        ctr: parseFloat(r.metrics?.ctr || '0') * 100, // Convert to percentage
+        conversions: parseFloat(r.metrics?.conversions || '0')
+      };
+    });
+
+    console.log(`📈 Processed ${campaigns.length} campaigns`);
 
     // Simple analysis based on actual data
     const optimizations = [];
