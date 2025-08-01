@@ -68,7 +68,7 @@ serve(async (req) => {
         campaign.optimization_score,
         metrics.cost_micros,
         metrics.clicks,
-        metrics.click_through_rate,
+        metrics.ctr,
         metrics.conversions
       FROM campaign
       WHERE segments.date DURING LAST_30_DAYS
@@ -106,7 +106,7 @@ serve(async (req) => {
     // Step 2: Score campaigns using ML-lite scoring
     console.log('🧮 Scoring campaigns...');
     const scored = baseData.results.map((r: any) => {
-      const ctr = parseFloat(r.metrics?.click_through_rate || '0');
+      const ctr = parseFloat(r.metrics?.ctr || '0');
       const conv = parseFloat(r.metrics?.conversions || '0');
       const costMicros = parseFloat(r.metrics?.cost_micros || '1');
       const cost = costMicros / 1_000_000; // Convert from micros
