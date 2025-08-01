@@ -163,7 +163,7 @@ serve(async (req) => {
         
         if (isPoorPerformer) {
           poorPerformingSearchTerms.push({
-            term: searchTerm.search_term_view?.search_term,
+            term: searchTerm.searchTermView?.searchTerm || searchTerm.search_term_view?.search_term,
             campaignId: searchTerm.campaign?.id,
             campaignName: searchTerm.campaign?.name,
             cost,
