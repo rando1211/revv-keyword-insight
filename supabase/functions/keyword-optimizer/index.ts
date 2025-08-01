@@ -95,80 +95,55 @@ serve(async (req) => {
       });
     }
 
-    // Get actual search terms report with detailed debugging
-    console.log('=== FETCHING SEARCH TERMS REPORT ===');
+    // Get actual search terms report using our dedicated function
+    console.log('=== FETCHING REAL SEARCH TERMS ===');
     
-    // First try: Most basic search term query
-    const searchTermQuery = `
-      SELECT
-        search_term_view.search_term,
-        campaign.id,
-        campaign.name,
-        ad_group.name,
-        metrics.clicks,
-        metrics.impressions,
-        metrics.ctr,
-        metrics.conversions,
-        metrics.cost_micros
-      FROM search_term_view
-      WHERE segments.date DURING LAST_30_DAYS
-      ORDER BY metrics.clicks DESC
-      LIMIT 100
-    `;
-
-    console.log('Executing search term query...');
-    const searchTermRes = await fetch(adsApiUrl, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({ query: searchTermQuery })
+    const searchTermsFunction = await fetch(`https://vplwrfapmvxffnrfywqh.supabase.co/functions/v1/search-terms-report`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${access_token}`
+      },
+      body: JSON.stringify({ 
+        customerId: customerId
+      })
     });
 
-    console.log('Search term response status:', searchTermRes.status);
     let searchTerms = [];
-    
-    if (searchTermRes.ok) {
-      const searchTermData = await searchTermRes.json();
-      console.log('Search term response data:', JSON.stringify(searchTermData, null, 2));
-      
-      if (searchTermData.results) {
-        searchTerms = searchTermData.results;
-        console.log(`✅ SUCCESS: Found ${searchTerms.length} actual search terms`);
-        
-        // Log first few search terms for debugging
-        searchTerms.slice(0, 3).forEach((term, idx) => {
-          console.log(`Search term ${idx + 1}: "${term.searchTermView?.searchTerm || term.search_term_view?.search_term}" - Campaign: ${term.campaign?.name} - Clicks: ${term.metrics?.clicks}`);
-        });
-      } else {
-        console.log('❌ No results in search term response');
+    if (searchTermsFunction.ok) {
+      const searchTermData = await searchTermsFunction.json();
+      if (searchTermData.success && searchTermData.searchTerms) {
+        searchTerms = searchTermData.searchTerms;
+        console.log(`✅ Found ${searchTerms.length} real search terms from dedicated function`);
       }
     } else {
-      const errorText = await searchTermRes.text();
-      console.log('❌ Search term query failed:', errorText);
+      console.log('❌ Search terms function failed, trying direct API...');
       
-      // Try alternative query without date filter
-      console.log('Trying alternative search term query...');
-      const altQuery = `
+      // Fallback to direct API call
+      const directQuery = `
         SELECT
           search_term_view.search_term,
           campaign.id,
           campaign.name,
           metrics.clicks,
-          metrics.conversions
+          metrics.conversions,
+          metrics.cost_micros
         FROM search_term_view
+        WHERE segments.date DURING LAST_30_DAYS
         ORDER BY metrics.clicks DESC
-        LIMIT 50
+        LIMIT 100
       `;
-      
-      const altRes = await fetch(adsApiUrl, {
+
+      const directRes = await fetch(adsApiUrl, {
         method: "POST",
         headers,
-        body: JSON.stringify({ query: altQuery })
+        body: JSON.stringify({ query: directQuery })
       });
-      
-      if (altRes.ok) {
-        const altData = await altRes.json();
-        searchTerms = altData.results || [];
-        console.log(`✅ Alternative query found ${searchTerms.length} search terms`);
+
+      if (directRes.ok) {
+        const directData = await directRes.json();
+        searchTerms = directData.results || [];
+        console.log(`Found ${searchTerms.length} search terms from direct API`);
       }
     }
 
