@@ -42,15 +42,32 @@ export const CampaignSelection = ({ account, onBack }: CampaignSelectionProps) =
       if (error) throw error;
       
       const campaignData = data.campaigns || [];
-      setCampaigns(campaignData);
       
-      // Select all campaigns by default
-      setSelectedCampaigns(campaignData.map((c: Campaign) => c.id));
+      // Filter out campaigns with no activity (0 impressions, clicks, or cost)
+      const activeCampaigns = campaignData.filter(campaign => 
+        campaign.impressions > 0 || campaign.clicks > 0 || campaign.cost > 0
+      );
       
-      toast({
-        title: "✅ Campaigns Loaded",
-        description: `Found ${campaignData.length} campaigns`,
-      });
+      setCampaigns(activeCampaigns);
+      
+      // Select all active campaigns by default
+      setSelectedCampaigns(activeCampaigns.map((c: Campaign) => c.id));
+      
+      const totalCampaigns = campaignData.length;
+      const activeCampaignCount = activeCampaigns.length;
+      
+      if (activeCampaignCount === 0) {
+        toast({
+          title: "No Active Campaigns Found",
+          description: `Found ${totalCampaigns} campaigns but none have recent activity (impressions, clicks, or spend). Cannot optimize inactive campaigns.`,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "✅ Active Campaigns Loaded",
+          description: `Found ${activeCampaignCount} campaigns with activity (filtered out ${totalCampaigns - activeCampaignCount} inactive ones)`,
+        });
+      }
       
     } catch (error) {
       console.error('Failed to load campaigns:', error);
@@ -214,7 +231,7 @@ export const CampaignSelection = ({ account, onBack }: CampaignSelectionProps) =
                   </Badge>
                 </div>
                 
-                <div className="grid grid-cols-3 gap-4 text-sm text-muted-foreground">
+                <div className="grid grid-cols-4 gap-4 text-sm text-muted-foreground">
                   <div>
                     <span className="font-medium">Cost:</span> {formatCurrency(campaign.cost)}
                   </div>
@@ -222,9 +239,18 @@ export const CampaignSelection = ({ account, onBack }: CampaignSelectionProps) =
                     <span className="font-medium">Clicks:</span> {campaign.clicks?.toLocaleString() || 0}
                   </div>
                   <div>
+                    <span className="font-medium">Impressions:</span> {campaign.impressions?.toLocaleString() || 0}
+                  </div>
+                  <div>
                     <span className="font-medium">CTR:</span> {((campaign.ctr || 0) * 100).toFixed(2)}%
                   </div>
                 </div>
+                
+                {(campaign.impressions === 0 && campaign.clicks === 0 && campaign.cost === 0) && (
+                  <div className="text-xs text-yellow-600 bg-yellow-50 px-2 py-1 rounded">
+                    ⚠️ No recent activity - This campaign may not be truly active
+                  </div>
+                )}
               </div>
             </div>
           ))}
@@ -232,8 +258,12 @@ export const CampaignSelection = ({ account, onBack }: CampaignSelectionProps) =
 
         {campaigns.length === 0 && (
           <div className="text-center py-8 text-muted-foreground">
-            No campaigns found for this account.
-            <br />
+            <div className="text-lg font-medium mb-2">No Active Campaigns Found</div>
+            <div className="text-sm mb-4">
+              This account has no campaigns with recent activity (impressions, clicks, or spend).
+              <br />
+              Campaigns with zero activity cannot be optimized.
+            </div>
             <Button variant="outline" onClick={loadCampaigns} className="mt-4">
               <RefreshCw className="h-4 w-4 mr-2" />
               Reload Campaigns
