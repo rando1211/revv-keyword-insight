@@ -118,12 +118,32 @@ serve(async (req) => {
       }))
     };
 
+    // Calculate benchmarks for anomaly detection
+    const allTerms = structuredData.searchTerms;
+    const avgCtr = allTerms.reduce((sum, term) => sum + term.ctr, 0) / allTerms.length;
+    const avgImpressions = allTerms.reduce((sum, term) => sum + term.impressions, 0) / allTerms.length;
+    const avgCost = allTerms.reduce((sum, term) => sum + term.cost, 0) / allTerms.length;
+    
+    const benchmarks = {
+      avgCtr: avgCtr || 0,
+      avgImpressions: avgImpressions || 0,
+      avgCost: avgCost || 0,
+      ctrThreshold: (avgCtr || 0) * 2.5, // 250% above average
+      impressionThreshold: (avgImpressions || 0) * 3, // 300% above average
+      costThreshold: (avgCost || 0) * 2 // 200% above average
+    };
+
     // AI Analysis using the specific prompt template
     console.log('🤖 Starting advanced AI analysis with semantic analysis...');
     
     const aiPrompt = `You are a Google Ads Optimization AI Assistant specialized in analyzing Search Terms Reports for PPC campaigns. 
 
 Analyze the following search terms data and provide optimization insights. Focus on semantic relevance to the campaign goal: "${campaignGoal}"
+
+Performance Benchmarks:
+- Average CTR: ${benchmarks.avgCtr.toFixed(4)}
+- Average Impressions: ${Math.round(benchmarks.avgImpressions)}
+- Average Cost: $${benchmarks.avgCost.toFixed(2)}
 
 Search Terms Data: ${JSON.stringify(structuredData.searchTerms.slice(0, 20), null, 2)}
 

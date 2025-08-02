@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAccount } from "@/contexts/AccountContext";
 import { Progress } from "@/components/ui/progress";
 import { OptimizationReview } from "./OptimizationReview";
+import { SearchTermsAnalysisUI } from "./SearchTermsAnalysisUI";
 
 export const AIInsightsPanel = () => {
   const { toast } = useToast();
@@ -790,86 +791,10 @@ export const AIInsightsPanel = () => {
                 </div>
 
                 {advancedAnalysisResults && (
-                  <div className="mt-6 space-y-4">
-                    {/* Irrelevant Terms */}
-                    {advancedAnalysisResults.irrelevantTerms && advancedAnalysisResults.irrelevantTerms.length > 0 && (
-                      <Card className="border-red-200 dark:border-red-800">
-                        <CardHeader className="pb-3">
-                          <CardTitle className="text-sm flex items-center gap-2 text-red-700 dark:text-red-300">
-                            🚫 Irrelevant Search Terms (Add as Negative Keywords)
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent className="pt-0">
-                          <div className="space-y-2">
-                            {advancedAnalysisResults.irrelevantTerms.slice(0, 10).map((term: any, idx: number) => (
-                              <div key={idx} className="flex justify-between items-center text-xs p-2 bg-red-50 dark:bg-red-900/20 rounded">
-                                <span className="font-mono">"{term.searchTerm}"</span>
-                                <div className="flex gap-2 text-muted-foreground">
-                                  <span>{term.clicks} clicks</span>
-                                  <span>${(term.cost / 1000000).toFixed(2)}</span>
-                                  <span className="text-red-600">Semantic mismatch</span>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </CardContent>
-                      </Card>
-                    )}
-
-                    {/* High Converting Clusters */}
-                    {advancedAnalysisResults.convertingClusters && advancedAnalysisResults.convertingClusters.length > 0 && (
-                      <Card className="border-green-200 dark:border-green-800">
-                        <CardHeader className="pb-3">
-                          <CardTitle className="text-sm flex items-center gap-2 text-green-700 dark:text-green-300">
-                            🎯 High-Converting Clusters (Expand These)
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent className="pt-0">
-                          <div className="space-y-2">
-                            {advancedAnalysisResults.convertingClusters.slice(0, 5).map((cluster: any, idx: number) => (
-                              <div key={idx} className="p-3 bg-green-50 dark:bg-green-900/20 rounded border">
-                                <div className="text-sm font-medium text-green-800 dark:text-green-200">{cluster.theme}</div>
-                                <div className="text-xs text-muted-foreground mt-1">
-                                  {cluster.conversionRate}% conv rate • {cluster.termCount} terms • Suggested: Exact/Phrase match
-                                </div>
-                                <div className="flex flex-wrap gap-1 mt-2">
-                                  {cluster.exampleTerms?.slice(0, 3).map((term: string, i: number) => (
-                                    <span key={i} className="px-2 py-1 bg-green-100 dark:bg-green-800/30 text-green-700 dark:text-green-300 text-xs rounded">
-                                      "{term}"
-                                    </span>
-                                  ))}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </CardContent>
-                      </Card>
-                    )}
-
-                    {/* Recommendations */}
-                    {advancedAnalysisResults.recommendations && advancedAnalysisResults.recommendations.length > 0 && (
-                      <Card className="border-blue-200 dark:border-blue-800">
-                        <CardHeader className="pb-3">
-                          <CardTitle className="text-sm flex items-center gap-2 text-blue-700 dark:text-blue-300">
-                            💡 Overall AI Recommendations
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent className="pt-0">
-                          <div className="space-y-3">
-                            {advancedAnalysisResults.recommendations.map((rec: any, idx: number) => (
-                              <div key={idx} className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded border">
-                                <div className="text-sm font-medium text-blue-800 dark:text-blue-200">{rec.title}</div>
-                                <div className="text-xs text-muted-foreground mt-1">{rec.description}</div>
-                                <div className="text-xs text-blue-600 dark:text-blue-400 mt-2">
-                                  Priority: {rec.priority} • Impact: {rec.expectedImpact}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </CardContent>
-                      </Card>
-                    )}
-                  </div>
+                  <SearchTermsAnalysisUI 
+                    analysisData={advancedAnalysisResults}
+                    selectedAccount={selectedAccountForAnalysis}
+                  />
                 )}
 
                 {!advancedAnalysisResults && !isAdvancedAnalyzing && (
