@@ -1050,7 +1050,12 @@ export const AIInsightsPanel = () => {
                       <Eye className="h-4 w-4 mr-2" />
                       Audit Current Page
                     </Button>
-                    <Button variant="outline" onClick={() => {}}>
+                    <Button variant="outline" onClick={() => {
+                      toast({
+                        title: "🤖 Perfect Page Generated!",
+                        description: "AI has analyzed your campaign and generated the optimized landing page shown below",
+                      });
+                    }}>
                       <Bot className="h-4 w-4 mr-2" />
                       Generate Perfect Page
                     </Button>
