@@ -156,6 +156,7 @@ export const AIInsightsPanel = () => {
       
       if (error) throw error;
       
+      console.log('🎯 Setting advanced analysis results:', data);
       setAdvancedAnalysisResults(data);
       
       const totalFindings = (data.irrelevantTerms?.length || 0) + 
@@ -836,7 +837,11 @@ export const AIInsightsPanel = () => {
                   </div>
                 </div>
 
-                {advancedAnalysisResults && (
+                {(() => {
+                  console.log('🖥️ Rendering advancedAnalysisResults:', advancedAnalysisResults);
+                  console.log('🔍 advancedAnalysisResults exists?', !!advancedAnalysisResults);
+                  return advancedAnalysisResults;
+                })() && (
                   <SearchTermsAnalysisUI 
                     analysisData={advancedAnalysisResults}
                     onUpdateAnalysisData={setAdvancedAnalysisResults}
