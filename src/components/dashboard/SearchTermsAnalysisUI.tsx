@@ -245,18 +245,44 @@ export const SearchTermsAnalysisUI = ({ analysisData, onUpdateAnalysisData, sele
 
   if (!analysisData) {
     return (
-      <Card>
-        <CardContent className="text-center py-12">
-          <Activity className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-          <h3 className="text-lg font-medium mb-2">Search Terms AI Analysis</h3>
-          <p className="text-muted-foreground mb-4">
-            Run a Power Audit first to analyze your search terms with AI
-          </p>
-          <Button variant="outline" onClick={() => window.location.reload()}>
-            Refresh Data
-          </Button>
-        </CardContent>
-      </Card>
+      <div className="space-y-6">
+        {/* Analysis Trigger Section */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Activity className="h-5 w-5 text-blue-600" />
+              Search Terms AI Analysis
+            </CardTitle>
+            <CardDescription>
+              AI-powered analysis to identify irrelevant search terms and optimization opportunities
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {!selectedAccount ? (
+              <div className="text-center py-8">
+                <p className="text-muted-foreground">Please select an account first to analyze search terms</p>
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <Button 
+                  onClick={() => {
+                    // Trigger analysis from parent component
+                    window.dispatchEvent(new CustomEvent('triggerAdvancedAnalysis'));
+                  }}
+                  size="lg"
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  <Activity className="h-4 w-4 mr-2" />
+                  Start AI Search Terms Analysis
+                </Button>
+                <p className="text-sm text-muted-foreground mt-2">
+                  Analyze search terms with AI to identify waste and optimization opportunities
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 

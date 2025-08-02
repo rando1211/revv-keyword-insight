@@ -441,6 +441,84 @@ export const AIInsightsPanel = () => {
     }
   };
 
+  // Advanced Search Terms Analysis function
+  const handleAdvancedAnalysis = async () => {
+    if (!selectedAccountForAnalysis || !selectedCampaignIds || selectedCampaignIds.length === 0) {
+      toast({
+        title: "No Campaigns Selected",
+        description: "Please select campaigns to analyze search terms",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsAdvancedAnalyzing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('advanced-search-terms-ai', {
+        body: {
+          customerId: selectedAccountForAnalysis.customerId,
+          campaignIds: selectedCampaignIds,
+          campaignGoal: campaignGoal,
+          campaignContext: campaignContext
+        }
+      });
+
+      if (error) throw error;
+
+      if (data.success) {
+        setAdvancedAnalysisResults(data.analysis);
+        
+        // Store results in localStorage for persistence
+        const storageKey = `advancedAnalysisResults_${selectedAccountForAnalysis.customerId}`;
+        localStorage.setItem(storageKey, JSON.stringify(data.analysis));
+        
+        toast({
+          title: "🔥 Advanced Analysis Complete!",
+          description: `Found ${data.analysis.irrelevantTerms?.length || 0} irrelevant terms and ${data.analysis.highClicksNoConv?.length || 0} high-cost, no-conversion terms`,
+        });
+      } else {
+        throw new Error(data.error || 'Analysis failed');
+      }
+    } catch (error) {
+      console.error("Advanced analysis failed:", error);
+      toast({
+        title: "Analysis Failed", 
+        description: error.message || "Unable to complete advanced search terms analysis",
+        variant: "destructive",
+      });
+    } finally {
+      setIsAdvancedAnalyzing(false);
+    }
+  };
+
+  // Load persisted advanced analysis results
+  useEffect(() => {
+    if (selectedAccountForAnalysis?.customerId) {
+      const storageKey = `advancedAnalysisResults_${selectedAccountForAnalysis.customerId}`;
+      const stored = localStorage.getItem(storageKey);
+      if (stored) {
+        try {
+          const parsedData = JSON.parse(stored);
+          setAdvancedAnalysisResults(parsedData);
+          console.log('🔄 Loaded persisted advanced analysis results for account:', selectedAccountForAnalysis.name);
+        } catch (error) {
+          console.error('Failed to parse stored advanced analysis results:', error);
+          localStorage.removeItem(storageKey);
+        }
+      }
+    }
+  }, [selectedAccountForAnalysis?.customerId]);
+
+  // Listen for trigger events from SearchTermsAnalysisUI
+  useEffect(() => {
+    const handleTriggerAnalysis = () => {
+      handleAdvancedAnalysis();
+    };
+
+    window.addEventListener('triggerAdvancedAnalysis', handleTriggerAnalysis);
+    return () => window.removeEventListener('triggerAdvancedAnalysis', handleTriggerAnalysis);
+  }, []);
+
   return (
     <Card className="h-full">
       <CardHeader>
