@@ -20,6 +20,8 @@ export const AIInsightsPanel = () => {
   const [isAutoOptimizing, setIsAutoOptimizing] = useState(false);
   const [autoOptimizationResults, setAutoOptimizationResults] = useState<any>(null);
   const [isExecutingOptimizations, setIsExecutingOptimizations] = useState(false);
+  const [isAdvancedAnalyzing, setIsAdvancedAnalyzing] = useState(false);
+  const [advancedAnalysisResults, setAdvancedAnalysisResults] = useState<any>(null);
 
   const handleAnalyzeCampaigns = async () => {
     
@@ -114,6 +116,50 @@ export const AIInsightsPanel = () => {
       });
     } finally {
       setIsAutoOptimizing(false);
+    }
+  };
+
+  const handleAdvancedSearchTermsAnalysis = async () => {
+    if (!selectedAccountForAnalysis) {
+      toast({
+        title: "No Account Selected",
+        description: "Please select an account to run advanced search terms analysis",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsAdvancedAnalyzing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('advanced-search-terms-ai', {
+        body: { 
+          customerId: selectedAccountForAnalysis.customerId,
+          campaignGoal: "Generate more leads"
+        }
+      });
+      
+      if (error) throw error;
+      
+      setAdvancedAnalysisResults(data);
+      
+      const totalFindings = (data.irrelevantTerms?.length || 0) + 
+                           (data.highClicksNoConv?.length || 0) + 
+                           (data.convertingClusters?.length || 0) + 
+                           (data.anomalies?.length || 0);
+      
+      toast({
+        title: "🔥 Advanced AI Analysis Complete",
+        description: `Found ${totalFindings} optimization insights using semantic analysis`,
+      });
+    } catch (error) {
+      console.error("Advanced search terms analysis failed:", error);
+      toast({
+        title: "Analysis Failed",
+        description: "Unable to run advanced AI search terms analysis",
+        variant: "destructive",
+      });
+    } finally {
+      setIsAdvancedAnalyzing(false);
     }
   };
 
@@ -271,9 +317,10 @@ export const AIInsightsPanel = () => {
       </CardHeader>
       <CardContent>
         <Tabs defaultValue="analysis" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="analysis">Analysis</TabsTrigger>
             <TabsTrigger value="optimizations">Optimizations</TabsTrigger>
+            <TabsTrigger value="search-terms-ai">🔥 Search Terms AI</TabsTrigger>
             <TabsTrigger value="status">Status</TabsTrigger>
           </TabsList>
           
@@ -679,6 +726,180 @@ export const AIInsightsPanel = () => {
                 <p className="text-sm">Run Smart Auto-Optimization or Test Search Terms first.</p>
               </div>
             )}
+          </TabsContent>
+
+          <TabsContent value="search-terms-ai" className="space-y-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">🔥 Advanced Search Terms AI</h3>
+              <Button 
+                onClick={handleAdvancedSearchTermsAnalysis}
+                disabled={isAdvancedAnalyzing || !selectedAccountForAnalysis}
+                className="flex items-center gap-2"
+              >
+                {isAdvancedAnalyzing ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Brain className="h-4 w-4" />
+                )}
+                {isAdvancedAnalyzing ? "AI Analyzing..." : "🔥 Advanced AI Analysis"}
+              </Button>
+            </div>
+
+            <Card className="bg-gradient-to-r from-orange-50 to-red-50 dark:from-orange-950/20 dark:to-red-950/20 border-orange-200 dark:border-orange-800">
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Brain className="h-4 w-4 text-orange-600" />
+                  Advanced AI Search Terms Optimization
+                </CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Uses semantic analysis to identify irrelevant terms, high-converting clusters, and optimization opportunities
+                </p>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-5 gap-4 text-center">
+                  <div className="p-3 bg-white/50 dark:bg-gray-900/50 rounded border">
+                    <div className="text-xs text-muted-foreground mb-1">🚫 Irrelevant Terms</div>
+                    <div className="font-semibold text-red-600">
+                      {advancedAnalysisResults?.irrelevantTerms?.length || 0}
+                    </div>
+                  </div>
+                  <div className="p-3 bg-white/50 dark:bg-gray-900/50 rounded border">
+                    <div className="text-xs text-muted-foreground mb-1">⚡ High Clicks/No Conv</div>
+                    <div className="font-semibold text-orange-600">
+                      {advancedAnalysisResults?.highClicksNoConv?.length || 0}
+                    </div>
+                  </div>
+                  <div className="p-3 bg-white/50 dark:bg-gray-900/50 rounded border">
+                    <div className="text-xs text-muted-foreground mb-1">🎯 Converting Clusters</div>
+                    <div className="font-semibold text-green-600">
+                      {advancedAnalysisResults?.convertingClusters?.length || 0}
+                    </div>
+                  </div>
+                  <div className="p-3 bg-white/50 dark:bg-gray-900/50 rounded border">
+                    <div className="text-xs text-muted-foreground mb-1">🔍 Anomalies</div>
+                    <div className="font-semibold text-purple-600">
+                      {advancedAnalysisResults?.anomalies?.length || 0}
+                    </div>
+                  </div>
+                  <div className="p-3 bg-white/50 dark:bg-gray-900/50 rounded border">
+                    <div className="text-xs text-muted-foreground mb-1">💡 Recommendations</div>
+                    <div className="font-semibold text-blue-600">
+                      {advancedAnalysisResults?.recommendations?.length || 0}
+                    </div>
+                  </div>
+                </div>
+
+                {advancedAnalysisResults && (
+                  <div className="mt-6 space-y-4">
+                    {/* Irrelevant Terms */}
+                    {advancedAnalysisResults.irrelevantTerms && advancedAnalysisResults.irrelevantTerms.length > 0 && (
+                      <Card className="border-red-200 dark:border-red-800">
+                        <CardHeader className="pb-3">
+                          <CardTitle className="text-sm flex items-center gap-2 text-red-700 dark:text-red-300">
+                            🚫 Irrelevant Search Terms (Add as Negative Keywords)
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="pt-0">
+                          <div className="space-y-2">
+                            {advancedAnalysisResults.irrelevantTerms.slice(0, 10).map((term: any, idx: number) => (
+                              <div key={idx} className="flex justify-between items-center text-xs p-2 bg-red-50 dark:bg-red-900/20 rounded">
+                                <span className="font-mono">"{term.searchTerm}"</span>
+                                <div className="flex gap-2 text-muted-foreground">
+                                  <span>{term.clicks} clicks</span>
+                                  <span>${(term.cost / 1000000).toFixed(2)}</span>
+                                  <span className="text-red-600">Semantic mismatch</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+
+                    {/* High Converting Clusters */}
+                    {advancedAnalysisResults.convertingClusters && advancedAnalysisResults.convertingClusters.length > 0 && (
+                      <Card className="border-green-200 dark:border-green-800">
+                        <CardHeader className="pb-3">
+                          <CardTitle className="text-sm flex items-center gap-2 text-green-700 dark:text-green-300">
+                            🎯 High-Converting Clusters (Expand These)
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="pt-0">
+                          <div className="space-y-2">
+                            {advancedAnalysisResults.convertingClusters.slice(0, 5).map((cluster: any, idx: number) => (
+                              <div key={idx} className="p-3 bg-green-50 dark:bg-green-900/20 rounded border">
+                                <div className="text-sm font-medium text-green-800 dark:text-green-200">{cluster.theme}</div>
+                                <div className="text-xs text-muted-foreground mt-1">
+                                  {cluster.conversionRate}% conv rate • {cluster.termCount} terms • Suggested: Exact/Phrase match
+                                </div>
+                                <div className="flex flex-wrap gap-1 mt-2">
+                                  {cluster.exampleTerms?.slice(0, 3).map((term: string, i: number) => (
+                                    <span key={i} className="px-2 py-1 bg-green-100 dark:bg-green-800/30 text-green-700 dark:text-green-300 text-xs rounded">
+                                      "{term}"
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+
+                    {/* Recommendations */}
+                    {advancedAnalysisResults.recommendations && advancedAnalysisResults.recommendations.length > 0 && (
+                      <Card className="border-blue-200 dark:border-blue-800">
+                        <CardHeader className="pb-3">
+                          <CardTitle className="text-sm flex items-center gap-2 text-blue-700 dark:text-blue-300">
+                            💡 Overall AI Recommendations
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="pt-0">
+                          <div className="space-y-3">
+                            {advancedAnalysisResults.recommendations.map((rec: any, idx: number) => (
+                              <div key={idx} className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded border">
+                                <div className="text-sm font-medium text-blue-800 dark:text-blue-200">{rec.title}</div>
+                                <div className="text-xs text-muted-foreground mt-1">{rec.description}</div>
+                                <div className="text-xs text-blue-600 dark:text-blue-400 mt-2">
+                                  Priority: {rec.priority} • Impact: {rec.expectedImpact}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+                  </div>
+                )}
+
+                {!advancedAnalysisResults && !isAdvancedAnalyzing && (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Brain className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p className="font-medium">Ready for Advanced AI Analysis</p>
+                    <p className="text-sm">Click "🔥 Advanced AI Analysis" to start semantic search terms optimization</p>
+                    <div className="mt-4 p-3 bg-orange-100 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-800">
+                      <p className="text-xs text-orange-700 dark:text-orange-300">
+                        🧠 Uses semantic analysis to identify irrelevant terms, not just numbers
+                        <br />
+                        🎯 Finds high-converting clusters for campaign expansion
+                        <br />
+                        🔍 Detects unusual spikes and anomalies requiring attention
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {isAdvancedAnalyzing && (
+                  <div className="text-center py-8">
+                    <Loader2 className="h-12 w-12 mx-auto mb-4 animate-spin text-orange-500" />
+                    <p className="font-medium mb-2">🔥 Advanced AI Analysis in Progress...</p>
+                    <p className="text-sm text-muted-foreground">
+                      Performing semantic analysis on search terms data...
+                    </p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </TabsContent>
 
           <TabsContent value="status" className="space-y-4">
