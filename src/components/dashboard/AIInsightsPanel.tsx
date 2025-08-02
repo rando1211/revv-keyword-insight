@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Brain, Code, TrendingUp, AlertTriangle, CheckCircle, Loader2, Play, Zap, Bot } from "lucide-react";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { generateCampaignAnalysis, generateOptimizationCode } from "@/lib/openai-service";
 import { supabase } from "@/integrations/supabase/client";
@@ -28,6 +28,14 @@ export const AIInsightsPanel = () => {
   const [advancedAnalysisResults, setAdvancedAnalysisResults] = useState<any>(null);
   const [campaignGoal, setCampaignGoal] = useState("Generate more leads");
   const [campaignContext, setCampaignContext] = useState("");
+
+  // Clear advanced analysis results when account changes
+  useEffect(() => {
+    setAdvancedAnalysisResults(null);
+    setAutoOptimizationResults(null);
+    setCampaignContext(""); // Reset context for new account
+    console.log(`🧹 AIInsightsPanel: Cleared state for account: ${selectedAccountForAnalysis?.name || 'None'}`);
+  }, [selectedAccountForAnalysis?.customerId]);
 
   const handleAnalyzeCampaigns = async () => {
     

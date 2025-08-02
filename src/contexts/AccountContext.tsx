@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, ReactNode } from 'react';
+import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { GoogleAdsAccount } from '@/lib/google-ads-service';
 
 interface AccountContextType {
@@ -20,10 +20,29 @@ export const AccountProvider = ({ children }: { children: ReactNode }) => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisStep, setAnalysisStep] = useState(0);
 
+  // Enhanced setSelectedAccountForAnalysis that clears all related state
+  const setSelectedAccountForAnalysisWithClear = (account: GoogleAdsAccount | null) => {
+    // Clear all analysis-related state when changing accounts
+    if (account?.customerId !== selectedAccountForAnalysis?.customerId) {
+      setAnalysisResults(null);
+      setIsAnalyzing(false);
+      setAnalysisStep(0);
+      
+      // Clear account-specific localStorage 
+      if (selectedAccountForAnalysis?.customerId) {
+        const oldAccountKey = `advancedAnalysisResults_${selectedAccountForAnalysis.customerId}`;
+        localStorage.removeItem(oldAccountKey);
+      }
+      
+      console.log(`🔄 Account changed: ${selectedAccountForAnalysis?.name || 'None'} → ${account?.name || 'None'}`);
+    }
+    setSelectedAccountForAnalysis(account);
+  };
+
   return (
     <AccountContext.Provider value={{
       selectedAccountForAnalysis,
-      setSelectedAccountForAnalysis,
+      setSelectedAccountForAnalysis: setSelectedAccountForAnalysisWithClear,
       analysisResults,
       setAnalysisResults,
       isAnalyzing,
