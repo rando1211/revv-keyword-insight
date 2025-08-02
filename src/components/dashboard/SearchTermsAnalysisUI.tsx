@@ -110,21 +110,28 @@ export const SearchTermsAnalysisUI = ({ analysisData, selectedAccount }: SearchT
 
     setIsExecuting(true);
     try {
-      // Mock API call - in real implementation, this would call the Google Ads API
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      const { data, error } = await supabase.functions.invoke('execute-search-terms-optimizations', {
+        body: {
+          customerId: selectedAccount.customerId,
+          pendingActions: pendingActions
+        }
+      });
+
+      if (error) throw error;
 
       toast({
         title: "Actions Executed Successfully",
-        description: `${pendingActions.length} optimization actions applied to your campaigns`,
+        description: `${data.summary.successCount}/${data.summary.totalActions} optimization actions applied to your campaigns`,
       });
 
       setPendingActions([]);
       setSelectedTerms([]);
       setShowConfirmModal(false);
     } catch (error) {
+      console.error('Execution error:', error);
       toast({
         title: "Execution Failed",
-        description: "Some actions could not be applied. Please try again.",
+        description: error.message || "Some actions could not be applied. Please try again.",
         variant: "destructive",
       });
     } finally {
