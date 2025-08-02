@@ -517,7 +517,7 @@ export const AIInsightsPanel = () => {
 
     window.addEventListener('triggerAdvancedAnalysis', handleTriggerAnalysis);
     return () => window.removeEventListener('triggerAdvancedAnalysis', handleTriggerAnalysis);
-  }, []);
+  }, [selectedAccountForAnalysis, selectedCampaignIds, campaignGoal, campaignContext]);
 
   return (
     <Card className="h-full">
