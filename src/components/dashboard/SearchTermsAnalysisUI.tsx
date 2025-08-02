@@ -207,7 +207,14 @@ export const SearchTermsAnalysisUI = ({ analysisData, onUpdateAnalysisData, sele
     }
   };
 
-  if (!analysisData) return null;
+  console.log('📊 SearchTermsAnalysisUI received analysisData:', analysisData);
+  console.log('📊 Type of analysisData:', typeof analysisData);
+  console.log('📊 Keys in analysisData:', analysisData ? Object.keys(analysisData) : 'null/undefined');
+  
+  if (!analysisData) {
+    console.log('⚠️ SearchTermsAnalysisUI: No analysisData provided, returning null');
+    return null;
+  }
 
   return (
     <div className="space-y-6">
