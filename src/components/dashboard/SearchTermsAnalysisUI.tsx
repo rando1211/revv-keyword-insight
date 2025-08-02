@@ -7,7 +7,9 @@ import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, Minus, Info, CheckCircle2, XCircle, Gauge, AlertTriangle, TrendingUp, Target, Activity, Eye, Loader2 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Plus, Minus, Info, CheckCircle2, XCircle, Gauge, AlertTriangle, TrendingUp, Target, Activity, Eye, Loader2, Clock, Settings } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -33,6 +35,8 @@ export const SearchTermsAnalysisUI = ({ analysisData, onUpdateAnalysisData, sele
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [executionResults, setExecutionResults] = useState<any>(null);
   const [showResults, setShowResults] = useState(false);
+  const [autoExecuteEnabled, setAutoExecuteEnabled] = useState(false);
+  const [autoExecuteFrequency, setAutoExecuteFrequency] = useState<'hourly' | 'daily' | 'weekly'>('daily');
 
   // Clear state when account changes
   useEffect(() => {
@@ -40,7 +44,27 @@ export const SearchTermsAnalysisUI = ({ analysisData, onUpdateAnalysisData, sele
     setPendingActions([]);
     setExecutionResults(null);
     setShowResults(false);
+    setAutoExecuteEnabled(false);
   }, [selectedAccount?.customerId]);
+
+  // Auto-execution timer
+  useEffect(() => {
+    if (!autoExecuteEnabled || pendingActions.length === 0) return;
+
+    const intervals = {
+      hourly: 60 * 60 * 1000,
+      daily: 24 * 60 * 60 * 1000,
+      weekly: 7 * 24 * 60 * 60 * 1000
+    };
+
+    const timer = setTimeout(() => {
+      if (pendingActions.length > 0) {
+        executeActions();
+      }
+    }, intervals[autoExecuteFrequency]);
+
+    return () => clearTimeout(timer);
+  }, [autoExecuteEnabled, autoExecuteFrequency, pendingActions]);
 
   // Load completed optimizations from localStorage (account-specific)
   const getCompletedOptimizations = () => {
@@ -69,35 +93,42 @@ export const SearchTermsAnalysisUI = ({ analysisData, onUpdateAnalysisData, sele
     return completed.some((opt: any) => opt.searchTerm === searchTerm);
   };
 
-  // Calculate performance metrics
+  // Calculate performance metrics (recalculates when analysis data changes)
   const performanceMetrics = useMemo(() => {
     if (!analysisData) return null;
 
     const totalWastedSpend = analysisData.highClicksNoConv?.reduce((sum: number, term: any) => sum + term.wastedSpend, 0) || 0;
     const totalClicks = analysisData.highClicksNoConv?.reduce((sum: number, term: any) => sum + term.clicks, 0) || 0;
-    const currentCTR = 3.2; // Mock current CTR
-    const currentCPA = 85; // Mock current CPA
-    const wastedSpendPercentage = 12; // Mock percentage
+    const irrelevantSpend = analysisData.irrelevantTerms?.reduce((sum: number, term: any) => sum + term.cost, 0) || 0;
+    
+    // Base metrics - would come from real campaign data in production
+    const currentCTR = 3.2;
+    const currentCPA = 85;
+    const baseWastedSpendPercentage = 12;
+    
+    // Calculate current waste based on remaining terms
+    const currentWastedSpend = totalWastedSpend + irrelevantSpend;
+    const wastedSpendPercentage = Math.max(0, baseWastedSpendPercentage - (currentWastedSpend > 0 ? 0 : 8));
 
-    const projectedCTRImprovement = Math.min(15, (totalWastedSpend / 100) * 2);
-    const projectedCPAReduction = Math.min(25, (totalWastedSpend / 50) * 3);
+    const projectedCTRImprovement = Math.min(15, (currentWastedSpend / 100) * 2);
+    const projectedCPAReduction = Math.min(25, (currentWastedSpend / 50) * 3);
 
     return {
       before: {
         ctr: currentCTR,
         cpa: currentCPA,
-        wastedSpendPercentage
+        wastedSpendPercentage: baseWastedSpendPercentage
       },
       after: {
         ctr: currentCTR + projectedCTRImprovement,
         cpa: currentCPA - projectedCPAReduction,
-        wastedSpendPercentage: Math.max(0, wastedSpendPercentage - 8)
+        wastedSpendPercentage
       },
-      totalWastedSpend,
-      // Fix monthly savings calculation - assume this is weekly data, extrapolate to monthly
-      monthlySavings: (totalWastedSpend * 0.7) * 4.33 // 70% of waste eliminated, weekly to monthly
+      totalWastedSpend: currentWastedSpend,
+      monthlySavings: (currentWastedSpend * 0.7) * 4.33, // 70% of waste eliminated, weekly to monthly
+      optimizationsApplied: (totalWastedSpend + irrelevantSpend) === 0 ? getCompletedOptimizations().length : 0
     };
-  }, [analysisData]);
+  }, [analysisData, selectedAccount?.customerId]);
 
   const handleTermSelection = (termId: string, checked: boolean) => {
     if (checked) {
@@ -179,7 +210,8 @@ export const SearchTermsAnalysisUI = ({ analysisData, onUpdateAnalysisData, sele
         }
       });
       
-      if (onUpdateAnalysisData) {
+      // Update the analysis data immediately by removing executed terms
+      if (onUpdateAnalysisData && executedSearchTerms.length > 0) {
         const updatedData = {
           ...analysisData,
           irrelevantTerms: analysisData.irrelevantTerms?.filter((term: any) => !executedSearchTerms.includes(term.searchTerm)) || [],
@@ -189,7 +221,11 @@ export const SearchTermsAnalysisUI = ({ analysisData, onUpdateAnalysisData, sele
             exampleTerms: cluster.exampleTerms.filter((term: string) => !executedSearchTerms.includes(term))
           })).filter((cluster: any) => cluster.exampleTerms.length > 0) || []
         };
-        onUpdateAnalysisData(updatedData);
+        
+        // Force immediate update of the analysis data
+        setTimeout(() => {
+          onUpdateAnalysisData(updatedData);
+        }, 100);
       }
       
       setPendingActions([]);
@@ -207,17 +243,60 @@ export const SearchTermsAnalysisUI = ({ analysisData, onUpdateAnalysisData, sele
     }
   };
 
-  console.log('📊 SearchTermsAnalysisUI received analysisData:', analysisData);
-  console.log('📊 Type of analysisData:', typeof analysisData);
-  console.log('📊 Keys in analysisData:', analysisData ? Object.keys(analysisData) : 'null/undefined');
-  
   if (!analysisData) {
-    console.log('⚠️ SearchTermsAnalysisUI: No analysisData provided, returning null');
     return null;
   }
 
   return (
     <div className="space-y-6">
+      {/* Auto-Execution Settings */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Settings className="h-5 w-5 text-blue-600" />
+            Auto-Execution Settings
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="space-y-1">
+              <div className="font-medium">Auto-Execute Optimizations</div>
+              <div className="text-sm text-muted-foreground">
+                Automatically execute approved optimizations on schedule
+              </div>
+            </div>
+            <Switch
+              checked={autoExecuteEnabled}
+              onCheckedChange={setAutoExecuteEnabled}
+            />
+          </div>
+          
+          {autoExecuteEnabled && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Execution Frequency</label>
+              <Select value={autoExecuteFrequency} onValueChange={(value: 'hourly' | 'daily' | 'weekly') => setAutoExecuteFrequency(value)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="hourly">Hourly</SelectItem>
+                  <SelectItem value="daily">Daily</SelectItem>
+                  <SelectItem value="weekly">Weekly</SelectItem>
+                </SelectContent>
+              </Select>
+              <div className="text-xs text-muted-foreground">
+                {pendingActions.length > 0 && (
+                  <div className="flex items-center gap-1 text-orange-600">
+                    <Clock className="h-3 w-3" />
+                    {pendingActions.length} actions queued for auto-execution
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Performance Impact Score Section */}
       {performanceMetrics && (
         <Card>
