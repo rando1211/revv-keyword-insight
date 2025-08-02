@@ -173,6 +173,7 @@ Provide your analysis in the following structured format. Return ONLY valid JSON
       "searchTerm": "exact term text",
       "clicks": number,
       "cost": number,
+      "adGroupName": "ad group name",
       "reason": "brief explanation why irrelevant"
     }
   ],
@@ -181,6 +182,7 @@ Provide your analysis in the following structured format. Return ONLY valid JSON
       "searchTerm": "exact term text", 
       "clicks": number,
       "cost": number,
+      "adGroupName": "ad group name",
       "wastedSpend": number
     }
   ],

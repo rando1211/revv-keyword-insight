@@ -322,14 +322,17 @@ export const SearchTermsAnalysisUI = ({ analysisData, onUpdateAnalysisData, sele
                     checked={selectedTerms.includes(term.searchTerm)}
                     onCheckedChange={(checked) => handleTermSelection(term.searchTerm, checked as boolean)}
                   />
-                  <div className="flex-1">
-                    <div className="font-medium">{term.searchTerm}</div>
-                    <div className="text-sm text-muted-foreground">{term.reason}</div>
-                    <div className="flex gap-4 text-xs text-muted-foreground mt-1">
-                      <span>{term.clicks} clicks</span>
-                      <span>${term.cost.toFixed(2)} cost</span>
-                    </div>
-                  </div>
+                   <div className="flex-1">
+                     <div className="font-medium">{term.searchTerm}</div>
+                     <div className="text-sm text-muted-foreground">{term.reason}</div>
+                     <div className="flex gap-4 text-xs text-muted-foreground mt-1">
+                       <span>{term.clicks} clicks</span>
+                       <span>${term.cost.toFixed(2)} cost</span>
+                       {term.adGroupName && (
+                         <span className="text-blue-600">📍 Found in: {term.adGroupName}</span>
+                       )}
+                     </div>
+                   </div>
                 </div>
                 <div className="flex gap-2">
                   <Button
@@ -377,13 +380,16 @@ export const SearchTermsAnalysisUI = ({ analysisData, onUpdateAnalysisData, sele
                     checked={selectedTerms.includes(term.searchTerm)}
                     onCheckedChange={(checked) => handleTermSelection(term.searchTerm, checked as boolean)}
                   />
-                  <div className="flex-1">
-                    <div className="font-medium">{term.searchTerm}</div>
-                    <div className="flex gap-4 text-xs text-muted-foreground mt-1">
-                      <span>{term.clicks} clicks</span>
-                      <span className="text-red-600">${term.wastedSpend.toFixed(2)} wasted</span>
-                    </div>
-                  </div>
+                   <div className="flex-1">
+                     <div className="font-medium">{term.searchTerm}</div>
+                     <div className="flex gap-4 text-xs text-muted-foreground mt-1">
+                       <span>{term.clicks} clicks</span>
+                       <span className="text-red-600">${term.wastedSpend.toFixed(2)} wasted</span>
+                       {term.adGroupName && (
+                         <span className="text-blue-600">📍 Found in: {term.adGroupName}</span>
+                       )}
+                     </div>
+                   </div>
                 </div>
                 <div className="flex gap-2">
                   <Button
