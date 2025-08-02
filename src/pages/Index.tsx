@@ -10,8 +10,35 @@ import { OptimizationHeatmap } from "@/components/dashboard/OptimizationHeatmap"
 import { NextBestActions } from "@/components/dashboard/NextBestActions";
 import { CompetitorWatchlist } from "@/components/dashboard/CompetitorWatchlist";
 import { BarChart3, TrendingUp, DollarSign, Target, RefreshCw, Settings, Link } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 const Index = () => {
+  const { toast } = useToast();
+
+  const handleDeepAudit = () => {
+    toast({
+      title: "Deep Audit Started",
+      description: "Running comprehensive campaign analysis...",
+      duration: 3000,
+    });
+  };
+
+  const handleGenerateReport = () => {
+    toast({
+      title: "Report Generation",
+      description: "Generating comprehensive performance report...",
+      duration: 3000,
+    });
+  };
+
+  const handleROISimulator = () => {
+    toast({
+      title: "ROI Simulator",
+      description: "Opening ROI projection simulator...",
+      duration: 3000,
+    });
+  };
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -126,13 +153,13 @@ const Index = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-2">
-                    <Button className="w-full" size="sm">
+                    <Button className="w-full" size="sm" onClick={handleDeepAudit}>
                       Run Deep Audit
                     </Button>
-                    <Button className="w-full" variant="outline" size="sm">
+                    <Button className="w-full" variant="outline" size="sm" onClick={handleGenerateReport}>
                       Generate Report
                     </Button>
-                    <Button className="w-full" variant="outline" size="sm">
+                    <Button className="w-full" variant="outline" size="sm" onClick={handleROISimulator}>
                       ROI Simulator
                     </Button>
                   </div>
