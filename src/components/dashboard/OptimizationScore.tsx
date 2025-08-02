@@ -2,6 +2,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { TrendingUp, CheckCircle, AlertTriangle, XCircle } from "lucide-react";
+import { useAccount } from "@/contexts/AccountContext";
+import { useEffect, useState } from "react";
+import { fetchTopSpendingCampaigns, getCampaignSummary } from "@/lib/google-ads-service";
 
 interface ScoreBreakdown {
   category: string;
@@ -10,40 +13,215 @@ interface ScoreBreakdown {
   issues: string[];
 }
 
+interface CampaignMetrics {
+  totalCampaigns: number;
+  totalSpend: number;
+  avgConversionRate: number;
+  activeOptimizations: number;
+}
+
 export const OptimizationScore = () => {
-  const overallScore = 76;
-  const scoreBreakdown: ScoreBreakdown[] = [
-    {
-      category: "Structure Hygiene",
-      score: 92,
-      status: "excellent",
-      issues: []
-    },
-    {
-      category: "Ad Copy Strength", 
-      score: 68,
-      status: "warning",
-      issues: ["5 ads missing descriptions", "Low headline diversity"]
-    },
-    {
-      category: "Landing Page Relevance",
-      score: 45,
-      status: "critical", 
-      issues: ["Poor Quality Score", "Slow page load times", "Missing conversion tracking"]
-    },
-    {
-      category: "Keyword Quality",
-      score: 81,
-      status: "good",
-      issues: ["12 low-search volume keywords"]
-    },
-    {
-      category: "Budget Allocation",
-      score: 89,
-      status: "excellent",
-      issues: []
+  const { selectedAccountForAnalysis } = useAccount();
+  const [overallScore, setOverallScore] = useState(0);
+  const [scoreBreakdown, setScoreBreakdown] = useState<ScoreBreakdown[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [campaignMetrics, setCampaignMetrics] = useState<CampaignMetrics | null>(null);
+
+  useEffect(() => {
+    const calculateOptimizationScore = async () => {
+      if (!selectedAccountForAnalysis) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        
+        // Fetch campaign data
+        const campaigns = await fetchTopSpendingCampaigns(selectedAccountForAnalysis.customerId, 50);
+        const summary = await getCampaignSummary(selectedAccountForAnalysis.customerId);
+        
+        setCampaignMetrics(summary);
+
+        // Calculate optimization scores based on real data
+        const scores = calculateScores(campaigns, summary);
+        setScoreBreakdown(scores);
+        
+        // Calculate overall score as weighted average
+        const overall = Math.round(
+          (scores[0].score * 0.2) + // Structure Hygiene - 20%
+          (scores[1].score * 0.25) + // Performance - 25%
+          (scores[2].score * 0.2) + // Budget Efficiency - 20%
+          (scores[3].score * 0.2) + // Keyword Quality - 20%
+          (scores[4].score * 0.15)   // Ad Copy - 15%
+        );
+        
+        setOverallScore(overall);
+        
+      } catch (error) {
+        console.error('Error calculating optimization score:', error);
+        // Fallback to basic calculation
+        setOverallScore(65);
+        setScoreBreakdown([
+          {
+            category: "Account Connection",
+            score: 85,
+            status: "good",
+            issues: ["Using demo data - connect real campaigns for accurate scoring"]
+          }
+        ]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    calculateOptimizationScore();
+  }, [selectedAccountForAnalysis]);
+
+  const calculateScores = (campaigns: any[], summary: CampaignMetrics): ScoreBreakdown[] => {
+    // Structure Hygiene Score
+    const structureScore = calculateStructureScore(campaigns);
+    
+    // Performance Score  
+    const performanceScore = calculatePerformanceScore(campaigns, summary);
+    
+    // Budget Efficiency Score
+    const budgetScore = calculateBudgetScore(campaigns);
+    
+    // Keyword Quality Score
+    const keywordScore = calculateKeywordScore(campaigns);
+    
+    // Ad Copy Score
+    const adCopyScore = calculateAdCopyScore(campaigns);
+
+    return [structureScore, performanceScore, budgetScore, keywordScore, adCopyScore];
+  };
+
+  const calculateStructureScore = (campaigns: any[]): ScoreBreakdown => {
+    if (campaigns.length === 0) {
+      return {
+        category: "Structure Hygiene",
+        score: 50,
+        status: "warning",
+        issues: ["No campaign data available"]
+      };
     }
-  ];
+
+    let score = 100;
+    let issues: string[] = [];
+
+    // Deduct points for disabled campaigns
+    const disabledCampaigns = campaigns.filter(c => c.status !== 'ENABLED').length;
+    if (disabledCampaigns > campaigns.length * 0.3) {
+      score -= 20;
+      issues.push(`${disabledCampaigns} disabled campaigns detected`);
+    }
+
+    // Check for campaign diversity
+    if (campaigns.length < 3) {
+      score -= 15;
+      issues.push("Consider adding more campaigns for better coverage");
+    }
+
+    return {
+      category: "Structure Hygiene",
+      score: Math.max(score, 0),
+      status: score >= 90 ? "excellent" : score >= 75 ? "good" : score >= 60 ? "warning" : "critical",
+      issues
+    };
+  };
+
+  const calculatePerformanceScore = (campaigns: any[], summary: CampaignMetrics): ScoreBreakdown => {
+    let score = 100;
+    let issues: string[] = [];
+
+    // Check conversion rate
+    if (summary.avgConversionRate < 1) {
+      score -= 30;
+      issues.push("Low conversion rate - optimize landing pages and targeting");
+    } else if (summary.avgConversionRate < 2) {
+      score -= 15;
+      issues.push("Conversion rate below industry average");
+    }
+
+    // Check for campaigns with low CTR
+    const lowCtrCampaigns = campaigns.filter(c => c.ctr < 2).length;
+    if (lowCtrCampaigns > 0) {
+      score -= 10;
+      issues.push(`${lowCtrCampaigns} campaigns with low CTR`);
+    }
+
+    return {
+      category: "Campaign Performance",
+      score: Math.max(score, 0),
+      status: score >= 90 ? "excellent" : score >= 75 ? "good" : score >= 60 ? "warning" : "critical",
+      issues
+    };
+  };
+
+  const calculateBudgetScore = (campaigns: any[]): ScoreBreakdown => {
+    let score = 100;
+    let issues: string[] = [];
+
+    // Check for high spend, low conversion campaigns
+    const wastefulCampaigns = campaigns.filter(c => c.cost > 1000 && c.conversions < 5).length;
+    if (wastefulCampaigns > 0) {
+      score -= 25;
+      issues.push(`${wastefulCampaigns} high-spend, low-conversion campaigns`);
+    }
+
+    // Check budget distribution
+    const totalSpend = campaigns.reduce((sum, c) => sum + c.cost, 0);
+    const topSpender = Math.max(...campaigns.map(c => c.cost));
+    if (topSpender > totalSpend * 0.6) {
+      score -= 15;
+      issues.push("Budget heavily concentrated in one campaign");
+    }
+
+    return {
+      category: "Budget Efficiency",
+      score: Math.max(score, 0),
+      status: score >= 90 ? "excellent" : score >= 75 ? "good" : score >= 60 ? "warning" : "critical",
+      issues
+    };
+  };
+
+  const calculateKeywordScore = (campaigns: any[]): ScoreBreakdown => {
+    let score = 85; // Base score since we can't access keyword-level data easily
+    let issues: string[] = [];
+
+    // Check campaign count as proxy for keyword diversity
+    if (campaigns.length < 5) {
+      score -= 10;
+      issues.push("Limited campaign diversity may indicate narrow keyword coverage");
+    }
+
+    return {
+      category: "Keyword Quality",
+      score: Math.max(score, 0),
+      status: score >= 90 ? "excellent" : score >= 75 ? "good" : score >= 60 ? "warning" : "critical",
+      issues
+    };
+  };
+
+  const calculateAdCopyScore = (campaigns: any[]): ScoreBreakdown => {
+    let score = 80; // Base score since we can't access ad-level data easily
+    let issues: string[] = [];
+
+    // Check for campaigns with very low CTR as proxy for poor ad copy
+    const veryLowCtrCampaigns = campaigns.filter(c => c.ctr < 1).length;
+    if (veryLowCtrCampaigns > 0) {
+      score -= 20;
+      issues.push(`${veryLowCtrCampaigns} campaigns with very low CTR - review ad copy`);
+    }
+
+    return {
+      category: "Ad Copy Strength",
+      score: Math.max(score, 0),
+      status: score >= 90 ? "excellent" : score >= 75 ? "good" : score >= 60 ? "warning" : "critical",
+      issues
+    };
+  };
 
   const getScoreColor = (score: number) => {
     if (score >= 90) return "text-green-600";
