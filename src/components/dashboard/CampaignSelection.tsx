@@ -21,7 +21,7 @@ export const CampaignSelection = ({ account, onBack }: CampaignSelectionProps) =
   const [analyzing, setAnalyzing] = useState(false);
   
   const { toast } = useToast();
-  const { setSelectedAccountForAnalysis, setAnalysisResults, setIsAnalyzing, setAnalysisStep } = useAccount();
+  const { setSelectedAccountForAnalysis, setAnalysisResults, setIsAnalyzing, setAnalysisStep, setSelectedCampaignIds } = useAccount();
 
   useEffect(() => {
     loadCampaigns();
@@ -112,6 +112,7 @@ export const CampaignSelection = ({ account, onBack }: CampaignSelectionProps) =
     
     setAnalysisResults(null);
     setSelectedAccountForAnalysis(account);
+    setSelectedCampaignIds(selectedCampaigns); // Add this line to store selected campaigns
     
     try {
       const selectedCampaignData = campaigns.filter(c => selectedCampaigns.includes(c.id));

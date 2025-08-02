@@ -15,7 +15,7 @@ serve(async (req) => {
   }
 
   try {
-    const { customerId, campaignGoal = "Generate more leads", campaignContext } = await req.json();
+    const { customerId, campaignGoal = "Generate more leads", campaignContext, selectedCampaignIds } = await req.json();
     
     if (!customerId) {
       throw new Error('Customer ID is required');
@@ -24,6 +24,7 @@ serve(async (req) => {
     console.log('🔥 Advanced Search Terms AI Analysis starting for customer:', customerId);
     console.log('🎯 Campaign Goal:', campaignGoal);
     console.log('📝 Campaign Context:', campaignContext);
+    console.log('🎯 Selected Campaign IDs:', selectedCampaignIds);
 
     // Get Google Ads API credentials from environment
     const clientId = Deno.env.get('Client ID');
@@ -61,6 +62,14 @@ serve(async (req) => {
     // Fetch search terms data using Google Ads API
     const apiUrl = `https://googleads.googleapis.com/v18/customers/${cleanCustomerId}/googleAds:search`;
     
+    // Build campaign filter if selectedCampaignIds are provided
+    let campaignFilter = '';
+    if (selectedCampaignIds && selectedCampaignIds.length > 0) {
+      const campaignIdList = selectedCampaignIds.map((id: string) => `'${id}'`).join(', ');
+      campaignFilter = `AND campaign.id IN (${campaignIdList})`;
+      console.log('🎯 Filtering by campaigns:', selectedCampaignIds);
+    }
+    
     const searchTermsQuery = `
       SELECT
         search_term_view.search_term,
@@ -78,6 +87,7 @@ serve(async (req) => {
         AND campaign.status = 'ENABLED'
         AND ad_group.status = 'ENABLED'
         AND metrics.clicks > 0
+        ${campaignFilter}
       ORDER BY metrics.clicks DESC
       LIMIT 50
     `;

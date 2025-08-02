@@ -10,6 +10,8 @@ interface AccountContextType {
   setIsAnalyzing: (analyzing: boolean) => void;
   analysisStep: number;
   setAnalysisStep: (step: number) => void;
+  selectedCampaignIds: string[];
+  setSelectedCampaignIds: (campaignIds: string[]) => void;
 }
 
 const AccountContext = createContext<AccountContextType | undefined>(undefined);
@@ -19,6 +21,7 @@ export const AccountProvider = ({ children }: { children: ReactNode }) => {
   const [analysisResults, setAnalysisResults] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisStep, setAnalysisStep] = useState(0);
+  const [selectedCampaignIds, setSelectedCampaignIds] = useState<string[]>([]);
 
   // Enhanced setSelectedAccountForAnalysis that clears all related state
   const setSelectedAccountForAnalysisWithClear = (account: GoogleAdsAccount | null) => {
@@ -48,7 +51,9 @@ export const AccountProvider = ({ children }: { children: ReactNode }) => {
       isAnalyzing,
       setIsAnalyzing,
       analysisStep,
-      setAnalysisStep
+      setAnalysisStep,
+      selectedCampaignIds,
+      setSelectedCampaignIds
     }}>
       {children}
     </AccountContext.Provider>

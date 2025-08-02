@@ -17,7 +17,7 @@ import { SearchTermsAnalysisUI } from "./SearchTermsAnalysisUI";
 
 export const AIInsightsPanel = () => {
   const { toast } = useToast();
-  const { selectedAccountForAnalysis, analysisResults, isAnalyzing, analysisStep } = useAccount();
+  const { selectedAccountForAnalysis, analysisResults, isAnalyzing, analysisStep, selectedCampaignIds } = useAccount();
   
   const [isGeneratingCode, setIsGeneratingCode] = useState(false);
   const [searchTermsData, setSearchTermsData] = useState<any>(null);
@@ -149,7 +149,8 @@ export const AIInsightsPanel = () => {
         body: { 
           customerId: selectedAccountForAnalysis.customerId,
           campaignGoal: campaignGoal || "Generate more leads",
-          campaignContext: campaignContext || "General campaign analysis"
+          campaignContext: campaignContext || "General campaign analysis",
+          selectedCampaignIds: selectedCampaignIds?.length > 0 ? selectedCampaignIds : null
         }
       });
       
