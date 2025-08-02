@@ -441,14 +441,21 @@ export const AIInsightsPanel = () => {
                                     🔑 {action.keywords.length} Keywords/Terms:
                                   </p>
                                   <div className="space-y-1">
-                                    {action.keywords.slice(0, 5).map((keyword: any, idx: number) => (
-                                      <div key={idx} className="text-xs flex justify-between">
-                                        <span>"{keyword.searchTerm || keyword.text || keyword}"</span>
-                                        <span className="text-muted-foreground">
-                                          {keyword.clicks || 0} clicks, {keyword.conversions || 0} conv
-                                        </span>
-                                      </div>
-                                    ))}
+                                    {action.keywords.slice(0, 5).map((keyword: any, idx: number) => {
+                                      // Handle different keyword data structures
+                                      const keywordText = keyword.searchTerm || keyword.text || keyword.campaignName || (typeof keyword === 'string' ? keyword : 'Unknown');
+                                      const clicks = keyword.clicks || 0;
+                                      const conversions = keyword.conversions || 0;
+                                      
+                                      return (
+                                        <div key={idx} className="text-xs flex justify-between">
+                                          <span>"{keywordText}"</span>
+                                          <span className="text-muted-foreground">
+                                            {clicks} clicks, {conversions} conv
+                                          </span>
+                                        </div>
+                                      );
+                                    })}
                                     {action.keywords.length > 5 && (
                                       <div className="text-xs text-muted-foreground">
                                         +{action.keywords.length - 5} more terms...
