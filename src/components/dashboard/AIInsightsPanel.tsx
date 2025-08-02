@@ -761,7 +761,7 @@ export const AIInsightsPanel = () => {
                     id="campaignContext"
                     value={campaignContext}
                     onChange={(e) => setCampaignContext(e.target.value)}
-                    placeholder="e.g., Personal Water Craft (PWCs), Jet Skis, Sea-Doo, WaveRunner - NOT motorcycles"
+                    placeholder="e.g., Personal Water Craft (PWCs), Jet Skis, Sea-Doo, WaveRunner, Personal Watercraft"
                     className="min-h-[80px]"
                   />
                   <p className="text-xs text-muted-foreground mt-1">
