@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { useAccount } from "@/contexts/AccountContext";
 import { useEffect, useState } from "react";
 import { fetchTopSpendingCampaigns } from "@/lib/google-ads-service";
+import { useToast } from "@/hooks/use-toast";
 
 interface HeatmapCell {
   campaign: string;
@@ -22,6 +23,7 @@ export const OptimizationHeatmap = () => {
   const { selectedAccountForAnalysis } = useAccount();
   const [heatmapData, setHeatmapData] = useState<HeatmapCell[]>([]);
   const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
 
   useEffect(() => {
     const generateHeatmapData = async () => {
@@ -234,10 +236,30 @@ export const OptimizationHeatmap = () => {
               </div>
               
               <div className="mt-3 flex gap-2">
-                <Button size="sm" variant="outline" className="text-xs h-7">
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  className="text-xs h-7"
+                  onClick={() => {
+                    // Show detailed information about the campaign
+                    const details = `Campaign: ${cell.campaign}\nSpend: $${cell.spend.toLocaleString()}\nConversions: ${cell.conversions}\nCTR: ${cell.ctr.toFixed(2)}%\nConversion Rate: ${cell.conversionRate.toFixed(2)}%\n\nRecommendation: ${cell.opportunity}`;
+                    alert(details);
+                  }}
+                >
                   View Details
                 </Button>
-                <Button size="sm" className="text-xs h-7">
+                <Button 
+                  size="sm" 
+                  className="text-xs h-7"
+                  onClick={() => {
+                    // Simulate applying optimization
+                    toast({
+                      title: "Optimization Applied",
+                      description: `Started optimization for ${cell.campaign}`,
+                      duration: 3000,
+                    });
+                  }}
+                >
                   Apply Fix
                 </Button>
               </div>

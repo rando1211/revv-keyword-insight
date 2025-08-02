@@ -317,6 +317,11 @@ export const NextBestActions = () => {
                       size="sm" 
                       variant="outline" 
                       className="text-xs h-7"
+                      onClick={() => toast({
+                        title: "Action Details",
+                        description: `${action.description} - Category: ${action.category}`,
+                        duration: 5000,
+                      })}
                     >
                       View Details
                     </Button>
