@@ -404,7 +404,7 @@ export const AIInsightsPanel = () => {
                     <div className="space-y-4">
                       <div className="flex items-center justify-between">
                         <h4 className="font-medium">AI Optimization Actions:</h4>
-                        {!(autoOptimizationResults.actions || autoOptimizationResults.optimizations)?.some((a: any) => a.executed) && (
+                        {!((autoOptimizationResults.actions || autoOptimizationResults.optimizations || []).some((a: any) => a.executed)) && (
                           <Button 
                             onClick={handleExecuteOptimizations}
                             disabled={isExecutingOptimizations}
