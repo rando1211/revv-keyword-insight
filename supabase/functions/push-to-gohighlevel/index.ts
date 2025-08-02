@@ -28,13 +28,14 @@ serve(async (req) => {
       throw new Error('Page data is required');
     }
 
-    console.log('Pushing landing page to GoHighLevel:', { locationId, pageName });
+    console.log('Processing request:', { locationId, pageName });
 
-    // Create the landing page HTML content
+    // Generate the HTML content
     const htmlContent = generateLandingPageHTML(pageData);
 
-    // Try using GHL's simpler contact API to test connection first
-    const testResponse = await fetch(`https://services.leadconnectorhq.com/contacts/`, {
+    // Test GHL API connection
+    console.log('Testing GoHighLevel API connection...');
+    const testResponse = await fetch(`https://services.leadconnectorhq.com/contacts/?locationId=${locationId}&limit=1`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${ghlApiKey}`,
@@ -42,62 +43,53 @@ serve(async (req) => {
       }
     });
 
-    console.log('GHL Test Connection Status:', testResponse.status);
-    
+    console.log('GHL API Test Status:', testResponse.status);
+
     if (!testResponse.ok) {
       const errorText = await testResponse.text();
-      console.log('GHL Test Error:', errorText);
-      throw new Error(`GoHighLevel API connection failed: ${errorText || 'Authentication error'}`);
-    }
-
-    // For now, return success with HTML content that user can manually import
-    return new Response(JSON.stringify({
-      success: true,
-      message: 'Landing page generated successfully. HTML content ready for manual import.',
-      htmlContent: htmlContent,
-      instructions: [
-        '1. Copy the HTML content below',
-        '2. Go to your GoHighLevel account',
-        '3. Create a new funnel step or page',
-        '4. Paste the HTML content',
-        '5. Save and publish'
-      ]
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-
-      const pagesData = await pagesResponse.json();
+      console.log('GHL API Test Failed:', errorText);
       
-      if (!pagesResponse.ok) {
-        console.error('GoHighLevel Pages API error:', pagesData);
-        throw new Error(`GoHighLevel API error: ${pagesData.message || ghlData.message || 'Unknown error'}`);
-      }
-      
-      console.log('Successfully created page in GoHighLevel:', pagesData);
-      
+      // Return HTML for manual import
       return new Response(JSON.stringify({
         success: true,
-        pageId: pagesData.id,
-        pageUrl: pagesData.url || `Page created in location ${locationId}`,
-        message: 'Landing page successfully created in GoHighLevel'
+        message: 'API connection failed. HTML content generated for manual import.',
+        htmlContent: htmlContent,
+        error: `GHL API Error: ${testResponse.status} - ${errorText}`,
+        instructions: [
+          '1. Copy the HTML content from the response',
+          '2. Go to your GoHighLevel funnel builder',
+          '3. Create a new page or step',
+          '4. Switch to HTML/Code view',
+          '5. Paste the generated HTML',
+          '6. Save and publish'
+        ]
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    console.log('Successfully created website in GoHighLevel:', ghlData);
-
+    // If API connection works, return success with HTML
+    console.log('GHL API connection successful');
+    
     return new Response(JSON.stringify({
       success: true,
-      websiteId: ghlData.id,
-      websiteUrl: ghlData.url || `Website created in location ${locationId}`,
-      message: 'Landing page successfully created in GoHighLevel'
+      message: 'Landing page HTML generated successfully',
+      htmlContent: htmlContent,
+      instructions: [
+        '✅ GoHighLevel API connection verified',
+        '1. Copy the HTML content below',
+        '2. Go to your GoHighLevel funnel builder',
+        '3. Create a new page or step',
+        '4. Switch to HTML/Code view',
+        '5. Paste the generated HTML',
+        '6. Save and publish your optimized landing page'
+      ]
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
   } catch (error) {
-    console.error('Error pushing to GoHighLevel:', error);
+    console.error('Error in push-to-gohighlevel:', error);
     return new Response(JSON.stringify({ 
       success: false,
       error: error.message 
