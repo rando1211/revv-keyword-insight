@@ -257,6 +257,46 @@ export const OptimizationScore = () => {
     }
   };
 
+  if (loading) {
+    return (
+      <Card className="animate-fade-in">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <TrendingUp className="h-5 w-5" />
+            Optimization Health Score
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="text-center py-8">
+            <div className="w-32 h-32 bg-muted rounded-full mx-auto mb-4 animate-pulse"></div>
+            <p className="text-muted-foreground">Calculating optimization score...</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!selectedAccountForAnalysis) {
+    return (
+      <Card className="animate-fade-in">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <TrendingUp className="h-5 w-5" />
+            Optimization Health Score
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="text-center py-8">
+            <div className="w-32 h-32 bg-muted rounded-full mx-auto mb-4 flex items-center justify-center">
+              <span className="text-2xl text-muted-foreground">?</span>
+            </div>
+            <p className="text-muted-foreground">Select an account to view optimization score</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card className="animate-fade-in">
       <CardHeader>
