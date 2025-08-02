@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -34,10 +34,19 @@ export const SearchTermsAnalysisUI = ({ analysisData, onUpdateAnalysisData, sele
   const [executionResults, setExecutionResults] = useState<any>(null);
   const [showResults, setShowResults] = useState(false);
 
-  // Load completed optimizations from localStorage
+  // Clear state when account changes
+  useEffect(() => {
+    setSelectedTerms([]);
+    setPendingActions([]);
+    setExecutionResults(null);
+    setShowResults(false);
+  }, [selectedAccount?.customerId]);
+
+  // Load completed optimizations from localStorage (account-specific)
   const getCompletedOptimizations = () => {
     try {
-      const completed = localStorage.getItem('completedOptimizations');
+      const accountKey = `completedOptimizations_${selectedAccount?.customerId || 'default'}`;
+      const completed = localStorage.getItem(accountKey);
       return completed ? JSON.parse(completed) : [];
     } catch {
       return [];
@@ -48,7 +57,8 @@ export const SearchTermsAnalysisUI = ({ analysisData, onUpdateAnalysisData, sele
     try {
       const completed = getCompletedOptimizations();
       completed.push({ searchTerm, type, completedAt: Date.now() });
-      localStorage.setItem('completedOptimizations', JSON.stringify(completed));
+      const accountKey = `completedOptimizations_${selectedAccount?.customerId || 'default'}`;
+      localStorage.setItem(accountKey, JSON.stringify(completed));
     } catch (error) {
       console.error('Failed to save completed optimization:', error);
     }
