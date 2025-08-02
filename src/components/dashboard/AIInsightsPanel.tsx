@@ -568,8 +568,8 @@ export const AIInsightsPanel = () => {
           <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="power-audit">🔍 Power Audit</TabsTrigger>
             <TabsTrigger value="creatives">🎨 Creatives</TabsTrigger>
+            <TabsTrigger value="power-page">🚀 Power Page</TabsTrigger>
             <TabsTrigger value="search-terms-ai">🔥 Search Terms AI</TabsTrigger>
-            <TabsTrigger value="status">Status</TabsTrigger>
           </TabsList>
           
             <TabsContent value="power-audit" className="space-y-4">
@@ -980,32 +980,111 @@ export const AIInsightsPanel = () => {
             </Card>
           </TabsContent>
 
-          <TabsContent value="status" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">OpenAI Integration Status</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm">API Connection</span>
-                  <Badge variant="default">Connected</Badge>
+          <TabsContent value="power-page" className="space-y-4">
+            <div className="min-h-[600px] bg-gradient-to-br from-primary/10 via-accent/5 to-secondary/10 rounded-lg overflow-hidden">
+              {/* Hero Section */}
+              <div className="text-center py-12 px-6">
+                <div className="inline-flex items-center px-4 py-2 bg-primary/10 rounded-full text-sm font-medium text-primary mb-6">
+                  🚀 AI-Powered Google Ads Automation
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm">Available Assistants</span>
-                  <Badge variant="outline">5 Active</Badge>
+                <h1 className="text-4xl font-bold mb-4 bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+                  REVV Marketing
+                </h1>
+                <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
+                  Transform your Google Ads performance with AI-driven insights, automated optimizations, and data-backed creative suggestions
+                </p>
+                <div className="flex flex-wrap justify-center gap-4">
+                  <Button size="lg" className="px-8">
+                    Start Free Trial
+                  </Button>
+                  <Button size="lg" variant="outline" className="px-8">
+                    Watch Demo
+                  </Button>
                 </div>
-                <div className="space-y-2">
-                  <h4 className="text-sm font-medium">AI Features Available:</h4>
-                  <ul className="text-sm text-muted-foreground space-y-1">
-                    <li>• Campaign Analysis & Optimization</li>
-                    <li>• Python Code Generation</li>
-                    <li>• Keyword Research Suggestions</li>
-                    <li>• Ad Copy Review & Translation</li>
-                    <li>• Performance Monitoring</li>
-                  </ul>
+              </div>
+
+              {/* Features Grid */}
+              <div className="px-6 pb-12">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl mx-auto">
+                  <Card className="bg-white/50 backdrop-blur-sm border-0 shadow-md">
+                    <CardContent className="p-6 text-center">
+                      <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg flex items-center justify-center mx-auto mb-4">
+                        <Brain className="h-6 w-6 text-white" />
+                      </div>
+                      <h3 className="font-semibold mb-2">🔍 Power Audit</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Comprehensive AI analysis of your account structure, keywords, ads, and landing pages with actionable recommendations
+                      </p>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="bg-white/50 backdrop-blur-sm border-0 shadow-md">
+                    <CardContent className="p-6 text-center">
+                      <div className="w-12 h-12 bg-gradient-to-r from-green-500 to-green-600 rounded-lg flex items-center justify-center mx-auto mb-4">
+                        <TrendingUp className="h-6 w-6 text-white" />
+                      </div>
+                      <h3 className="font-semibold mb-2">🎨 Creative Optimization</h3>
+                      <p className="text-sm text-muted-foreground">
+                        AI-powered RSA grading with intelligent rewrite suggestions and one-click execution to Google Ads
+                      </p>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="bg-white/50 backdrop-blur-sm border-0 shadow-md">
+                    <CardContent className="p-6 text-center">
+                      <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg flex items-center justify-center mx-auto mb-4">
+                        <Zap className="h-6 w-6 text-white" />
+                      </div>
+                      <h3 className="font-semibold mb-2">🔥 Search Terms AI</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Semantic analysis of search terms to identify irrelevant traffic, converting clusters, and optimization opportunities
+                      </p>
+                    </CardContent>
+                  </Card>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+
+              {/* Stats Section */}
+              <div className="bg-white/30 backdrop-blur-sm py-8 px-6">
+                <div className="max-w-4xl mx-auto">
+                  <h2 className="text-2xl font-bold text-center mb-8">Proven Results</h2>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
+                    <div>
+                      <div className="text-3xl font-bold text-primary">85%</div>
+                      <div className="text-sm text-muted-foreground">Average CTR Improvement</div>
+                    </div>
+                    <div>
+                      <div className="text-3xl font-bold text-green-600">$2.4K</div>
+                      <div className="text-sm text-muted-foreground">Monthly Revenue Lift</div>
+                    </div>
+                    <div>
+                      <div className="text-3xl font-bold text-blue-600">92%</div>
+                      <div className="text-sm text-muted-foreground">Quality Score Improvement</div>
+                    </div>
+                    <div>
+                      <div className="text-3xl font-bold text-purple-600">45%</div>
+                      <div className="text-sm text-muted-foreground">Wasted Spend Reduction</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* CTA Section */}
+              <div className="text-center py-12 px-6">
+                <h2 className="text-2xl font-bold mb-4">Ready to Automate Your Google Ads Success?</h2>
+                <p className="text-muted-foreground mb-6 max-w-lg mx-auto">
+                  Join thousands of marketers using AI to optimize their campaigns and maximize ROI
+                </p>
+                <div className="flex flex-wrap justify-center gap-4">
+                  <Button size="lg" className="px-8 bg-gradient-to-r from-primary to-accent">
+                    Get Started Free
+                  </Button>
+                  <Button size="lg" variant="outline" className="px-8">
+                    Schedule Demo
+                  </Button>
+                </div>
+              </div>
+            </div>
           </TabsContent>
         </Tabs>
       </CardContent>
