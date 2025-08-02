@@ -66,6 +66,7 @@ serve(async (req) => {
         search_term_view.search_term,
         campaign.id,
         campaign.name,
+        ad_group.id,
         ad_group.name,
         metrics.clicks,
         metrics.impressions,
@@ -74,6 +75,9 @@ serve(async (req) => {
         metrics.cost_micros
       FROM search_term_view
       WHERE segments.date DURING LAST_30_DAYS
+        AND campaign.status = 'ENABLED'
+        AND ad_group.status = 'ENABLED'
+        AND metrics.clicks > 0
       ORDER BY metrics.clicks DESC
       LIMIT 50
     `;
