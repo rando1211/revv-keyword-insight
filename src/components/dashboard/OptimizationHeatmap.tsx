@@ -3,74 +3,99 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { TrendingUp, AlertTriangle, CheckCircle, Target } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAccount } from "@/contexts/AccountContext";
+import { useEffect, useState } from "react";
+import { fetchTopSpendingCampaigns } from "@/lib/google-ads-service";
 
 interface HeatmapCell {
   campaign: string;
-  adGroup: string;
   spend: number;
   conversions: number;
+  ctr: number;
+  conversionRate: number;
   status: "critical" | "warning" | "good" | "excellent";
   opportunity: string;
   impact: "high" | "medium" | "low";
 }
 
 export const OptimizationHeatmap = () => {
-  const heatmapData: HeatmapCell[] = [
-    {
-      campaign: "Search - Generic",
-      adGroup: "Google Ads Management",
-      spend: 4500,
-      conversions: 12,
-      status: "critical",
-      opportunity: "High spend, low conversions - review keywords",
-      impact: "high"
-    },
-    {
-      campaign: "Search - Brand",
-      adGroup: "REVV Marketing",
-      spend: 800,
-      conversions: 45,
-      status: "excellent",
-      opportunity: "Performing well - consider scaling",
-      impact: "medium"
-    },
-    {
-      campaign: "Display - Remarketing", 
-      adGroup: "Website Visitors",
-      spend: 1200,
-      conversions: 8,
-      status: "warning",
-      opportunity: "Adjust audience targeting",
-      impact: "medium"
-    },
-    {
-      campaign: "Search - Local",
-      adGroup: "Marketing Agency Near Me",
-      spend: 2100,
-      conversions: 28,
-      status: "good",
-      opportunity: "Add negative keywords for better targeting",
-      impact: "low"
-    },
-    {
-      campaign: "Video - YouTube",
-      adGroup: "Marketing Tips",
-      spend: 600,
-      conversions: 15,
-      status: "excellent",
-      opportunity: "High ROI - increase budget allocation",
-      impact: "high"
-    },
-    {
-      campaign: "Shopping - Services",
-      adGroup: "Marketing Services",
-      spend: 3200,
-      conversions: 6,
-      status: "critical",
-      opportunity: "Poor performance - pause or restructure",
-      impact: "high"
-    }
-  ];
+  const { selectedAccountForAnalysis } = useAccount();
+  const [heatmapData, setHeatmapData] = useState<HeatmapCell[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const generateHeatmapData = async () => {
+      if (!selectedAccountForAnalysis) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        const campaigns = await fetchTopSpendingCampaigns(selectedAccountForAnalysis.customerId, 20);
+        
+        const heatmap = campaigns.map((campaign) => {
+          const conversionRate = campaign.clicks > 0 ? (campaign.conversions / campaign.clicks) * 100 : 0;
+          const costPerConversion = campaign.conversions > 0 ? campaign.cost / campaign.conversions : campaign.cost;
+          
+          // Determine status based on performance metrics
+          let status: "critical" | "warning" | "good" | "excellent";
+          let opportunity: string;
+          let impact: "high" | "medium" | "low";
+
+          if (campaign.cost > 1000 && campaign.conversions < 5) {
+            status = "critical";
+            opportunity = "High spend, low conversions - review targeting and keywords";
+            impact = "high";
+          } else if (conversionRate < 1) {
+            status = "critical";
+            opportunity = "Very low conversion rate - optimize landing page and ad copy";
+            impact = "high";
+          } else if (campaign.ctr < 1) {
+            status = "warning";
+            opportunity = "Low CTR - improve ad headlines and descriptions";
+            impact = "medium";
+          } else if (costPerConversion > 200) {
+            status = "warning";
+            opportunity = "High cost per conversion - refine targeting";
+            impact = "medium";
+          } else if (conversionRate > 3 && campaign.ctr > 3) {
+            status = "excellent";
+            opportunity = "High-performing campaign - consider scaling budget";
+            impact = "high";
+          } else if (conversionRate > 2 || campaign.ctr > 2) {
+            status = "good";
+            opportunity = "Solid performance - minor optimizations recommended";
+            impact = "low";
+          } else {
+            status = "good";
+            opportunity = "Average performance - monitor and optimize";
+            impact = "low";
+          }
+
+          return {
+            campaign: campaign.name,
+            spend: campaign.cost,
+            conversions: campaign.conversions,
+            ctr: campaign.ctr,
+            conversionRate,
+            status,
+            opportunity,
+            impact
+          };
+        });
+
+        setHeatmapData(heatmap);
+      } catch (error) {
+        console.error('Error generating heatmap data:', error);
+        setHeatmapData([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    generateHeatmapData();
+  }, [selectedAccountForAnalysis]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -101,16 +126,80 @@ export const OptimizationHeatmap = () => {
     }
   };
 
+  if (loading) {
+    return (
+      <Card className="animate-fade-in">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Target className="h-5 w-5" />
+            Optimization Opportunity Heatmap
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="border rounded-lg p-4 animate-pulse">
+                <div className="h-4 bg-muted rounded w-3/4 mb-2"></div>
+                <div className="h-3 bg-muted rounded w-1/2"></div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!selectedAccountForAnalysis) {
+    return (
+      <Card className="animate-fade-in">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Target className="h-5 w-5" />
+            Optimization Opportunity Heatmap
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center py-8 text-muted-foreground">
+            <Target className="h-12 w-12 mx-auto mb-4" />
+            <p>Select an account to view optimization opportunities</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (heatmapData.length === 0) {
+    return (
+      <Card className="animate-fade-in">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Target className="h-5 w-5" />
+            Optimization Opportunity Heatmap
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center py-8 text-muted-foreground">
+            <Target className="h-12 w-12 mx-auto mb-4" />
+            <p>No campaign data available for this account</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card className="animate-fade-in">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Target className="h-5 w-5" />
           Optimization Opportunity Heatmap
+          <Badge variant="secondary" className="ml-auto">
+            {heatmapData.length} campaigns
+          </Badge>
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="grid gap-3">
+        <div className="grid gap-3 max-h-96 overflow-y-auto">
           {heatmapData.map((cell, index) => (
             <div 
               key={index}
@@ -137,7 +226,10 @@ export const OptimizationHeatmap = () => {
               
               <div className="space-y-1">
                 <h4 className="font-semibold text-sm">{cell.campaign}</h4>
-                <p className="text-xs text-muted-foreground">{cell.adGroup}</p>
+                <div className="flex gap-4 text-xs text-muted-foreground">
+                  <span>CTR: {cell.ctr.toFixed(2)}%</span>
+                  <span>Conv Rate: {cell.conversionRate.toFixed(2)}%</span>
+                </div>
                 <p className="text-xs">{cell.opportunity}</p>
               </div>
               
