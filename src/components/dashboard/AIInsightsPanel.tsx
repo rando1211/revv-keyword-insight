@@ -793,6 +793,7 @@ export const AIInsightsPanel = () => {
                 {advancedAnalysisResults && (
                   <SearchTermsAnalysisUI 
                     analysisData={advancedAnalysisResults}
+                    onUpdateAnalysisData={setAdvancedAnalysisResults}
                     selectedAccount={selectedAccountForAnalysis}
                   />
                 )}

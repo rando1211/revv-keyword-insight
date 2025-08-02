@@ -13,6 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 interface SearchTermsAnalysisUIProps {
   analysisData: any;
+  onUpdateAnalysisData?: (updatedData: any) => void;
   selectedAccount: any;
 }
 
@@ -24,7 +25,7 @@ interface PendingAction {
   impact?: string;
 }
 
-export const SearchTermsAnalysisUI = ({ analysisData, selectedAccount }: SearchTermsAnalysisUIProps) => {
+export const SearchTermsAnalysisUI = ({ analysisData, onUpdateAnalysisData, selectedAccount }: SearchTermsAnalysisUIProps) => {
   const { toast } = useToast();
   const [selectedTerms, setSelectedTerms] = useState<string[]>([]);
   const [pendingActions, setPendingActions] = useState<PendingAction[]>([]);
@@ -129,6 +130,24 @@ export const SearchTermsAnalysisUI = ({ analysisData, selectedAccount }: SearchT
       // Store execution results and show them
       setExecutionResults(data);
       setShowResults(true);
+      
+      // Remove executed terms from analysis data
+      const executedSearchTerms = data.results
+        .filter((result: any) => result.success)
+        .map((result: any) => result.action.searchTerm);
+      
+      if (onUpdateAnalysisData) {
+        const updatedData = {
+          ...analysisData,
+          irrelevantTerms: analysisData.irrelevantTerms?.filter((term: any) => !executedSearchTerms.includes(term.searchTerm)) || [],
+          highClicksNoConv: analysisData.highClicksNoConv?.filter((term: any) => !executedSearchTerms.includes(term.searchTerm)) || [],
+          convertingClusters: analysisData.convertingClusters?.map((cluster: any) => ({
+            ...cluster,
+            exampleTerms: cluster.exampleTerms.filter((term: string) => !executedSearchTerms.includes(term))
+          })).filter((cluster: any) => cluster.exampleTerms.length > 0) || []
+        };
+        onUpdateAnalysisData(updatedData);
+      }
       
       setPendingActions([]);
       setSelectedTerms([]);
