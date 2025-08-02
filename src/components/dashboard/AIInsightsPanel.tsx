@@ -446,7 +446,7 @@ export const AIInsightsPanel = () => {
     if (!selectedAccountForAnalysis || !selectedCampaignIds || selectedCampaignIds.length === 0) {
       toast({
         title: "No Campaigns Selected",
-        description: "Please select campaigns to analyze search terms",
+        description: "Please select campaigns for competitive analysis",
         variant: "destructive",
       });
       return;
