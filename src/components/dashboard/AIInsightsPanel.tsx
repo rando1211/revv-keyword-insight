@@ -466,8 +466,6 @@ export const AIInsightsPanel = () => {
       if (error) throw error;
 
       if (data.success) {
-        console.log('🔥 Advanced analysis successful, setting results:', data);
-        // The API returns the data directly, not nested under "analysis"
         setAdvancedAnalysisResults(data);
         
         // Store results in localStorage for persistence
