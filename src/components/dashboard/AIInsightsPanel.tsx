@@ -84,9 +84,10 @@ export const AIInsightsPanel = () => {
 
     setIsAutoOptimizing(true);
     try {
-      const { data, error } = await supabase.functions.invoke('keyword-optimizer', {
+      const { data, error } = await supabase.functions.invoke('smart-auto-optimizer', {
         body: { 
           customerId: selectedAccountForAnalysis.customerId,
+          selectedCampaignIds: null, // Use all campaigns for now
           executeOptimizations: false // Preview mode only
         }
       });
@@ -388,14 +389,14 @@ export const AIInsightsPanel = () => {
                       <p className="text-2xl font-bold text-blue-600">{autoOptimizationResults.summary?.highPerformingCampaigns || 0}</p>
                       <p className="text-xs text-muted-foreground">High-Performing</p>
                     </div>
-                    <div className="text-center">
-                      <p className="text-2xl font-bold text-orange-600">{autoOptimizationResults.summary?.optimizationsFound || autoOptimizationResults.optimizations?.length || 0}</p>
-                      <p className="text-xs text-muted-foreground">Optimizations Found</p>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-2xl font-bold text-green-600">{autoOptimizationResults.summary?.optimizationsSuccessful || 0}</p>
-                      <p className="text-xs text-muted-foreground">Successful</p>
-                    </div>
+                     <div className="text-center">
+                       <p className="text-2xl font-bold text-orange-600">{autoOptimizationResults.actions?.length || autoOptimizationResults.optimizations?.length || 0}</p>
+                       <p className="text-xs text-muted-foreground">AI Optimizations</p>
+                     </div>
+                     <div className="text-center">
+                       <p className="text-2xl font-bold text-green-600">{autoOptimizationResults.summary?.totalSearchTerms || 0}</p>
+                       <p className="text-xs text-muted-foreground">Search Terms</p>
+                     </div>
                   </div>
                   
                   {(autoOptimizationResults.actions || autoOptimizationResults.optimizations) && 
@@ -419,18 +420,23 @@ export const AIInsightsPanel = () => {
                           </Button>
                         )}
                       </div>
-                      {(autoOptimizationResults.actions || autoOptimizationResults.optimizations || []).map((action: any, index: number) => (
-                        <div key={index} className="flex items-center justify-between p-3 bg-muted rounded">
-                          <div className="flex-1">
-                            <p className="text-sm font-medium">{action.campaignName}</p>
-                            <p className="text-xs text-muted-foreground">{action.action}</p>
-                            {action.aiReason && (
-                              <p className="text-xs text-blue-600 mt-1">🤖 AI: {action.aiReason}</p>
-                            )}
-                            {action.estimatedImpact && (
-                              <p className="text-xs text-green-600 mt-1">📈 {action.estimatedImpact}</p>
-                            )}
-                          </div>
+                       {(autoOptimizationResults.actions || autoOptimizationResults.optimizations || []).map((action: any, index: number) => (
+                         <div key={index} className="flex items-center justify-between p-3 bg-muted rounded">
+                           <div className="flex-1">
+                             <p className="text-sm font-medium">{action.title || action.campaignName}</p>
+                             <p className="text-xs text-muted-foreground">{action.description || action.action}</p>
+                             {action.aiReason && (
+                               <p className="text-xs text-blue-600 mt-1">🤖 AI: {action.aiReason}</p>
+                             )}
+                             {action.estimatedImpact && (
+                               <p className="text-xs text-green-600 mt-1">📈 {action.estimatedImpact}</p>
+                             )}
+                             {action.keywords && action.keywords.length > 0 && (
+                               <div className="text-xs text-gray-600 mt-1">
+                                 🔑 {action.keywords.length} keywords affected
+                               </div>
+                             )}
+                           </div>
                           <div className="flex flex-col items-end gap-1">
                             <Badge variant={
                               action.executed 
