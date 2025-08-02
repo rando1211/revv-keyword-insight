@@ -466,16 +466,17 @@ export const AIInsightsPanel = () => {
       if (error) throw error;
 
       if (data.success) {
-        console.log('🔥 Advanced analysis successful, setting results:', data.analysis);
-        setAdvancedAnalysisResults(data.analysis);
+        console.log('🔥 Advanced analysis successful, setting results:', data);
+        // The API returns the data directly, not nested under "analysis"
+        setAdvancedAnalysisResults(data);
         
         // Store results in localStorage for persistence
         const storageKey = `advancedAnalysisResults_${selectedAccountForAnalysis.customerId}`;
-        localStorage.setItem(storageKey, JSON.stringify(data.analysis));
+        localStorage.setItem(storageKey, JSON.stringify(data));
         
         toast({
           title: "🔥 Advanced Analysis Complete!",
-          description: `Found ${data.analysis.irrelevantTerms?.length || 0} irrelevant terms and ${data.analysis.highClicksNoConv?.length || 0} high-cost, no-conversion terms`,
+          description: `Found ${data.irrelevantTerms?.length || 0} irrelevant terms and ${data.highClicksNoConv?.length || 0} high-cost, no-conversion terms`,
         });
       } else {
         throw new Error(data.error || 'Analysis failed');
