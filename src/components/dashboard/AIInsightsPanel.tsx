@@ -399,11 +399,15 @@ export const AIInsightsPanel = () => {
                      </div>
                   </div>
                   
-                  {(autoOptimizationResults.actions || autoOptimizationResults.optimizations) && 
-                   (autoOptimizationResults.actions?.length > 0 || autoOptimizationResults.optimizations?.length > 0) && (
+                   {(() => {
+                     console.log('🔍 autoOptimizationResults:', autoOptimizationResults);
+                     const actions = autoOptimizationResults.actions || autoOptimizationResults.optimizations || [];
+                     console.log('🔍 Available actions:', actions);
+                     return actions.length > 0;
+                   })() && (
                     <div className="space-y-4">
                       <div className="flex items-center justify-between">
-                        <h4 className="font-medium">AI Optimization Actions:</h4>
+                        <h4 className="font-medium">AI Optimization Actions ({(autoOptimizationResults.actions || autoOptimizationResults.optimizations || []).length}):</h4>
                         {!((autoOptimizationResults.actions || autoOptimizationResults.optimizations || []).some((a: any) => a.executed)) && (
                           <Button 
                             onClick={handleExecuteOptimizations}
@@ -431,11 +435,34 @@ export const AIInsightsPanel = () => {
                              {action.estimatedImpact && (
                                <p className="text-xs text-green-600 mt-1">📈 {action.estimatedImpact}</p>
                              )}
-                             {action.keywords && action.keywords.length > 0 && (
-                               <div className="text-xs text-gray-600 mt-1">
-                                 🔑 {action.keywords.length} keywords affected
-                               </div>
-                             )}
+                              {action.keywords && action.keywords.length > 0 && (
+                                <div className="mt-2 p-2 bg-blue-50 dark:bg-blue-900/20 rounded border">
+                                  <p className="text-xs font-medium text-blue-700 dark:text-blue-300 mb-1">
+                                    🔑 {action.keywords.length} Keywords/Terms:
+                                  </p>
+                                  <div className="space-y-1">
+                                    {action.keywords.slice(0, 5).map((keyword: any, idx: number) => (
+                                      <div key={idx} className="text-xs flex justify-between">
+                                        <span>"{keyword.searchTerm || keyword.text || keyword}"</span>
+                                        <span className="text-muted-foreground">
+                                          {keyword.clicks || 0} clicks, {keyword.conversions || 0} conv
+                                        </span>
+                                      </div>
+                                    ))}
+                                    {action.keywords.length > 5 && (
+                                      <div className="text-xs text-muted-foreground">
+                                        +{action.keywords.length - 5} more terms...
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+                              {action.triggeredBy && (
+                                <p className="text-xs text-purple-600 mt-1">📐 {action.triggeredBy}</p>
+                              )}
+                              {action.ruleId && (
+                                <p className="text-xs text-gray-500 mt-1">🏷️ Rule: {action.ruleId}</p>
+                              )}
                            </div>
                           <div className="flex flex-col items-end gap-1">
                             <Badge variant={
