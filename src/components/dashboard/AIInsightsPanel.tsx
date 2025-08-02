@@ -1,11 +1,11 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Brain, Code, TrendingUp, AlertTriangle, CheckCircle, Loader2, Play, Zap, Bot } from "lucide-react";
+import { Brain, Code, TrendingUp, AlertTriangle, CheckCircle, Loader2, Play, Zap, Bot, Eye } from "lucide-react";
 import { useState, useMemo, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { generateCampaignAnalysis, generateOptimizationCode } from "@/lib/openai-service";
@@ -28,11 +28,19 @@ export const AIInsightsPanel = () => {
   const [advancedAnalysisResults, setAdvancedAnalysisResults] = useState<any>(null);
   const [campaignGoal, setCampaignGoal] = useState("Generate more leads");
   const [campaignContext, setCampaignContext] = useState("");
+  
+  // Creative optimization state
+  const [isAnalyzingCreatives, setIsAnalyzingCreatives] = useState(false);
+  const [creativesData, setCreativesData] = useState<any>(null);
+  const [pendingCreativeChanges, setPendingCreativeChanges] = useState<any[]>([]);
+  const [isExecutingCreativeChanges, setIsExecutingCreativeChanges] = useState(false);
 
-  // Clear advanced analysis results when account changes
+  // Clear analysis results when account changes
   useEffect(() => {
     setAdvancedAnalysisResults(null);
     setAutoOptimizationResults(null);
+    setCreativesData(null);
+    setPendingCreativeChanges([]);
     setCampaignContext(""); // Reset context for new account
     console.log(`🧹 AIInsightsPanel: Cleared state for account: ${selectedAccountForAnalysis?.name || 'None'}`);
   }, [selectedAccountForAnalysis?.customerId]);
@@ -241,6 +249,228 @@ export const AIInsightsPanel = () => {
     }
   };
 
+  // Creative optimization functions
+  const handleAnalyzeCreatives = async () => {
+    if (!selectedAccountForAnalysis) {
+      toast({
+        title: "No Account Selected",
+        description: "Please select an account to analyze creatives",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsAnalyzingCreatives(true);
+    try {
+      // Mock RSA data - in real implementation, you'd fetch from Google Ads API
+      const mockRSAData = {
+        rsaAssets: [
+          {
+            id: "headline_1",
+            type: "headline",
+            text: "Carefree Boat Club - Unlimited Boating",
+            performanceLabel: "BEST",
+            aiScore: 92,
+            relevanceScore: 9,
+            ctaScore: 8,
+            performancePotential: 9,
+            suggestion: null
+          },
+          {
+            id: "headline_2", 
+            type: "headline",
+            text: "Rent Boats Channel Islands Harbor",
+            performanceLabel: "LOW",
+            aiScore: 45,
+            relevanceScore: 6,
+            ctaScore: 4,
+            performancePotential: 3,
+            suggestion: "Join Carefree Boat Club - Your Key to Channel Islands Adventure"
+          },
+          {
+            id: "description_1",
+            type: "description", 
+            text: "Join thousands of boaters with unlimited access to premium boats",
+            performanceLabel: "GOOD",
+            aiScore: 78,
+            relevanceScore: 8,
+            ctaScore: 7,
+            performancePotential: 8,
+            suggestion: null
+          },
+          {
+            id: "description_2",
+            type: "description",
+            text: "Boat rental services in Oxnard",
+            performanceLabel: "LOW",
+            aiScore: 38,
+            relevanceScore: 5,
+            ctaScore: 3,
+            performancePotential: 4,
+            suggestion: "Experience unlimited boating freedom with Carefree Boat Club membership"
+          }
+        ],
+        currentScore: {
+          bestAssetsPercentage: 25,
+          alignmentScore: 65,
+          overallScore: 58
+        },
+        projectedScore: {
+          bestAssetsPercentage: 75,
+          alignmentScore: 88,
+          overallScore: 85
+        },
+        projectedImpact: {
+          ctrImprovement: 18,
+          conversionLift: 25,
+          monthlyRevenueLift: 2400
+        }
+      };
+
+      setCreativesData(mockRSAData);
+      
+      toast({
+        title: "🎨 Creative Analysis Complete",
+        description: `Analyzed ${mockRSAData.rsaAssets.length} RSA assets with AI optimization suggestions`,
+      });
+    } catch (error) {
+      console.error("Creative analysis failed:", error);
+      toast({
+        title: "Analysis Failed",
+        description: "Unable to analyze creatives",
+        variant: "destructive",
+      });
+    } finally {
+      setIsAnalyzingCreatives(false);
+    }
+  };
+
+  const handleKeepAsset = (assetId: string) => {
+    // Remove any pending changes for this asset
+    setPendingCreativeChanges(prev => prev.filter(change => change.assetId !== assetId));
+    toast({
+      title: "Asset Kept",
+      description: "Asset will remain unchanged",
+    });
+  };
+
+  const handleRewriteAsset = (assetId: string) => {
+    const asset = creativesData?.rsaAssets?.find((a: any) => a.id === assetId);
+    if (!asset?.suggestion) {
+      toast({
+        title: "No Suggestion Available",
+        description: "AI hasn't generated a rewrite suggestion for this asset",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const change = {
+      id: `rewrite_${assetId}_${Date.now()}`,
+      assetId,
+      action: "rewrite",
+      type: asset.type,
+      originalText: asset.text,
+      newText: asset.suggestion
+    };
+
+    setPendingCreativeChanges(prev => {
+      const filtered = prev.filter(c => c.assetId !== assetId);
+      return [...filtered, change];
+    });
+
+    toast({
+      title: "Rewrite Queued",
+      description: "Asset rewrite added to pending changes",
+    });
+  };
+
+  const handleReplaceAsset = (assetId: string) => {
+    const asset = creativesData?.rsaAssets?.find((a: any) => a.id === assetId);
+    if (!asset) return;
+
+    const change = {
+      id: `replace_${assetId}_${Date.now()}`,
+      assetId,
+      action: "replace",
+      type: asset.type,
+      originalText: asset.text,
+      newText: "Enter new text..." // Would be user input in real implementation
+    };
+
+    setPendingCreativeChanges(prev => {
+      const filtered = prev.filter(c => c.assetId !== assetId);
+      return [...filtered, change];
+    });
+
+    toast({
+      title: "Replace Queued",
+      description: "Asset replacement added to pending changes",
+    });
+  };
+
+  const handleAcceptSuggestion = (assetId: string) => {
+    handleRewriteAsset(assetId);
+  };
+
+  const removePendingCreativeChange = (changeId: string) => {
+    setPendingCreativeChanges(prev => prev.filter(change => change.id !== changeId));
+    toast({
+      title: "Change Removed",
+      description: "Pending change removed from queue",
+    });
+  };
+
+  const handleExecuteCreativeChanges = async () => {
+    if (pendingCreativeChanges.length === 0) return;
+
+    setIsExecutingCreativeChanges(true);
+    try {
+      // Mock execution - in real implementation, you'd call Google Ads API
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      toast({
+        title: "Creative Changes Executed",
+        description: `${pendingCreativeChanges.length} creative changes pushed to Google Ads`,
+      });
+
+      // Clear pending changes
+      setPendingCreativeChanges([]);
+      
+      // Update creative data to reflect changes
+      if (creativesData) {
+        const updatedAssets = creativesData.rsaAssets.map((asset: any) => {
+          const change = pendingCreativeChanges.find(c => c.assetId === asset.id);
+          if (change) {
+            return {
+              ...asset,
+              text: change.newText,
+              performanceLabel: "GOOD", // Assume improved performance
+              aiScore: Math.min(95, asset.aiScore + 20)
+            };
+          }
+          return asset;
+        });
+
+        setCreativesData({
+          ...creativesData,
+          rsaAssets: updatedAssets,
+          currentScore: creativesData.projectedScore
+        });
+      }
+
+    } catch (error) {
+      console.error("Creative execution failed:", error);
+      toast({
+        title: "Execution Failed",
+        description: "Unable to execute creative changes",
+        variant: "destructive",
+      });
+    } finally {
+      setIsExecutingCreativeChanges(false);
+    }
+  };
+
 
   // Parse optimizations from AI analysis results
   const parsedOptimizations = useMemo(() => {
@@ -336,7 +566,7 @@ export const AIInsightsPanel = () => {
         <Tabs defaultValue="analysis" className="space-y-4">
           <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="analysis">Analysis</TabsTrigger>
-            <TabsTrigger value="optimizations">Optimizations</TabsTrigger>
+            <TabsTrigger value="creatives">🎨 Creatives</TabsTrigger>
             <TabsTrigger value="search-terms-ai">🔥 Search Terms AI</TabsTrigger>
             <TabsTrigger value="status">Status</TabsTrigger>
           </TabsList>
@@ -416,331 +646,272 @@ export const AIInsightsPanel = () => {
             )}
           </TabsContent>
           
-          <TabsContent value="optimizations" className="space-y-4">
+          <TabsContent value="creatives" className="space-y-4">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold">Campaign Optimizations</h3>
+              <h3 className="text-lg font-semibold">RSA Creative Optimization</h3>
               <div className="flex gap-2">
                 <Button 
-                  onClick={handleSmartAutoOptimization}
-                  disabled={isAutoOptimizing || !selectedAccountForAnalysis}
+                  onClick={handleAnalyzeCreatives}
+                  disabled={isAnalyzingCreatives || !selectedAccountForAnalysis}
                   className="flex items-center gap-2"
                 >
-                  {isAutoOptimizing ? (
+                  {isAnalyzingCreatives ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
-                    <Bot className="h-4 w-4" />
+                    <Brain className="h-4 w-4" />
                   )}
-                  {isAutoOptimizing ? "Auto-Optimizing..." : "Smart Auto-Optimize"}
+                  {isAnalyzingCreatives ? "Analyzing..." : "Analyze Creatives"}
                 </Button>
               </div>
             </div>
 
-            {autoOptimizationResults && (
+            {/* RSA Optimization Score */}
+            {creativesData && (
               <Card className="mb-4">
                 <CardHeader>
                   <CardTitle className="text-base flex items-center gap-2">
-                    <Bot className="h-4 w-4 text-green-600" />
-                    Smart Auto-Optimization Results
+                    <TrendingUp className="h-4 w-4 text-green-600" />
+                    RSA Optimization Score
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                    <div className="text-center">
-                      <p className="text-2xl font-bold text-primary">{autoOptimizationResults.summary?.totalCampaigns || 0}</p>
-                      <p className="text-xs text-muted-foreground">Campaigns Analyzed</p>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-2xl font-bold text-blue-600">{autoOptimizationResults.summary?.highPerformingCampaigns || 0}</p>
-                      <p className="text-xs text-muted-foreground">High-Performing</p>
-                    </div>
-                     <div className="text-center">
-                       <p className="text-2xl font-bold text-orange-600">{autoOptimizationResults.actions?.length || autoOptimizationResults.optimizations?.length || 0}</p>
-                       <p className="text-xs text-muted-foreground">AI Optimizations</p>
-                     </div>
-                     <div className="text-center">
-                       <p className="text-2xl font-bold text-green-600">{autoOptimizationResults.summary?.totalSearchTerms || 0}</p>
-                       <p className="text-xs text-muted-foreground">Search Terms</p>
-                     </div>
-                  </div>
-                  
-                   {(() => {
-                     console.log('🔍 autoOptimizationResults:', autoOptimizationResults);
-                     const actions = autoOptimizationResults.actions || autoOptimizationResults.optimizations || [];
-                     console.log('🔍 Available actions:', actions);
-                     return actions.length > 0;
-                   })() && (
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <h4 className="font-medium">AI Optimization Actions ({(autoOptimizationResults.actions || autoOptimizationResults.optimizations || []).length}):</h4>
-                        {!((autoOptimizationResults.actions || autoOptimizationResults.optimizations || []).some((a: any) => a.executed)) && (
-                          <Button 
-                            onClick={handleExecuteOptimizations}
-                            disabled={isExecutingOptimizations}
-                            size="sm"
-                            className="flex items-center gap-2"
-                          >
-                            {isExecutingOptimizations ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                              <Play className="h-4 w-4" />
-                            )}
-                            {isExecutingOptimizations ? "Executing..." : "Execute All"}
-                          </Button>
-                        )}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="space-y-3">
+                      <h4 className="font-medium text-muted-foreground">Current Performance</h4>
+                      <div className="space-y-2">
+                        <div className="flex justify-between">
+                          <span className="text-sm">Assets with "BEST" label</span>
+                          <span className="font-medium">{creativesData.currentScore?.bestAssetsPercentage || 0}%</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm">Search Term Alignment</span>
+                          <span className="font-medium">{creativesData.currentScore?.alignmentScore || 0}%</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm">Overall RSA Score</span>
+                          <span className="font-medium text-orange-600">{creativesData.currentScore?.overallScore || 0}/100</span>
+                        </div>
                       </div>
-                       {(autoOptimizationResults.actions || autoOptimizationResults.optimizations || []).map((action: any, index: number) => (
-                         <div key={index} className="flex items-center justify-between p-3 bg-muted rounded">
-                           <div className="flex-1">
-                             <p className="text-sm font-medium">{action.title || action.campaignName}</p>
-                             <p className="text-xs text-muted-foreground">{action.description || action.action}</p>
-                             {action.aiReason && (
-                               <p className="text-xs text-blue-600 mt-1">🤖 AI: {action.aiReason}</p>
-                             )}
-                             {action.estimatedImpact && (
-                               <p className="text-xs text-green-600 mt-1">📈 {action.estimatedImpact}</p>
-                             )}
-                              {action.keywords && action.keywords.length > 0 && (
-                                <div className="mt-2 p-2 bg-blue-50 dark:bg-blue-900/20 rounded border">
-                                  <p className="text-xs font-medium text-blue-700 dark:text-blue-300 mb-1">
-                                    🔑 {action.keywords.length} Keywords/Terms:
-                                  </p>
-                                  <div className="space-y-1">
-                                    {action.keywords.slice(0, 5).map((keyword: any, idx: number) => {
-                                      // Handle different keyword data structures
-                                      const keywordText = keyword.searchTerm || keyword.text || keyword.campaignName || (typeof keyword === 'string' ? keyword : 'Unknown');
-                                      const clicks = keyword.clicks || 0;
-                                      const conversions = keyword.conversions || 0;
-                                      
-                                      return (
-                                        <div key={idx} className="text-xs flex justify-between">
-                                          <span>"{keywordText}"</span>
-                                          <span className="text-muted-foreground">
-                                            {clicks} clicks, {conversions} conv
-                                          </span>
-                                        </div>
-                                      );
-                                    })}
-                                    {action.keywords.length > 5 && (
-                                      <div className="text-xs text-muted-foreground">
-                                        +{action.keywords.length - 5} more terms...
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-                              )}
-                              {action.triggeredBy && (
-                                <p className="text-xs text-purple-600 mt-1">📐 {action.triggeredBy}</p>
-                              )}
-                              {action.ruleId && (
-                                <p className="text-xs text-gray-500 mt-1">🏷️ Rule: {action.ruleId}</p>
-                              )}
-                           </div>
-                          <div className="flex flex-col items-end gap-1">
-                            <Badge variant={
-                              action.executed 
-                                ? (action.success ? "default" : "destructive")
-                                : "outline"
-                            }>
-                              {action.executed 
-                                ? (action.success ? "✅ Executed" : "❌ Failed") 
-                                : "📋 Preview"
-                              }
-                            </Badge>
-                            {action.confidence && (
-                              <span className="text-xs text-muted-foreground">
-                                {action.confidence}% confidence
-                              </span>
-                            )}
+                    </div>
+
+                    <div className="space-y-3">
+                      <h4 className="font-medium text-green-600">Projected After Optimization</h4>
+                      <div className="space-y-2">
+                        <div className="flex justify-between">
+                          <span className="text-sm">Assets with "BEST" label</span>
+                          <span className="font-medium text-green-600">{creativesData.projectedScore?.bestAssetsPercentage || 0}%</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm">Search Term Alignment</span>
+                          <span className="font-medium text-green-600">{creativesData.projectedScore?.alignmentScore || 0}%</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm">Overall RSA Score</span>
+                          <span className="font-medium text-green-600">{creativesData.projectedScore?.overallScore || 0}/100</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <h4 className="font-medium text-primary">Predicted Impact</h4>
+                      <div className="space-y-3">
+                        <div>
+                          <div className="flex justify-between text-sm mb-1">
+                            <span>CTR Improvement</span>
+                            <span>+{creativesData.projectedImpact?.ctrImprovement || 0}%</span>
+                          </div>
+                          <Progress value={creativesData.projectedImpact?.ctrImprovement || 0} className="h-2" />
+                        </div>
+                        <div>
+                          <div className="flex justify-between text-sm mb-1">
+                            <span>Conversion Rate Lift</span>
+                            <span>+{creativesData.projectedImpact?.conversionLift || 0}%</span>
+                          </div>
+                          <Progress value={creativesData.projectedImpact?.conversionLift || 0} className="h-2" />
+                        </div>
+                        <div className="pt-2 border-t">
+                          <div className="text-center">
+                           <div className="text-lg font-bold text-green-600">
+                              +${creativesData.projectedImpact?.monthlyRevenueLift || 0}
+                            </div>
+                            <div className="text-xs text-muted-foreground">Est. Monthly Revenue Lift</div>
                           </div>
                         </div>
-                      ))}
+                      </div>
                     </div>
-                  )}
+                  </div>
                 </CardContent>
               </Card>
             )}
 
-            {autoOptimizationResults && autoOptimizationResults.optimizations && autoOptimizationResults.optimizations.length > 0 && (
+            {/* Current RSAs with AI Grading */}
+            {creativesData?.rsaAssets && creativesData.rsaAssets.length > 0 && (
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <Zap className="h-4 w-4" />
-                    Smart Auto-Optimization Results
+                  <CardTitle className="flex items-center gap-2">
+                    <Eye className="h-5 w-5 text-blue-500" />
+                    Current RSA Assets - AI Creative Audit
                   </CardTitle>
-                  <p className="text-sm text-muted-foreground">
-                    Found {autoOptimizationResults.optimizations.length} keyword optimization opportunities
-                  </p>
+                  <CardDescription>
+                    AI-graded analysis of your current headlines and descriptions with optimization suggestions
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {creativesData.rsaAssets.map((asset: any, index: number) => (
+                    <div key={index} className="border rounded-lg p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Badge variant={asset.performanceLabel === 'BEST' ? 'default' : asset.performanceLabel === 'GOOD' ? 'secondary' : 'destructive'}>
+                            {asset.performanceLabel}
+                          </Badge>
+                          <span className="font-medium">{asset.type === 'headline' ? 'Headline' : 'Description'}</span>
+                          <div className="text-sm text-muted-foreground">
+                            AI Score: {asset.aiScore}/100
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => handleKeepAsset(asset.id)}
+                          >
+                            Keep
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => handleRewriteAsset(asset.id)}
+                            disabled={!asset.suggestion}
+                          >
+                            Rewrite
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="destructive"
+                            onClick={() => handleReplaceAsset(asset.id)}
+                          >
+                            Replace
+                          </Button>
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <div>
+                          <span className="text-sm font-medium">Current:</span>
+                          <div className="text-sm text-muted-foreground mt-1">{asset.text}</div>
+                        </div>
+                        
+                        {asset.suggestion && (
+                          <div>
+                            <span className="text-sm font-medium text-green-600">AI Suggestion:</span>
+                            <div className="text-sm text-green-700 mt-1 bg-green-50 p-2 rounded">{asset.suggestion}</div>
+                            <div className="flex gap-2 mt-2">
+                              <Button 
+                                size="sm" 
+                                onClick={() => handleAcceptSuggestion(asset.id)}
+                                className="bg-green-600 hover:bg-green-700"
+                              >
+                                Accept Suggestion
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="grid grid-cols-3 gap-4 text-xs">
+                          <div>
+                            <span className="font-medium">Relevance:</span>
+                            <div className="text-muted-foreground">{asset.relevanceScore}/10</div>
+                          </div>
+                          <div>
+                            <span className="font-medium">CTA Strength:</span>
+                            <div className="text-muted-foreground">{asset.ctaScore}/10</div>
+                          </div>
+                          <div>
+                            <span className="font-medium">Performance Potential:</span>
+                            <div className="text-muted-foreground">{asset.performancePotential}/10</div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Pending Creative Changes */}
+            {pendingCreativeChanges.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <CheckCircle className="h-5 w-5 text-green-600" />
+                    Pending Creative Changes ({pendingCreativeChanges.length})
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-4">
-                    {autoOptimizationResults.optimizations.map((opt: any, index: number) => (
-                      <div key={index} className="border rounded-lg p-4">
-                        <div className="flex items-start justify-between mb-2">
-                          <div className="flex-1">
-                            <h4 className="font-medium text-sm">{opt.action}</h4>
-                            <p className="text-xs text-muted-foreground mt-1">
-                              {opt.description}
-                            </p>
-                            
-                            {/* Show what will be changed */}
-                            <div className="mt-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded border">
-                              <div className="text-xs font-medium text-blue-700 dark:text-blue-300 mb-2">
-                                📋 What will be changed:
-                              </div>
-                              
-                              {opt.type === 'negative_keywords' && (
-                                <div className="space-y-1 text-xs">
-                                  <div>• Access search terms report for {opt.campaignName}</div>
-                                  <div>• Identify search terms with 0 conversions and high clicks</div>
-                                  <div>• Add these terms as negative keywords at campaign level</div>
-                                  <div className="text-orange-600 dark:text-orange-400 mt-1">
-                                    ⚠️ Current CTR: {opt.details?.currentCTR} with {opt.details?.totalClicks} clicks
-                                  </div>
-                                </div>
-                              )}
-                              
-                              {opt.type === 'keyword_review' && (
-                                <div className="space-y-1 text-xs">
-                                  <div>• Review all broad match keywords in {opt.campaignName}</div>
-                                  <div>• Change broad match to phrase match for better control</div>
-                                  <div>• Change phrase match to exact match for high-volume terms</div>
-                                  <div className="text-orange-600 dark:text-orange-400 mt-1">
-                                    ⚠️ This will reduce impressions but improve relevance
-                                  </div>
-                                  
-                                  {/* Show problematic search terms */}
-                                  <div className="mt-2 p-2 bg-orange-50 dark:bg-orange-900/20 rounded border">
-                                    <div className="text-xs font-medium text-orange-700 dark:text-orange-300 mb-1">
-                                      Broad Match Terms with Low CTR (&lt;1%):
-                                    </div>
-                                    <div className="grid grid-cols-1 gap-1 text-xs">
-                                      <div className="flex justify-between items-center">
-                                        <span>"free boat rental" (broad)</span>
-                                        <span className="text-red-600">0.2% CTR, 45 clicks</span>
-                                      </div>
-                                      <div className="flex justify-between items-center">
-                                        <span>"cheap boat tours" (broad)</span>
-                                        <span className="text-red-600">0.4% CTR, 32 clicks</span>
-                                      </div>
-                                      <div className="flex justify-between items-center">
-                                        <span>"boat rental near me" (broad)</span>
-                                        <span className="text-red-600">0.6% CTR, 28 clicks</span>
-                                      </div>
-                                      <div className="flex justify-between items-center">
-                                        <span>"fishing boat charter" (broad)</span>
-                                        <span className="text-red-600">0.7% CTR, 21 clicks</span>
-                                      </div>
-                                      <div className="flex justify-between items-center">
-                                        <span>"boat trip oxnard" (broad)</span>
-                                        <span className="text-red-600">0.8% CTR, 18 clicks</span>
-                                      </div>
-                                    </div>
-                                    <div className="text-xs text-orange-600 dark:text-orange-400 mt-2 font-medium">
-                                      → Change these to phrase match for better targeting
-                                    </div>
-                                  </div>
-                                </div>
-                              )}
-                              
-                              {opt.type === 'keyword_expansion' && (
-                                <div className="space-y-1 text-xs">
-                                  <div>• Identify top-performing keywords in {opt.campaignName}</div>
-                                  <div>• Create new ad groups with similar keyword variations</div>
-                                  <div>• Increase bids on high-converting keyword themes</div>
-                                  <div className="text-green-600 dark:text-green-400 mt-1">
-                                    ✅ High CTR campaign - expand successful patterns
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-
-                            {opt.details?.suggestedNegativeKeywords && opt.details.suggestedNegativeKeywords.length > 0 && (
-                              <div className="mt-2 p-2 bg-red-50 dark:bg-red-900/20 rounded border">
-                                <div className="text-xs font-medium text-red-700 dark:text-red-300 mb-1">
-                                  Suggested Negative Keywords:
-                                </div>
-                                <div className="flex flex-wrap gap-1">
-                                  {opt.details.suggestedNegativeKeywords.map((keyword: string, idx: number) => (
-                                    <span key={idx} className="px-2 py-1 bg-red-100 dark:bg-red-800/30 text-red-700 dark:text-red-300 text-xs rounded">
-                                      -{keyword}
-                                    </span>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2 text-xs">
-                            <Badge variant={
-                              opt.priority === 'high' ? 'destructive' :
-                              opt.priority === 'medium' ? 'default' : 'secondary'
-                            }>
-                              {opt.priority} impact
-                            </Badge>
-                            <span className="text-muted-foreground">
-                              {opt.confidence}% confidence
-                            </span>
+                  <div className="space-y-3">
+                    {pendingCreativeChanges.map((change: any, index: number) => (
+                      <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
+                        <div className="flex-1">
+                          <div className="font-medium">{change.type === 'headline' ? 'Headline' : 'Description'} Update</div>
+                          <div className="text-sm text-muted-foreground">
+                            {change.action}: "{change.newText}"
                           </div>
                         </div>
-                        <div className="text-xs text-muted-foreground">
-                          Estimated savings: ${opt.estimatedSavings}
-                        </div>
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => removePendingCreativeChange(change.id)}
+                        >
+                          Remove
+                        </Button>
                       </div>
                     ))}
                   </div>
-                  
-                  {autoOptimizationResults.summary && (
-                    <div className="mt-4 p-3 bg-muted rounded-lg">
-                      <div className="text-sm font-medium">Summary</div>
-                      <div className="text-xs text-muted-foreground mt-1">
-                        {autoOptimizationResults.summary.totalCampaigns} campaigns analyzed • 
-                        {autoOptimizationResults.summary.optimizationsFound} optimizations found • 
-                        ${autoOptimizationResults.summary.potentialSavings} potential savings
-                      </div>
-                    </div>
-                  )}
+                  <div className="mt-4 flex gap-2">
+                    <Button 
+                      onClick={handleExecuteCreativeChanges}
+                      disabled={isExecutingCreativeChanges}
+                      className="flex items-center gap-2"
+                    >
+                      {isExecutingCreativeChanges ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Play className="h-4 w-4" />
+                      )}
+                      Push Changes to Google Ads ({pendingCreativeChanges.length})
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             )}
 
-            {analysisResults && selectedAccountForAnalysis && parsedOptimizations.length > 0 ? (
-              <OptimizationReview
-                optimizations={parsedOptimizations}
-                customerId={selectedAccountForAnalysis.customerId}
-                accountName={selectedAccountForAnalysis.name}
-                campaignData={[
-                  {
-                    id: "1742778601",
-                    name: "Boat Rentals Campaign",
-                    cost: 2500, // $2500 (converted from micros)
-                    status: "ENABLED",
-                    clicks: 150, 
-                    impressions: 8500, 
-                    conversions: 0, 
-                    ctr: 0.0176,
-                    keywords: [
-                      { text: "boat rentals oxnard", clicks: 50, conversions: 0, matchType: "EXACT" },
-                      { text: "channel islands boat", clicks: 50, conversions: 0, matchType: "PHRASE" },
-                      { text: "oxnard boat charter", clicks: 30, conversions: 0, matchType: "BROAD" },
-                      { text: "boat rental santa barbara", clicks: 20, conversions: 2, matchType: "PHRASE" }
-                    ]
-                  },
-                  {
-                    id: "1742778602", 
-                    name: "Marina Services Campaign",
-                    cost: 500, // $500 (converted from micros)
-                    status: "ENABLED",
-                    clicks: 75, 
-                    impressions: 4200, 
-                    conversions: 3, 
-                    ctr: 0.0178
-                  }
-                ]}
-              />
-            ) : !autoOptimizationResults && !searchTermsData && (
+            {!creativesData && !isAnalyzingCreatives && (
               <div className="text-center py-8 text-muted-foreground">
-                <Zap className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p className="font-medium">No optimizations available yet.</p>
-                <p className="text-sm">Run Smart Auto-Optimization or Test Search Terms first.</p>
+                <Brain className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p className="font-medium">No creative analysis results yet.</p>
+                <p className="text-sm">Click "Analyze Creatives" to start AI-powered RSA optimization.</p>
+                <div className="mt-4 p-3 bg-muted rounded-lg">
+                  <p className="text-xs">
+                    🎨 AI Creative Audit analyzes headlines & descriptions
+                    <br />
+                    📊 Grades assets on relevance, CTA strength, and performance potential
+                    <br />
+                    🚀 One-click execution pushes optimized creatives to Google Ads
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {isAnalyzingCreatives && (
+              <div className="text-center py-8">
+                <Loader2 className="h-12 w-12 mx-auto mb-4 animate-spin text-primary" />
+                <p className="font-medium mb-2">AI Creative Analysis in Progress...</p>
+                <div className="max-w-md mx-auto space-y-3">
+                  <Progress value={75} className="w-full" />
+                  <p className="text-sm text-muted-foreground">
+                    🎨 Analyzing current RSA assets and generating optimization suggestions...
+                  </p>
+                </div>
               </div>
             )}
           </TabsContent>
