@@ -57,7 +57,22 @@ serve(async (req) => {
       })
     });
 
-    const ghlData = await ghlResponse.json();
+    let ghlData;
+    try {
+      const responseText = await ghlResponse.text();
+      console.log('GHL API Response Status:', ghlResponse.status);
+      console.log('GHL API Response Text:', responseText);
+      
+      // Try to parse as JSON only if we have content
+      if (responseText.trim()) {
+        ghlData = JSON.parse(responseText);
+      } else {
+        ghlData = { message: 'Empty response from GoHighLevel API' };
+      }
+    } catch (parseError) {
+      console.error('JSON Parse Error:', parseError);
+      throw new Error('Invalid response format from GoHighLevel API');
+    }
     
     if (!ghlResponse.ok) {
       console.error('GoHighLevel API error:', ghlData);
