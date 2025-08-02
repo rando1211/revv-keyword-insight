@@ -236,9 +236,9 @@ Provide your analysis in the following structured format. Return ONLY valid JSON
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'gpt-4.1-2025-04-14',
         messages: [
-          { role: 'user', content: aiPrompt }
+          { role: 'user', content: `${aiPrompt}\n\nDATA TO ANALYZE:\n${JSON.stringify(structuredData, null, 2)}` }
         ],
         temperature: 0.1,
         max_tokens: 4000
@@ -292,7 +292,8 @@ Provide your analysis in the following structured format. Return ONLY valid JSON
         totalSearchTerms: searchTerms.length,
         analysisDate: new Date().toISOString(),
         campaignGoal,
-        model: 'gpt-4o-mini'
+        campaignContext,
+        model: 'gpt-4.1-2025-04-14'
       }
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
