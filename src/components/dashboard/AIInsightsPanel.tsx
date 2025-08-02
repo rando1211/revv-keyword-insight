@@ -36,6 +36,10 @@ export const AIInsightsPanel = () => {
   const [pendingCreativeChanges, setPendingCreativeChanges] = useState<any[]>([]);
   const [isExecutingCreativeChanges, setIsExecutingCreativeChanges] = useState(false);
 
+  // GoHighLevel integration state
+  const [ghlLocationId, setGhlLocationId] = useState("");
+  const [isPushingToGHL, setIsPushingToGHL] = useState(false);
+
   // Clear analysis results when account changes
   useEffect(() => {
     setAdvancedAnalysisResults(null);
@@ -472,8 +476,60 @@ export const AIInsightsPanel = () => {
     }
   };
 
+  // GoHighLevel integration function
+  const handlePushToGoHighLevel = async () => {
+    if (!ghlLocationId.trim()) {
+      toast({
+        title: "Location ID Required",
+        description: "Please enter your GoHighLevel Location ID",
+        variant: "destructive",
+      });
+      return;
+    }
 
-  // Parse optimizations from AI analysis results
+    setIsPushingToGHL(true);
+    try {
+      const pageData = {
+        headline: "Join Carefree Boat Club - Unlimited Access to Premium Boats",
+        subheadline: "No maintenance, no storage fees, no insurance hassles - just pure boating freedom",
+        ctaText: "Start My Boat Club Trial - $0 Today",
+        valueProps: [
+          "No maintenance, no storage fees, no insurance hassles",
+          "Access 100+ boats across multiple locations", 
+          "Book online in seconds, unlimited usage"
+        ],
+        description: "High-converting landing page optimized for boat club membership campaigns"
+      };
+
+      const { data, error } = await supabase.functions.invoke('push-to-gohighlevel', {
+        body: {
+          locationId: ghlLocationId,
+          pageData: pageData,
+          pageName: `AI Landing Page - ${selectedAccountForAnalysis?.name || 'Campaign'}`
+        }
+      });
+
+      if (error) throw error;
+
+      if (data.success) {
+        toast({
+          title: "🚀 Landing Page Pushed to GoHighLevel!",
+          description: `Successfully created funnel in your GHL account. Funnel ID: ${data.funnelId}`,
+        });
+      } else {
+        throw new Error(data.error || 'Failed to push to GoHighLevel');
+      }
+    } catch (error) {
+      console.error("Error pushing to GoHighLevel:", error);
+      toast({
+        title: "Push Failed",
+        description: error.message || "Unable to push landing page to GoHighLevel",
+        variant: "destructive",
+      });
+    } finally {
+      setIsPushingToGHL(false);
+    }
+  };
   const parsedOptimizations = useMemo(() => {
     if (!analysisResults || !selectedAccountForAnalysis) return [];
     
@@ -1000,6 +1056,51 @@ export const AIInsightsPanel = () => {
                     </Button>
                   </div>
                 </div>
+
+                {/* GoHighLevel Configuration */}
+                <Card className="border-blue-200">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-blue-700">
+                      <Zap className="h-5 w-5" />
+                      GoHighLevel Integration
+                    </CardTitle>
+                    <CardDescription>
+                      Push your AI-generated landing page directly to your GHL account
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div>
+                      <Label htmlFor="ghl-location-id">GoHighLevel Location ID</Label>
+                      <Input
+                        id="ghl-location-id"
+                        placeholder="Enter your GHL Location ID (e.g., Ve9EPM428h8vShlRW1KT)"
+                        value={ghlLocationId}
+                        onChange={(e) => setGhlLocationId(e.target.value)}
+                        className="mt-1"
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Find this in your GHL account under Settings → Company Info → Location ID
+                      </p>
+                    </div>
+                    <Button 
+                      onClick={handlePushToGoHighLevel}
+                      disabled={isPushingToGHL || !ghlLocationId.trim()}
+                      className="w-full bg-blue-600 hover:bg-blue-700"
+                    >
+                      {isPushingToGHL ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Pushing to GoHighLevel...
+                        </>
+                      ) : (
+                        <>
+                          <Zap className="h-4 w-4 mr-2" />
+                          Push Perfect Page to GoHighLevel
+                        </>
+                      )}
+                    </Button>
+                  </CardContent>
+                </Card>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   {/* Current Page Audit */}
