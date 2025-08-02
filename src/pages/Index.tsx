@@ -5,7 +5,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AIInsightsPanel } from "@/components/dashboard/AIInsightsPanel";
 import { AccountSelection } from "@/components/dashboard/AccountSelection";
 import { CompetitorAnalysis } from "@/components/dashboard/CompetitorAnalysis";
-import { BarChart3, TrendingUp, DollarSign, Target, RefreshCw } from "lucide-react";
+import { OptimizationScore } from "@/components/dashboard/OptimizationScore";
+import { OptimizationHeatmap } from "@/components/dashboard/OptimizationHeatmap";
+import { NextBestActions } from "@/components/dashboard/NextBestActions";
+import { CompetitorWatchlist } from "@/components/dashboard/CompetitorWatchlist";
+import { BarChart3, TrendingUp, DollarSign, Target, RefreshCw, Settings, Link } from "lucide-react";
 
 const Index = () => {
   return (
@@ -94,51 +98,101 @@ const Index = () => {
           </TabsList>
 
           <TabsContent value="overview" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <BarChart3 className="h-5 w-5" />
-                  <span>🎉 REVV Marketing Dashboard is LIVE!</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-4">
-                    <h3 className="text-lg font-semibold">✅ Connected Services</h3>
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm">Google Ads API</span>
-                        <Badge className="bg-success text-success-foreground">Connected</Badge>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm">Developer Token</span>
-                        <Badge variant="outline">Active</Badge>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm">OpenAI API</span>
-                        <Badge className="bg-success text-success-foreground">Connected</Badge>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm">OAuth2 Flow</span>
-                        <Badge className="bg-success text-success-foreground">Complete</Badge>
-                      </div>
+            {/* Pro-Level Command Center Layout */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Left Column - Main Metrics & Heatmap */}
+              <div className="lg:col-span-2 space-y-6">
+                {/* Optimization Score - Featured */}
+                <OptimizationScore />
+                
+                {/* Opportunity Heatmap */}
+                <OptimizationHeatmap />
+              </div>
+              
+              {/* Right Column - Action Items & Watchlist */}
+              <div className="space-y-6">
+                {/* Next Best Actions */}
+                <NextBestActions />
+                
+                {/* Competitor Watchlist */}
+                <CompetitorWatchlist />
+              </div>
+            </div>
+            
+            {/* Bottom Row - Connected Services */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Link className="h-5 w-5" />
+                    Connected Services
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm">Google Ads API</span>
+                      <Badge className="bg-green-500 text-white">Connected</Badge>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm">OpenAI API</span>
+                      <Badge className="bg-green-500 text-white">Connected</Badge>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm">GoHighLevel</span>
+                      <Badge className="bg-green-500 text-white">Connected</Badge>
                     </div>
                   </div>
-                  
-                  <div className="space-y-4">
-                    <h3 className="text-lg font-semibold">🚀 SaaS Features</h3>
-                    <div className="space-y-2 text-sm">
-                      <div>• Live campaign data access</div>
-                      <div>• AI-powered optimization recommendations</div>
-                      <div>• Account-based billing ($100/account)</div>
-                      <div>• Automated approval workflows</div>
-                      <div>• Campaign performance analytics</div>
-                      <div>• OpenAI code generation</div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Settings className="h-5 w-5" />
+                    SaaS Features
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm">Auto Optimization</span>
+                      <Badge className="bg-blue-500 text-white">Active</Badge>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm">AI Insights</span>
+                      <Badge className="bg-blue-500 text-white">Active</Badge>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm">Competitor Analysis</span>
+                      <Badge className="bg-blue-500 text-white">Active</Badge>
                     </div>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <TrendingUp className="h-5 w-5" />
+                    Quick Actions
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    <Button className="w-full" size="sm">
+                      Run Deep Audit
+                    </Button>
+                    <Button className="w-full" variant="outline" size="sm">
+                      Generate Report
+                    </Button>
+                    <Button className="w-full" variant="outline" size="sm">
+                      ROI Simulator
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
 
           <TabsContent value="accounts" className="space-y-6">
