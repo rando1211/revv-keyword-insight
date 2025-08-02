@@ -466,6 +466,7 @@ export const AIInsightsPanel = () => {
       if (error) throw error;
 
       if (data.success) {
+        console.log('🔥 Advanced analysis successful, setting results:', data.analysis);
         setAdvancedAnalysisResults(data.analysis);
         
         // Store results in localStorage for persistence

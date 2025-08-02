@@ -243,6 +243,12 @@ export const SearchTermsAnalysisUI = ({ analysisData, onUpdateAnalysisData, sele
     }
   };
 
+  console.log('🔍 SearchTermsAnalysisUI render:', { 
+    hasAnalysisData: !!analysisData, 
+    selectedAccount: selectedAccount?.name,
+    analysisDataKeys: analysisData ? Object.keys(analysisData) : null
+  });
+
   if (!analysisData) {
     return (
       <div className="space-y-6">
@@ -266,6 +272,7 @@ export const SearchTermsAnalysisUI = ({ analysisData, onUpdateAnalysisData, sele
               <div className="text-center py-8">
                 <Button 
                   onClick={() => {
+                    console.log('🔥 Triggering advanced analysis...');
                     // Trigger analysis from parent component
                     window.dispatchEvent(new CustomEvent('triggerAdvancedAnalysis'));
                   }}
