@@ -32,60 +32,6 @@ const Index = () => {
       </header>
       
       <div className="container mx-auto px-6 py-8 space-y-8">
-        {/* Stats Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div className="space-y-2">
-                  <p className="text-sm text-muted-foreground">Total Campaigns</p>
-                  <p className="text-2xl font-bold">24</p>
-                  <p className="text-xs text-muted-foreground">+3 this month</p>
-                </div>
-                <Target className="h-8 w-8 text-accent" />
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div className="space-y-2">
-                  <p className="text-sm text-muted-foreground">Total Spend</p>
-                  <p className="text-2xl font-bold">$47,892</p>
-                  <p className="text-xs text-muted-foreground">+12% vs last month</p>
-                </div>
-                <DollarSign className="h-8 w-8 text-primary" />
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div className="space-y-2">
-                  <p className="text-sm text-muted-foreground">Avg. Conversion Rate</p>
-                  <p className="text-2xl font-bold">2.14%</p>
-                  <p className="text-xs text-muted-foreground">+0.3% improvement</p>
-                </div>
-                <TrendingUp className="h-8 w-8 text-success" />
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div className="space-y-2">
-                  <p className="text-sm text-muted-foreground">Active Optimizations</p>
-                  <p className="text-2xl font-bold">8</p>
-                  <p className="text-xs text-muted-foreground">3 pending approval</p>
-                </div>
-                <RefreshCw className="h-8 w-8 text-warning" />
-              </div>
-            </CardContent>
-          </Card>
-        </div>
 
         {/* Main Dashboard */}
         <Tabs defaultValue="overview" className="space-y-6">
