@@ -10,12 +10,14 @@ import { fetchGoogleAdsAccounts, type GoogleAdsAccount } from '@/lib/google-ads-
 import { useAccount } from '@/contexts/AccountContext';
 import { generateCampaignAnalysis } from '@/lib/openai-service';
 import { supabase } from '@/integrations/supabase/client';
+import { CampaignSelection } from './CampaignSelection';
 
 export const AccountSelection = () => {
   const [selectedAccounts, setSelectedAccounts] = useState<string[]>([]);
   const [accounts, setAccounts] = useState<GoogleAdsAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [analyzingAccount, setAnalyzingAccount] = useState<string | null>(null);
+  const [selectedAccountForCampaigns, setSelectedAccountForCampaigns] = useState<GoogleAdsAccount | null>(null);
   
   const { toast } = useToast();
   const { setSelectedAccountForAnalysis, setAnalysisResults, setIsAnalyzing, setAnalysisStep } = useAccount();
@@ -195,6 +197,16 @@ export const AccountSelection = () => {
     );
   }
 
+  // Show campaign selection if an account is selected
+  if (selectedAccountForCampaigns) {
+    return (
+      <CampaignSelection 
+        account={selectedAccountForCampaigns}
+        onBack={() => setSelectedAccountForCampaigns(null)}
+      />
+    );
+  }
+
   return (
     <div className="space-y-6">
       <Card>
@@ -235,20 +247,32 @@ export const AccountSelection = () => {
                   <div className="text-lg font-bold">$100</div>
                   <div className="text-xs text-muted-foreground">per month</div>
                 </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleAnalyzeAccount(account)}
-                  disabled={analyzingAccount === account.id || account.status === 'SUSPENDED'}
-                  className="flex items-center gap-2"
-                >
-                  {analyzingAccount === account.id ? (
-                    <RefreshCw className="h-4 w-4 animate-spin" />
-                  ) : (
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setSelectedAccountForCampaigns(account)}
+                    disabled={account.status === 'SUSPENDED'}
+                    className="flex items-center gap-2"
+                  >
                     <Brain className="h-4 w-4" />
-                  )}
-                  {analyzingAccount === account.id ? "Analyzing..." : "Analyze with AI"}
-                </Button>
+                    Select Campaigns
+                  </Button>
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={() => handleAnalyzeAccount(account)}
+                    disabled={analyzingAccount === account.id || account.status === 'SUSPENDED'}
+                    className="flex items-center gap-2"
+                  >
+                    {analyzingAccount === account.id ? (
+                      <RefreshCw className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Brain className="h-4 w-4" />
+                    )}
+                    {analyzingAccount === account.id ? "Analyzing..." : "Analyze All"}
+                  </Button>
+                </div>
               </div>
             </div>
           ))}

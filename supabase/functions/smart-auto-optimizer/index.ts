@@ -94,11 +94,12 @@ serve(async (req) => {
   }
 
   try {
-    const { customerId, executeOptimizations = false } = await req.json();
+    const { customerId, executeOptimizations = false, selectedCampaignIds } = await req.json();
     
     console.log('=== SMART AUTO-OPTIMIZER START v3.0 ===');
     console.log('Customer ID:', customerId);
     console.log('Execute mode:', executeOptimizations ? 'LIVE EXECUTION' : 'PREVIEW ONLY');
+    console.log('Selected campaigns:', selectedCampaignIds ? selectedCampaignIds.length : 'all');
     
     // Get credentials from environment
     const GOOGLE_CLIENT_ID = Deno.env.get('Client ID');
@@ -174,9 +175,16 @@ serve(async (req) => {
     }
 
     const campaignData = await campaignRes.json();
-    console.log('📈 Campaigns fetched:', campaignData.results?.length || 0);
+    let campaigns = campaignData.results || [];
+    console.log('📈 Campaigns fetched:', campaigns.length);
+    
+    // Filter campaigns if specific IDs are provided
+    if (selectedCampaignIds && selectedCampaignIds.length > 0) {
+      campaigns = campaigns.filter(campaign => selectedCampaignIds.includes(campaign.campaign.id));
+      console.log(`🎯 Filtered to ${campaigns.length} selected campaigns`);
+    }
 
-    if (!campaignData.results || campaignData.results.length === 0) {
+    if (!campaigns || campaigns.length === 0) {
       return new Response(JSON.stringify({
         success: true,
         message: 'No campaigns found for optimization',
@@ -189,7 +197,7 @@ serve(async (req) => {
 
     // Step 2: Fetch search terms for each campaign
     console.log('🔍 Fetching search terms for analysis...');
-    const searchTermsQuery = `
+    let searchTermsQuery = `
       SELECT
         campaign.id,
         campaign.name,
@@ -202,7 +210,16 @@ serve(async (req) => {
       WHERE campaign.status = 'ENABLED'
         AND segments.date DURING LAST_30_DAYS
         AND metrics.cost_micros > 100000
-        AND metrics.clicks > 1
+        AND metrics.clicks > 1`;
+    
+    // Add campaign filter if specific campaigns are selected
+    if (selectedCampaignIds && selectedCampaignIds.length > 0) {
+      const campaignFilter = selectedCampaignIds.map(id => `'${id}'`).join(',');
+      searchTermsQuery += ` AND campaign.id IN (${campaignFilter})`;
+      console.log('🎯 Added campaign filter to search terms query');
+    }
+    
+    searchTermsQuery += `
       ORDER BY metrics.cost_micros DESC
       LIMIT 100
     `;
@@ -332,13 +349,13 @@ serve(async (req) => {
 
     // Step 4: Simple campaign list (no complex scoring needed)
     console.log('📋 Processing campaigns for keyword analysis...');
-    const campaigns = campaignData.results.map((r: any) => ({
+    const processedCampaigns = campaigns.map((r: any) => ({
       id: r.campaign.id,
       name: r.campaign.name,
       status: r.campaign.status
     }));
     
-    console.log(`📊 Found ${campaigns.length} campaigns for keyword analysis`);
+    console.log(`📊 Found ${processedCampaigns.length} campaigns for keyword analysis`);
 
     // Step 5: Generate optimization actions based on AI classification
     const actions = [];
@@ -348,7 +365,7 @@ serve(async (req) => {
     
     // Group AI recommendations by campaign
     const campaignMap = new Map();
-    campaigns.forEach(c => campaignMap.set(c.id, c));
+    processedCampaigns.forEach(c => campaignMap.set(c.id, c));
     
     // Process BLOCK terms (add as negative keywords)
     if (blockTerms.length > 0) {
@@ -526,7 +543,7 @@ serve(async (req) => {
     return new Response(JSON.stringify({
       success: true,
       summary: {
-        totalCampaigns: campaigns.length,
+        totalCampaigns: processedCampaigns.length,
         optimizationsAttempted: actions.length,
         optimizationsSuccessful: successfulOptimizations,
         aiClassifications: {
@@ -536,7 +553,7 @@ serve(async (req) => {
           refine: refineTerms.length
         }
       },
-      campaigns: campaigns,
+      campaigns: processedCampaigns,
       actions,
       aiInsights: {
         totalTermsAnalyzed: aiClassifications.length,
