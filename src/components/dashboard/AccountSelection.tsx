@@ -256,7 +256,7 @@ export const AccountSelection = () => {
                     className="flex items-center gap-2"
                   >
                     <Brain className="h-4 w-4" />
-                    Select for Analysis
+                    Select Campaigns
                   </Button>
                   <Button
                     variant="default"

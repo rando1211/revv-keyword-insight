@@ -190,12 +190,12 @@ export const CampaignSelection = ({ account, onBack }: CampaignSelectionProps) =
             <Button variant="ghost" size="sm" onClick={onBack}>
               <ArrowLeft className="h-4 w-4" />
             </Button>
-            Competitive Analysis
+            Select Campaigns to Analyze
           </div>
           <Badge variant="outline">{account.name}</Badge>
         </CardTitle>
         <p className="text-sm text-muted-foreground">
-          Choose which campaigns to analyze against competitors with AI intelligence.
+          Choose which campaigns you want to analyze and optimize with AI.
         </p>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -286,7 +286,7 @@ export const CampaignSelection = ({ account, onBack }: CampaignSelectionProps) =
             ) : (
               <>
                 <Brain className="h-4 w-4 mr-2" />
-                Start Competitive Analysis for {selectedCampaigns.length} Campaign{selectedCampaigns.length !== 1 ? 's' : ''}
+                Analyze {selectedCampaigns.length} Campaign{selectedCampaigns.length !== 1 ? 's' : ''} with AI
               </>
             )}
           </Button>
