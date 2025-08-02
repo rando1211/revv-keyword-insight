@@ -140,13 +140,23 @@ serve(async (req) => {
     
     const aiPrompt = `You are a Google Ads Optimization AI Assistant specialized in analyzing Search Terms Reports for PPC campaigns.
 
-CAMPAIGN CONTEXT:
-- Goal: ${campaignGoal || 'Generate more leads'}  
-- What this campaign sells: ${campaignContext || 'Not specified - use general analysis'}
+🚨 CRITICAL CAMPAIGN CONTEXT - READ CAREFULLY:
+- Campaign Goal: ${campaignGoal || 'Generate more leads'}  
+- Campaign Sells: ${campaignContext || 'Not specified - use general analysis'}
 
-CRITICAL: If campaign context specifies what products/services are being sold (e.g., "Personal Water Craft, Jet Skis"), then search terms related to those products are RELEVANT, not irrelevant.
+🔥 MANDATORY RULE: Before marking ANY term as "irrelevant", check if it relates to what this campaign sells.
 
-Analyze the following search terms data and provide optimization insights. Focus on semantic relevance to the campaign goal and specified products/services.
+EXAMPLES:
+- If campaign sells "Personal Water Craft (PWCs), Jet Skis, Sea-Doo" then terms like "jet ski for sale", "sea doo", "waverunner", "personal watercraft", "pwc" are 100% RELEVANT
+- If campaign sells "Motorcycles" then "jet ski" terms would be irrelevant
+- If campaign sells "Boats" then "boat rental", "fishing boat" are RELEVANT
+
+❌ DO NOT mark terms as irrelevant if they relate to what the campaign actually sells, even if they seem unrelated to a general business type.
+
+✅ ONLY mark terms as irrelevant if they are truly unrelated to the specific products/services this campaign promotes.
+
+Campaign Goal: ${campaignGoal}
+Campaign Context: ${campaignContext || 'General analysis - be conservative with irrelevant classifications'}
 
 Performance Benchmarks:
 - Average CTR: ${benchmarks.avgCtr.toFixed(4)}
