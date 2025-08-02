@@ -30,6 +30,8 @@ export const SearchTermsAnalysisUI = ({ analysisData, selectedAccount }: SearchT
   const [pendingActions, setPendingActions] = useState<PendingAction[]>([]);
   const [isExecuting, setIsExecuting] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [executionResults, setExecutionResults] = useState<any>(null);
+  const [showResults, setShowResults] = useState(false);
 
   // Calculate performance metrics
   const performanceMetrics = useMemo(() => {
@@ -124,6 +126,10 @@ export const SearchTermsAnalysisUI = ({ analysisData, selectedAccount }: SearchT
         description: `${data.summary.successCount}/${data.summary.totalActions} optimization actions applied to your campaigns`,
       });
 
+      // Store execution results and show them
+      setExecutionResults(data);
+      setShowResults(true);
+      
       setPendingActions([]);
       setSelectedTerms([]);
       setShowConfirmModal(false);
@@ -499,6 +505,66 @@ export const SearchTermsAnalysisUI = ({ analysisData, selectedAccount }: SearchT
                 </DialogFooter>
               </DialogContent>
             </Dialog>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Execution Results */}
+      {showResults && executionResults && (
+        <Card className="border-green-200 bg-green-50">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-green-700">
+              <CheckCircle2 className="h-5 w-5" />
+              Optimization Results
+            </CardTitle>
+            <CardDescription>
+              Executed at {new Date(executionResults.executedAt).toLocaleString()}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="grid grid-cols-3 gap-4 text-center">
+                <div className="p-3 bg-white rounded-lg">
+                  <div className="text-2xl font-bold text-green-600">{executionResults.summary.successCount}</div>
+                  <div className="text-sm text-muted-foreground">Successful</div>
+                </div>
+                <div className="p-3 bg-white rounded-lg">
+                  <div className="text-2xl font-bold text-red-600">{executionResults.summary.errorCount}</div>
+                  <div className="text-sm text-muted-foreground">Failed</div>
+                </div>
+                <div className="p-3 bg-white rounded-lg">
+                  <div className="text-2xl font-bold text-blue-600">{executionResults.summary.totalActions}</div>
+                  <div className="text-sm text-muted-foreground">Total Actions</div>
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <h4 className="font-medium">Detailed Results:</h4>
+                {executionResults.results.map((result: any, index: number) => (
+                  <div key={index} className={`p-3 rounded-lg border ${result.success ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+                    <div className="flex items-center gap-2 mb-1">
+                      {result.success ? 
+                        <CheckCircle2 className="h-4 w-4 text-green-600" /> : 
+                        <AlertTriangle className="h-4 w-4 text-red-600" />
+                      }
+                      <span className="font-medium">{result.action.searchTerm}</span>
+                      <Badge variant={result.success ? "default" : "destructive"}>
+                        {result.action.type.replace('_', ' ')}
+                      </Badge>
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      {result.message}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              
+              <div className="flex justify-end">
+                <Button variant="outline" onClick={() => setShowResults(false)}>
+                  Close Results
+                </Button>
+              </div>
+            </div>
           </CardContent>
         </Card>
       )}
