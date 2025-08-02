@@ -121,61 +121,53 @@ serve(async (req) => {
     // AI Analysis using the specific prompt template
     console.log('🤖 Starting advanced AI analysis with semantic analysis...');
     
-    const aiPrompt = `You are a Google Ads Optimization AI Assistant specialized in analyzing Search Terms Reports for PPC campaigns. You will receive structured JSON input containing search terms performance data. Your task is to provide optimization insights in the following structured format:
+    const aiPrompt = `You are a Google Ads Optimization AI Assistant specialized in analyzing Search Terms Reports for PPC campaigns. 
 
-1. Irrelevant Search Terms: Terms that are semantically unrelated to the campaign objective and should be added as Negative Keywords.
-2. High Clicks, No Conversion Terms: Search terms that have significant clicks (threshold >5 clicks) but zero conversions, indicating wasted spend.
-3. High-Converting Clusters: Groups of related terms that have a high conversion rate, which should be expanded via Exact/Phrase Match targeting.
-4. Anomalies Detected: Any unusual spikes in CTR, impressions, or Cost/Conv that require attention.
-5. Overall Recommendations: Clear and prioritized actions to improve campaign efficiency (e.g., negative keyword suggestions, ad copy tweaks, bid adjustments).
+Analyze the following search terms data and provide optimization insights. Focus on semantic relevance to the campaign goal: "${campaignGoal}"
 
-You must use semantic analysis, not just match types or numbers, to assess relevancy. Be concise, but prioritize actionable insights.
+Search Terms Data: ${JSON.stringify(structuredData.searchTerms.slice(0, 20), null, 2)}
 
-Campaign goal: ${campaignGoal}
+Provide your analysis in the following structured format. Return ONLY valid JSON without any markdown formatting:
 
-Search Terms Data: ${JSON.stringify(structuredData, null, 2)}
-
-Please respond in the following JSON format:
 {
   "irrelevantTerms": [
     {
-      "searchTerm": "term",
-      "reason": "why it's irrelevant",
-      "clicks": 0,
-      "cost": 0,
-      "semanticMismatch": "explanation"
+      "searchTerm": "exact term text",
+      "clicks": number,
+      "cost": number,
+      "reason": "brief explanation why irrelevant"
     }
   ],
   "highClicksNoConv": [
     {
-      "searchTerm": "term",
-      "clicks": 0,
-      "cost": 0,
-      "wastedSpend": 0
+      "searchTerm": "exact term text", 
+      "clicks": number,
+      "cost": number,
+      "wastedSpend": number
     }
   ],
   "convertingClusters": [
     {
-      "theme": "cluster theme",
-      "termCount": 0,
-      "conversionRate": 0,
-      "exampleTerms": ["term1", "term2"],
-      "expandRecommendation": "exact/phrase match suggestion"
+      "theme": "cluster description",
+      "termCount": number,
+      "conversionRate": number,
+      "exampleTerms": ["term1", "term2", "term3"],
+      "expandRecommendation": "suggestion text"
     }
   ],
   "anomalies": [
     {
-      "type": "CTR/impressions/cost spike",
-      "description": "what's unusual",
-      "affectedTerms": ["terms"],
+      "type": "anomaly type",
+      "description": "what is unusual",
+      "affectedTerms": ["term1", "term2"],
       "investigation": "what to check"
     }
   ],
   "recommendations": [
     {
-      "title": "recommendation title",
-      "description": "detailed description",
-      "priority": "high/medium/low",
+      "title": "action title",
+      "description": "detailed description", 
+      "priority": "high",
       "expectedImpact": "impact description"
     }
   ]
