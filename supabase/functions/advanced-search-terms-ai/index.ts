@@ -69,13 +69,11 @@ serve(async (req) => {
         metrics.impressions,
         metrics.ctr,
         metrics.conversions,
-        metrics.cost_micros,
-        metrics.conversion_rate
+        metrics.cost_micros
       FROM search_term_view
       WHERE segments.date DURING LAST_30_DAYS
-      AND metrics.clicks > 0
-      ORDER BY metrics.cost_micros DESC
-      LIMIT 100
+      ORDER BY metrics.clicks DESC
+      LIMIT 50
     `;
 
     console.log('📊 Fetching search terms data...');
@@ -113,8 +111,10 @@ serve(async (req) => {
         ctr: parseFloat(term.metrics?.ctr || '0'),
         conversions: parseFloat(term.metrics?.conversions || '0'),
         costMicros: parseInt(term.metrics?.costMicros || '0'),
-        conversionRate: parseFloat(term.metrics?.conversionRate || '0'),
-        cost: (parseInt(term.metrics?.costMicros || '0')) / 1000000 // Convert to dollars
+        cost: (parseInt(term.metrics?.costMicros || '0')) / 1000000, // Convert to dollars
+        conversionRate: parseInt(term.metrics?.clicks || '0') > 0 
+          ? (parseFloat(term.metrics?.conversions || '0') / parseInt(term.metrics?.clicks || '0')) * 100 
+          : 0
       }))
     };
 
