@@ -14,6 +14,7 @@ import { useAccount } from "@/contexts/AccountContext";
 import { Progress } from "@/components/ui/progress";
 import { OptimizationReview } from "./OptimizationReview";
 import { SearchTermsAnalysisUI } from "./SearchTermsAnalysisUI";
+import { PowerAuditPanel } from "./PowerAuditPanel";
 
 export const AIInsightsPanel = () => {
   const { toast } = useToast();
@@ -563,88 +564,17 @@ export const AIInsightsPanel = () => {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <Tabs defaultValue="analysis" className="space-y-4">
+        <Tabs defaultValue="power-audit" className="space-y-4">
           <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="analysis">Analysis</TabsTrigger>
+            <TabsTrigger value="power-audit">🔍 Power Audit</TabsTrigger>
             <TabsTrigger value="creatives">🎨 Creatives</TabsTrigger>
             <TabsTrigger value="search-terms-ai">🔥 Search Terms AI</TabsTrigger>
             <TabsTrigger value="status">Status</TabsTrigger>
           </TabsList>
           
-            <TabsContent value="analysis" className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold">AI Campaign Analysis</h3>
-                <Badge variant="outline" className="text-xs">
-                  Real-time Analysis
-                </Badge>
-              </div>
-
-            {analysisResults && selectedAccountForAnalysis && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">
-                    AI Recommendations for {selectedAccountForAnalysis.name}
-                  </CardTitle>
-                  <Badge variant="secondary" className="w-fit">
-                    3-Step AI Chain: Analysis → Code → Validation
-                  </Badge>
-                </CardHeader>
-                <CardContent>
-                  <div className="whitespace-pre-wrap text-sm leading-relaxed">
-                    {analysisResults}
-                  </div>
-                  <div className="mt-4 p-3 bg-muted rounded-lg">
-                    <p className="text-xs text-muted-foreground">
-                      ✅ Analysis completed using your custom OpenAI Assistant
-                      <br />
-                      🎯 Campaign: {selectedAccountForAnalysis.name}
-                      <br />
-                      📊 Active campaigns with ENABLED status only
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {!analysisResults && !isAnalyzing && (
-              <div className="text-center py-8 text-muted-foreground">
-                <Brain className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p className="font-medium">No analysis results yet.</p>
-                <p className="text-sm">Go to the Accounts tab and click "Analyze with AI" on any account.</p>
-                <div className="mt-4 p-3 bg-muted rounded-lg">
-                  <p className="text-xs">
-                    📋 When you analyze: Assistant ID asst_phXpkgf3V5TRddgpq06wjEtF will be used
-                    <br />
-                    🔍 Only ENABLED campaigns will be analyzed
-                    <br />
-                    ⚡ Real-time data from Google Ads API
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {isAnalyzing && (
-              <div className="text-center py-8">
-                <Loader2 className="h-12 w-12 mx-auto mb-4 animate-spin text-primary" />
-                <p className="font-medium mb-2">AI Analysis in Progress...</p>
-                <div className="max-w-md mx-auto space-y-3">
-                  <Progress value={(analysisStep / 3) * 100} className="w-full" />
-                  <p className="text-sm text-muted-foreground">
-                    {analysisStep === 1 && "🎯 Step 1/3: Fetching campaign data..."}
-                    {analysisStep === 2 && "🧠 Step 2/3: AI analyzing campaigns..."}
-                    {analysisStep === 3 && "🔧 Step 3/3: Generating optimizations..."}
-                  </p>
-                </div>
-                <div className="mt-4 p-3 bg-muted rounded-lg">
-                  <p className="text-xs text-muted-foreground">
-                    ⚡ Using advanced OpenAI Assistant with 3-step analysis chain
-                    <br />
-                    📊 Processing real-time Google Ads data
-                  </p>
-                </div>
-              </div>
-            )}
-          </TabsContent>
+            <TabsContent value="power-audit" className="space-y-4">
+              <PowerAuditPanel />
+            </TabsContent>
           
           <TabsContent value="creatives" className="space-y-4">
             <div className="flex items-center justify-between mb-4">
