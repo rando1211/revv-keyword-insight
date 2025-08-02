@@ -83,6 +83,7 @@ serve(async (req) => {
     `;
 
     console.log('📊 Fetching search terms data...');
+    console.log('🔍 Search Terms Query:', searchTermsQuery);
 
     const searchTermsResponse = await fetch(apiUrl, {
       method: 'POST',
@@ -100,28 +101,39 @@ serve(async (req) => {
     }
 
     const searchTermsData = await searchTermsResponse.json();
+    console.log('📊 Raw API Response Sample:', JSON.stringify(searchTermsData.results?.slice(0, 2), null, 2));
+    
     const searchTerms = searchTermsData.results || [];
-
     console.log(`📊 Found ${searchTerms.length} search terms for analysis`);
 
     // Transform search terms data into structured format for AI analysis
     const structuredData = {
       campaignGoal,
-      searchTerms: searchTerms.map((term: any) => ({
-        searchTerm: term.searchTermView?.searchTerm || '',
-        campaignId: term.campaign?.id || '',
-        campaignName: term.campaign?.name || '',
-        adGroupName: term.adGroup?.name || '',
-        clicks: parseInt(term.metrics?.clicks || '0'),
-        impressions: parseInt(term.metrics?.impressions || '0'),
-        ctr: parseFloat(term.metrics?.ctr || '0'),
-        conversions: parseFloat(term.metrics?.conversions || '0'),
-        costMicros: parseInt(term.metrics?.costMicros || '0'),
-        cost: (parseInt(term.metrics?.costMicros || '0')) / 1000000, // Convert to dollars
-        conversionRate: parseInt(term.metrics?.clicks || '0') > 0 
-          ? (parseFloat(term.metrics?.conversions || '0') / parseInt(term.metrics?.clicks || '0')) * 100 
-          : 0
-      }))
+      searchTerms: searchTerms.map((term: any) => {
+        const searchTerm = term.searchTermView?.searchTerm || '';
+        const campaignId = term.campaign?.id || '';
+        const campaignName = term.campaign?.name || '';
+        const adGroupName = term.adGroup?.name || 'Unknown Ad Group';
+        const clicks = parseInt(term.metrics?.clicks || '0');
+        const conversions = parseFloat(term.metrics?.conversions || '0');
+        const costMicros = parseInt(term.metrics?.costMicros || '0');
+        
+        console.log(`🔍 Term: "${searchTerm}" -> Campaign: "${campaignName}" -> Ad Group: "${adGroupName}"`);
+        
+        return {
+          searchTerm,
+          campaignId,
+          campaignName,
+          adGroupName,
+          clicks,
+          impressions: parseInt(term.metrics?.impressions || '0'),
+          ctr: parseFloat(term.metrics?.ctr || '0'),
+          conversions,
+          costMicros,
+          cost: costMicros / 1000000, // Convert to dollars
+          conversionRate: clicks > 0 ? (conversions / clicks) * 100 : 0
+        };
+      })
     };
 
     // Calculate benchmarks for anomaly detection
