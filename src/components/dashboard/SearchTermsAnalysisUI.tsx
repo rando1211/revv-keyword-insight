@@ -34,6 +34,31 @@ export const SearchTermsAnalysisUI = ({ analysisData, onUpdateAnalysisData, sele
   const [executionResults, setExecutionResults] = useState<any>(null);
   const [showResults, setShowResults] = useState(false);
 
+  // Load completed optimizations from localStorage
+  const getCompletedOptimizations = () => {
+    try {
+      const completed = localStorage.getItem('completedOptimizations');
+      return completed ? JSON.parse(completed) : [];
+    } catch {
+      return [];
+    }
+  };
+
+  const saveCompletedOptimization = (searchTerm: string, type: string) => {
+    try {
+      const completed = getCompletedOptimizations();
+      completed.push({ searchTerm, type, completedAt: Date.now() });
+      localStorage.setItem('completedOptimizations', JSON.stringify(completed));
+    } catch (error) {
+      console.error('Failed to save completed optimization:', error);
+    }
+  };
+
+  const isOptimizationCompleted = (searchTerm: string) => {
+    const completed = getCompletedOptimizations();
+    return completed.some((opt: any) => opt.searchTerm === searchTerm);
+  };
+
   // Calculate performance metrics
   const performanceMetrics = useMemo(() => {
     if (!analysisData) return null;
@@ -59,7 +84,8 @@ export const SearchTermsAnalysisUI = ({ analysisData, onUpdateAnalysisData, sele
         wastedSpendPercentage: Math.max(0, wastedSpendPercentage - 8)
       },
       totalWastedSpend,
-      projectedSavings: totalWastedSpend * 0.7
+      // Fix monthly savings calculation - assume this is weekly data, extrapolate to monthly
+      monthlySavings: (totalWastedSpend * 0.7) * 4.33 // 70% of waste eliminated, weekly to monthly
     };
   }, [analysisData]);
 
@@ -131,10 +157,17 @@ export const SearchTermsAnalysisUI = ({ analysisData, onUpdateAnalysisData, sele
       setExecutionResults(data);
       setShowResults(true);
       
-      // Remove executed terms from analysis data
+      // Remove executed terms from analysis data and save to localStorage
       const executedSearchTerms = data.results
         .filter((result: any) => result.success)
         .map((result: any) => result.action.searchTerm);
+      
+      // Save completed optimizations
+      data.results.forEach((result: any) => {
+        if (result.success) {
+          saveCompletedOptimization(result.action.searchTerm, result.action.type);
+        }
+      });
       
       if (onUpdateAnalysisData) {
         const updatedData = {
@@ -247,8 +280,8 @@ export const SearchTermsAnalysisUI = ({ analysisData, onUpdateAnalysisData, sele
                   </div>
                   <div className="pt-2 border-t">
                     <div className="text-center">
-                      <div className="text-lg font-bold text-green-600">
-                        ${performanceMetrics.projectedSavings.toFixed(0)}
+                     <div className="text-lg font-bold text-green-600">
+                        ${performanceMetrics.monthlySavings.toFixed(0)}/mo
                       </div>
                       <div className="text-xs text-muted-foreground">Monthly Savings</div>
                     </div>
@@ -377,7 +410,7 @@ export const SearchTermsAnalysisUI = ({ analysisData, onUpdateAnalysisData, sele
               High-Converting Clusters ({analysisData.convertingClusters.length})
             </CardTitle>
             <CardDescription>
-              Term groups with high conversion rates - expand with exact/phrase match
+              Term groups with high conversion rates - expand with exact/phrase match keywords
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -390,27 +423,97 @@ export const SearchTermsAnalysisUI = ({ analysisData, onUpdateAnalysisData, sele
                 <div className="text-sm text-muted-foreground mb-3">
                   {cluster.expandRecommendation}
                 </div>
+                
+                {/* Target Ad Group Selection */}
+                <div className="mb-3 p-3 bg-blue-50 rounded-lg">
+                  <div className="text-sm font-medium mb-2">Target Ad Group:</div>
+                  <select className="w-full p-2 border rounded text-sm">
+                    <option>Auto-select best performing ad group</option>
+                    <option>Create new ad group: "{cluster.theme}"</option>
+                    <option>Ad Group: Boat Rentals - Core</option>
+                    <option>Ad Group: Boat Club Services</option>
+                  </select>
+                </div>
+                
                 <div className="flex flex-wrap gap-2 mb-3">
                   {cluster.exampleTerms.map((term: string, termIndex: number) => (
-                    <Badge key={termIndex} variant="outline">{term}</Badge>
+                    <div key={termIndex} className="flex items-center gap-2">
+                      <Checkbox 
+                        id={`cluster-${index}-term-${termIndex}`}
+                        checked={selectedTerms.includes(term)}
+                        onCheckedChange={(checked) => handleTermSelection(term, checked as boolean)}
+                      />
+                      <Badge 
+                        variant={isOptimizationCompleted(term) ? "secondary" : "outline"}
+                        className={isOptimizationCompleted(term) ? "opacity-50" : ""}
+                      >
+                        {term} {isOptimizationCompleted(term) && "✓"}
+                      </Badge>
+                    </div>
                   ))}
                 </div>
-                <div className="flex gap-2">
+                
+                <div className="flex gap-2 flex-wrap">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      cluster.exampleTerms.forEach((term: string) => {
+                        if (!selectedTerms.includes(term)) {
+                          handleTermSelection(term, true);
+                        }
+                      });
+                    }}
+                  >
+                    Select All Terms
+                  </Button>
                   <Button
                     size="sm"
                     className="bg-green-600 hover:bg-green-700"
-                    onClick={() => addPendingAction({ searchTerm: cluster.exampleTerms[0] }, 'exact_match', cluster.expandRecommendation)}
+                    onClick={() => {
+                      cluster.exampleTerms.forEach((term: string) => {
+                        if (!isOptimizationCompleted(term)) {
+                          addPendingAction({ searchTerm: term }, 'exact_match', cluster.expandRecommendation);
+                        }
+                      });
+                    }}
                   >
                     <Plus className="h-3 w-3 mr-1" />
-                    Add as Exact Match
+                    Add All as Exact Match
                   </Button>
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => addPendingAction({ searchTerm: cluster.exampleTerms[0] }, 'phrase_match', cluster.expandRecommendation)}
+                    onClick={() => {
+                      cluster.exampleTerms.forEach((term: string) => {
+                        if (!isOptimizationCompleted(term)) {
+                          addPendingAction({ searchTerm: term }, 'phrase_match', cluster.expandRecommendation);
+                        }
+                      });
+                    }}
                   >
                     <Plus className="h-3 w-3 mr-1" />
-                    Add as Phrase Match
+                    Add All as Phrase Match
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => {
+                      // Mark cluster as dismissed
+                      cluster.exampleTerms.forEach((term: string) => {
+                        saveCompletedOptimization(term, 'dismissed');
+                      });
+                      // Update analysis data to remove this cluster
+                      if (onUpdateAnalysisData) {
+                        const updatedData = {
+                          ...analysisData,
+                          convertingClusters: analysisData.convertingClusters.filter((_: any, i: number) => i !== index)
+                        };
+                        onUpdateAnalysisData(updatedData);
+                      }
+                    }}
+                  >
+                    Dismiss Cluster
                   </Button>
                 </div>
               </div>
