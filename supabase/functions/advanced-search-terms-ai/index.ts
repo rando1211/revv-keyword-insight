@@ -238,10 +238,18 @@ Provide your analysis in the following structured format. Return ONLY valid JSON
       body: JSON.stringify({
         model: 'gpt-4.1-2025-04-14',
         messages: [
-          { role: 'user', content: `${aiPrompt}\n\nDATA TO ANALYZE:\n${JSON.stringify(structuredData, null, 2)}` }
+          { 
+            role: 'system', 
+            content: `You are analyzing search terms for Customer ID: ${customerId}. ONLY analyze the data provided in this specific request. Do not reference any previous conversations or analyses.` 
+          },
+          { 
+            role: 'user', 
+            content: `${aiPrompt}\n\n🔒 CUSTOMER ISOLATION: Analyze ONLY this customer's data: ${customerId}\n\nDATA TO ANALYZE:\n${JSON.stringify(structuredData, null, 2)}` 
+          }
         ],
         temperature: 0.1,
-        max_tokens: 4000
+        max_tokens: 4000,
+        seed: parseInt(customerId) // Ensure consistent but isolated responses per customer
       }),
     });
 
