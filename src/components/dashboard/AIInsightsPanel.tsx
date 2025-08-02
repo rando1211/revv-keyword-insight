@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Brain, Code, TrendingUp, AlertTriangle, CheckCircle, Loader2, Play, Zap, Bot, Eye } from "lucide-react";
+import { Brain, Code, TrendingUp, AlertTriangle, CheckCircle, Loader2, Play, Zap, Bot, Eye, Activity } from "lucide-react";
 import { useState, useMemo, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { generateCampaignAnalysis, generateOptimizationCode } from "@/lib/openai-service";
@@ -1063,11 +1063,51 @@ export const AIInsightsPanel = () => {
           </TabsContent>
 
           <TabsContent value="search-terms-ai" className="space-y-4">
-            <SearchTermsAnalysisUI
-              selectedAccount={selectedAccountForAnalysis}
-              analysisData={advancedAnalysisResults}
-              onUpdateAnalysisData={setAdvancedAnalysisResults}
-            />
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">🔥 Search Terms AI Analysis</h3>
+              <div className="flex gap-2">
+                <Button
+                  onClick={handleAdvancedAnalysis}
+                  disabled={isAdvancedAnalyzing || !selectedAccountForAnalysis || !selectedCampaignIds?.length}
+                >
+                  {isAdvancedAnalyzing ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Analyzing...
+                    </>
+                  ) : (
+                    <>
+                      <Bot className="h-4 w-4 mr-2" />
+                      Analyze Search Terms
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+
+            {advancedAnalysisResults ? (
+              <SearchTermsAnalysisUI
+                selectedAccount={selectedAccountForAnalysis}
+                analysisData={advancedAnalysisResults}
+                onUpdateAnalysisData={setAdvancedAnalysisResults}
+              />
+            ) : (
+              <Card>
+                <CardContent className="text-center py-12">
+                  <Activity className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-lg font-medium mb-2">AI-Powered Search Terms Analysis</h3>
+                  <p className="text-muted-foreground mb-4">
+                    Select campaigns and click "Analyze Search Terms" to identify optimization opportunities
+                  </p>
+                  {!selectedAccountForAnalysis && (
+                    <p className="text-sm text-orange-600 mb-4">⚠️ Please select an account first</p>
+                  )}
+                  {selectedAccountForAnalysis && (!selectedCampaignIds || selectedCampaignIds.length === 0) && (
+                    <p className="text-sm text-orange-600 mb-4">⚠️ Please select campaigns to analyze</p>
+                  )}
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
         </Tabs>
       </CardContent>
