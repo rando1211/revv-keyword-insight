@@ -15,13 +15,15 @@ serve(async (req) => {
   }
 
   try {
-    const { customerId, campaignGoal = "Generate more leads" } = await req.json();
+    const { customerId, campaignGoal = "Generate more leads", campaignContext } = await req.json();
     
     if (!customerId) {
       throw new Error('Customer ID is required');
     }
 
     console.log('🔥 Advanced Search Terms AI Analysis starting for customer:', customerId);
+    console.log('🎯 Campaign Goal:', campaignGoal);
+    console.log('📝 Campaign Context:', campaignContext);
 
     // Get Google Ads API credentials from environment
     const clientId = Deno.env.get('Client ID');
@@ -136,9 +138,15 @@ serve(async (req) => {
     // AI Analysis using the specific prompt template
     console.log('🤖 Starting advanced AI analysis with semantic analysis...');
     
-    const aiPrompt = `You are a Google Ads Optimization AI Assistant specialized in analyzing Search Terms Reports for PPC campaigns. 
+    const aiPrompt = `You are a Google Ads Optimization AI Assistant specialized in analyzing Search Terms Reports for PPC campaigns.
 
-Analyze the following search terms data and provide optimization insights. Focus on semantic relevance to the campaign goal: "${campaignGoal}"
+CAMPAIGN CONTEXT:
+- Goal: ${campaignGoal || 'Generate more leads'}  
+- What this campaign sells: ${campaignContext || 'Not specified - use general analysis'}
+
+CRITICAL: If campaign context specifies what products/services are being sold (e.g., "Personal Water Craft, Jet Skis"), then search terms related to those products are RELEVANT, not irrelevant.
+
+Analyze the following search terms data and provide optimization insights. Focus on semantic relevance to the campaign goal and specified products/services.
 
 Performance Benchmarks:
 - Average CTR: ${benchmarks.avgCtr.toFixed(4)}

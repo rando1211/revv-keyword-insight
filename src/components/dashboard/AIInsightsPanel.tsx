@@ -1,6 +1,9 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Brain, Code, TrendingUp, AlertTriangle, CheckCircle, Loader2, Play, Zap, Bot } from "lucide-react";
 import { useState, useMemo } from "react";
@@ -23,6 +26,8 @@ export const AIInsightsPanel = () => {
   const [isExecutingOptimizations, setIsExecutingOptimizations] = useState(false);
   const [isAdvancedAnalyzing, setIsAdvancedAnalyzing] = useState(false);
   const [advancedAnalysisResults, setAdvancedAnalysisResults] = useState<any>(null);
+  const [campaignGoal, setCampaignGoal] = useState("Generate more leads");
+  const [campaignContext, setCampaignContext] = useState("");
 
   const handleAnalyzeCampaigns = async () => {
     
@@ -135,7 +140,8 @@ export const AIInsightsPanel = () => {
       const { data, error } = await supabase.functions.invoke('advanced-search-terms-ai', {
         body: { 
           customerId: selectedAccountForAnalysis.customerId,
-          campaignGoal: "Generate more leads"
+          campaignGoal: campaignGoal || "Generate more leads",
+          campaignContext: campaignContext || "General campaign analysis"
         }
       });
       
@@ -732,19 +738,50 @@ export const AIInsightsPanel = () => {
           <TabsContent value="search-terms-ai" className="space-y-4">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">🔥 Advanced Search Terms AI</h3>
-              <Button 
-                onClick={handleAdvancedSearchTermsAnalysis}
-                disabled={isAdvancedAnalyzing || !selectedAccountForAnalysis}
-                className="flex items-center gap-2"
-              >
-                {isAdvancedAnalyzing ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Brain className="h-4 w-4" />
-                )}
-                {isAdvancedAnalyzing ? "AI Analyzing..." : "🔥 Advanced AI Analysis"}
-              </Button>
             </div>
+
+            {/* Campaign Context Configuration */}
+            <Card className="mb-4">
+              <CardHeader>
+                <CardTitle className="text-base">Campaign Context</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <Label htmlFor="campaignGoal">Campaign Goal</Label>
+                  <Input
+                    id="campaignGoal"
+                    value={campaignGoal}
+                    onChange={(e) => setCampaignGoal(e.target.value)}
+                    placeholder="e.g., Generate more leads"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="campaignContext">What does this campaign sell?</Label>
+                  <Textarea
+                    id="campaignContext"
+                    value={campaignContext}
+                    onChange={(e) => setCampaignContext(e.target.value)}
+                    placeholder="e.g., Personal Water Craft (PWCs), Jet Skis, Sea-Doo, WaveRunner - NOT motorcycles"
+                    className="min-h-[80px]"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Be specific about what products/services this campaign promotes to avoid AI misclassification
+                  </p>
+                </div>
+                <Button 
+                  onClick={handleAdvancedSearchTermsAnalysis}
+                  disabled={isAdvancedAnalyzing || !selectedAccountForAnalysis}
+                  className="flex items-center gap-2 w-full"
+                >
+                  {isAdvancedAnalyzing ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Brain className="h-4 w-4" />
+                  )}
+                  {isAdvancedAnalyzing ? "AI Analyzing..." : "🔥 Advanced AI Analysis"}
+                </Button>
+              </CardContent>
+            </Card>
 
             <Card className="bg-gradient-to-r from-orange-50 to-red-50 dark:from-orange-950/20 dark:to-red-950/20 border-orange-200 dark:border-orange-800">
               <CardHeader>
