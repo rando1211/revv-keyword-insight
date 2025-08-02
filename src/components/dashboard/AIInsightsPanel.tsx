@@ -983,167 +983,260 @@ export const AIInsightsPanel = () => {
           <TabsContent value="power-page" className="space-y-4">
             {selectedAccountForAnalysis && selectedCampaignIds?.length > 0 ? (
               <div className="space-y-6">
-                {/* Campaign Landing Page Overview */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Eye className="h-5 w-5" />
-                      Landing Page Analysis
-                    </CardTitle>
-                    <CardDescription>
-                      Landing page performance and optimization recommendations for selected campaigns
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {/* Mock landing page data for selected campaigns */}
-                      {selectedCampaignIds.slice(0, 3).map((campaignId, index) => (
-                        <Card key={campaignId} className="border-l-4 border-l-primary">
-                          <CardContent className="p-4">
-                            <div className="space-y-3">
-                              <div className="flex items-center justify-between">
-                                <h4 className="font-medium text-sm">Campaign Landing Page #{index + 1}</h4>
-                                <Badge variant={index === 0 ? "default" : index === 1 ? "secondary" : "destructive"}>
-                                  {index === 0 ? "Optimized" : index === 1 ? "Needs Work" : "Poor"}
-                                </Badge>
-                              </div>
-                              
-                              <div className="text-xs text-muted-foreground">
-                                URL: /landing-page-{campaignId.slice(-3)}
-                              </div>
-                              
-                              <div className="grid grid-cols-2 gap-2 text-xs">
-                                <div>
-                                  <span className="text-muted-foreground">Page Speed:</span>
-                                  <div className="font-medium">{85 - index * 15}ms</div>
-                                </div>
-                                <div>
-                                  <span className="text-muted-foreground">Conv Rate:</span>
-                                  <div className="font-medium">{(3.2 - index * 0.8).toFixed(1)}%</div>
-                                </div>
-                                <div>
-                                  <span className="text-muted-foreground">Bounce Rate:</span>
-                                  <div className="font-medium">{(45 + index * 12)}%</div>
-                                </div>
-                                <div>
-                                  <span className="text-muted-foreground">Mobile Score:</span>
-                                  <div className="font-medium">{92 - index * 8}/100</div>
-                                </div>
-                              </div>
-                              
-                              <div className="pt-2 border-t">
-                                <h5 className="text-xs font-medium mb-1">Key Issues:</h5>
-                                <ul className="text-xs text-muted-foreground space-y-1">
-                                  {index === 0 && (
-                                    <>
-                                      <li>• Headlines align well with ad copy</li>
-                                      <li>• Clear CTA placement</li>
-                                    </>
-                                  )}
-                                  {index === 1 && (
-                                    <>
-                                      <li>• Form placement could be improved</li>
-                                      <li>• Missing trust signals</li>
-                                    </>
-                                  )}
-                                  {index === 2 && (
-                                    <>
-                                      <li>• Headline/ad copy mismatch</li>
-                                      <li>• Slow loading images</li>
-                                      <li>• No clear value proposition</li>
-                                    </>
-                                  )}
-                                </ul>
-                              </div>
+                {/* Landing Page Audit & Generator Header */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-semibold">Landing Page Optimizer</h3>
+                    <p className="text-sm text-muted-foreground">AI-powered audit & perfect page generation</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button onClick={() => {}}>
+                      <Eye className="h-4 w-4 mr-2" />
+                      Audit Current Page
+                    </Button>
+                    <Button variant="outline" onClick={() => {}}>
+                      <Bot className="h-4 w-4 mr-2" />
+                      Generate Perfect Page
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Current Page Audit */}
+                  <Card className="border-red-200">
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2 text-red-700">
+                        <AlertTriangle className="h-5 w-5" />
+                        Current Page Audit
+                      </CardTitle>
+                      <CardDescription>
+                        Analysis of your existing landing page performance
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      {/* Overall Score */}
+                      <div className="text-center p-4 bg-red-50 rounded-lg">
+                        <div className="text-3xl font-bold text-red-600">42/100</div>
+                        <div className="text-sm text-muted-foreground">Overall Landing Page Score</div>
+                      </div>
+
+                      {/* Detailed Scores */}
+                      <div className="space-y-3">
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm">Headline Relevance</span>
+                          <div className="flex items-center gap-2">
+                            <div className="w-16 bg-gray-200 rounded-full h-2">
+                              <div className="bg-red-500 h-2 rounded-full" style={{width: '30%'}}></div>
                             </div>
-                          </CardContent>
-                        </Card>
-                      ))}
+                            <span className="text-sm font-medium text-red-600">30%</span>
+                          </div>
+                        </div>
+                        
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm">Ad Copy Alignment</span>
+                          <div className="flex items-center gap-2">
+                            <div className="w-16 bg-gray-200 rounded-full h-2">
+                              <div className="bg-orange-500 h-2 rounded-full" style={{width: '45%'}}></div>
+                            </div>
+                            <span className="text-sm font-medium text-orange-600">45%</span>
+                          </div>
+                        </div>
+                        
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm">CTA Effectiveness</span>
+                          <div className="flex items-center gap-2">
+                            <div className="w-16 bg-gray-200 rounded-full h-2">
+                              <div className="bg-red-500 h-2 rounded-full" style={{width: '25%'}}></div>
+                            </div>
+                            <span className="text-sm font-medium text-red-600">25%</span>
+                          </div>
+                        </div>
+                        
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm">Page Speed</span>
+                          <div className="flex items-center gap-2">
+                            <div className="w-16 bg-gray-200 rounded-full h-2">
+                              <div className="bg-green-500 h-2 rounded-full" style={{width: '75%'}}></div>
+                            </div>
+                            <span className="text-sm font-medium text-green-600">75%</span>
+                          </div>
+                        </div>
+                        
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm">Mobile Optimization</span>
+                          <div className="flex items-center gap-2">
+                            <div className="w-16 bg-gray-200 rounded-full h-2">
+                              <div className="bg-orange-500 h-2 rounded-full" style={{width: '60%'}}></div>
+                            </div>
+                            <span className="text-sm font-medium text-orange-600">60%</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Critical Issues */}
+                      <div className="space-y-2">
+                        <h4 className="font-medium text-sm">Critical Issues Found:</h4>
+                        <div className="space-y-2">
+                          <div className="flex items-start gap-2 text-xs">
+                            <AlertTriangle className="h-3 w-3 text-red-500 mt-0.5" />
+                            <span>Headline doesn't match "boat club membership" keyword theme</span>
+                          </div>
+                          <div className="flex items-start gap-2 text-xs">
+                            <AlertTriangle className="h-3 w-3 text-red-500 mt-0.5" />
+                            <span>No clear value proposition above the fold</span>
+                          </div>
+                          <div className="flex items-start gap-2 text-xs">
+                            <AlertTriangle className="h-3 w-3 text-orange-500 mt-0.5" />
+                            <span>CTA button text is generic ("Learn More")</span>
+                          </div>
+                          <div className="flex items-start gap-2 text-xs">
+                            <AlertTriangle className="h-3 w-3 text-orange-500 mt-0.5" />
+                            <span>Missing trust signals and testimonials</span>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* AI Generated Perfect Page */}
+                  <Card className="border-green-200">
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2 text-green-700">
+                        <Bot className="h-5 w-5" />
+                        AI-Generated Perfect Page
+                      </CardTitle>
+                      <CardDescription>
+                        Optimized page based on ad group theme: "boat club membership"
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      {/* Projected Score */}
+                      <div className="text-center p-4 bg-green-50 rounded-lg">
+                        <div className="text-3xl font-bold text-green-600">94/100</div>
+                        <div className="text-sm text-muted-foreground">Projected Performance Score</div>
+                      </div>
+
+                      {/* Generated Page Preview */}
+                      <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+                        <div className="space-y-2">
+                          <h4 className="font-medium text-sm">AI-Generated Headlines:</h4>
+                          <div className="bg-white p-3 rounded border-l-4 border-l-green-500">
+                            <p className="text-sm font-medium">"Join Carefree Boat Club - Unlimited Access to Premium Boats"</p>
+                            <p className="text-xs text-muted-foreground">↳ Matches primary keyword + clear value prop</p>
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <h4 className="font-medium text-sm">Optimized Value Props:</h4>
+                          <div className="bg-white p-3 rounded text-xs space-y-1">
+                            <p>• "No maintenance, no storage fees, no insurance hassles"</p>
+                            <p>• "Access 100+ boats across multiple locations"</p>
+                            <p>• "Book online in seconds, unlimited usage"</p>
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <h4 className="font-medium text-sm">High-Converting CTAs:</h4>
+                          <div className="bg-white p-3 rounded">
+                            <Button size="sm" className="w-full bg-green-600">
+                              "Start My Boat Club Trial - $0 Today"
+                            </Button>
+                            <p className="text-xs text-muted-foreground mt-1">↳ Urgency + value + risk reversal</p>
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <h4 className="font-medium text-sm">Trust Elements:</h4>
+                          <div className="bg-white p-3 rounded text-xs space-y-1">
+                            <p>• Member testimonials with photos</p>
+                            <p>• "500+ 5-star reviews" badge</p>
+                            <p>• Coast Guard certified safety record</p>
+                            <p>• BBB A+ rating display</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Projected Impact */}
+                      <div className="space-y-2">
+                        <h4 className="font-medium text-sm">Projected Impact:</h4>
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          <div className="bg-green-50 p-2 rounded">
+                            <div className="font-medium text-green-700">+185% CVR</div>
+                            <div className="text-muted-foreground">Conversion Rate</div>
+                          </div>
+                          <div className="bg-green-50 p-2 rounded">
+                            <div className="font-medium text-green-700">+45% QS</div>
+                            <div className="text-muted-foreground">Quality Score</div>
+                          </div>
+                          <div className="bg-green-50 p-2 rounded">
+                            <div className="font-medium text-green-700">-65% CPA</div>
+                            <div className="text-muted-foreground">Cost Per Acquisition</div>
+                          </div>
+                          <div className="bg-green-50 p-2 rounded">
+                            <div className="font-medium text-green-700">+$4.2K</div>
+                            <div className="text-muted-foreground">Monthly Revenue</div>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Action Buttons */}
+                <Card>
+                  <CardContent className="py-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="font-medium">Ready to Build Your Perfect Landing Page?</h4>
+                        <p className="text-sm text-muted-foreground">Generate complete HTML/CSS code or export to your page builder</p>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button variant="outline">
+                          <Code className="h-4 w-4 mr-2" />
+                          Export HTML/CSS
+                        </Button>
+                        <Button>
+                          <Zap className="h-4 w-4 mr-2" />
+                          Build Perfect Page
+                        </Button>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
 
-                {/* Landing Page Optimization Recommendations */}
+                {/* Before/After Comparison */}
                 <Card>
                   <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <TrendingUp className="h-5 w-5 text-green-600" />
-                      Optimization Recommendations
-                    </CardTitle>
+                    <CardTitle>Before vs After Comparison</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="space-y-4">
-                        <h4 className="font-medium">High Priority Fixes</h4>
-                        <div className="space-y-3">
-                          <div className="flex items-start gap-3 p-3 bg-red-50 rounded-lg">
-                            <AlertTriangle className="h-4 w-4 text-red-500 mt-0.5" />
-                            <div>
-                              <div className="text-sm font-medium">Ad Copy Mismatch</div>
-                              <div className="text-xs text-muted-foreground">Landing page headline doesn't match ad promise</div>
-                              <Button size="sm" variant="outline" className="mt-2">Fix Headline</Button>
-                            </div>
-                          </div>
-                          
-                          <div className="flex items-start gap-3 p-3 bg-orange-50 rounded-lg">
-                            <AlertTriangle className="h-4 w-4 text-orange-500 mt-0.5" />
-                            <div>
-                              <div className="text-sm font-medium">Slow Loading Speed</div>
-                              <div className="text-xs text-muted-foreground">Page load time affects Quality Score</div>
-                              <Button size="sm" variant="outline" className="mt-2">Optimize Images</Button>
-                            </div>
-                          </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
+                      <div className="space-y-2">
+                        <h4 className="font-medium text-sm">Current Performance</h4>
+                        <div className="space-y-1">
+                          <div className="text-2xl font-bold text-red-600">1.2%</div>
+                          <div className="text-xs text-muted-foreground">Conversion Rate</div>
+                        </div>
+                        <div className="space-y-1">
+                          <div className="text-2xl font-bold text-red-600">$85</div>
+                          <div className="text-xs text-muted-foreground">Cost Per Lead</div>
                         </div>
                       </div>
-                      
-                      <div className="space-y-4">
-                        <h4 className="font-medium">Conversion Optimization</h4>
-                        <div className="space-y-3">
-                          <div className="flex items-start gap-3 p-3 bg-green-50 rounded-lg">
-                            <CheckCircle className="h-4 w-4 text-green-500 mt-0.5" />
-                            <div>
-                              <div className="text-sm font-medium">Add Trust Signals</div>
-                              <div className="text-xs text-muted-foreground">Customer testimonials and security badges</div>
-                              <Button size="sm" variant="outline" className="mt-2">Add Elements</Button>
-                            </div>
-                          </div>
-                          
-                          <div className="flex items-start gap-3 p-3 bg-blue-50 rounded-lg">
-                            <TrendingUp className="h-4 w-4 text-blue-500 mt-0.5" />
-                            <div>
-                              <div className="text-sm font-medium">Improve CTA Visibility</div>
-                              <div className="text-xs text-muted-foreground">Make primary action more prominent</div>
-                              <Button size="sm" variant="outline" className="mt-2">Enhance CTA</Button>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
 
-                {/* Landing Page Performance Metrics */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Page Performance Summary</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      <div className="text-center p-4 bg-gradient-to-br from-green-50 to-green-100 rounded-lg">
-                        <div className="text-2xl font-bold text-green-600">2.8%</div>
-                        <div className="text-sm text-muted-foreground">Avg Conversion Rate</div>
+                      <div className="flex items-center justify-center">
+                        <div className="text-primary font-bold text-lg">→</div>
                       </div>
-                      <div className="text-center p-4 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg">
-                        <div className="text-2xl font-bold text-blue-600">1.2s</div>
-                        <div className="text-sm text-muted-foreground">Avg Load Time</div>
-                      </div>
-                      <div className="text-center p-4 bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg">
-                        <div className="text-2xl font-bold text-orange-600">52%</div>
-                        <div className="text-sm text-muted-foreground">Bounce Rate</div>
-                      </div>
-                      <div className="text-center p-4 bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg">
-                        <div className="text-2xl font-bold text-purple-600">87</div>
-                        <div className="text-sm text-muted-foreground">Mobile Score</div>
+
+                      <div className="space-y-2">
+                        <h4 className="font-medium text-sm">Projected Performance</h4>
+                        <div className="space-y-1">
+                          <div className="text-2xl font-bold text-green-600">3.4%</div>
+                          <div className="text-xs text-muted-foreground">Conversion Rate</div>
+                        </div>
+                        <div className="space-y-1">
+                          <div className="text-2xl font-bold text-green-600">$30</div>
+                          <div className="text-xs text-muted-foreground">Cost Per Lead</div>
+                        </div>
                       </div>
                     </div>
                   </CardContent>
@@ -1153,9 +1246,9 @@ export const AIInsightsPanel = () => {
               <Card>
                 <CardContent className="text-center py-12">
                   <Eye className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-lg font-medium mb-2">No Campaigns Selected</h3>
+                  <h3 className="text-lg font-medium mb-2">Select Campaigns First</h3>
                   <p className="text-muted-foreground mb-4">
-                    Select campaigns from the Accounts tab to view landing page analysis
+                    Choose campaigns from the Accounts tab to audit landing pages and generate optimized versions
                   </p>
                   <Button variant="outline" onClick={() => window.location.reload()}>
                     Refresh Data
