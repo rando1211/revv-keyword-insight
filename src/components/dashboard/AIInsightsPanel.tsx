@@ -981,110 +981,188 @@ export const AIInsightsPanel = () => {
           </TabsContent>
 
           <TabsContent value="power-page" className="space-y-4">
-            <div className="min-h-[600px] bg-gradient-to-br from-primary/10 via-accent/5 to-secondary/10 rounded-lg overflow-hidden">
-              {/* Hero Section */}
-              <div className="text-center py-12 px-6">
-                <div className="inline-flex items-center px-4 py-2 bg-primary/10 rounded-full text-sm font-medium text-primary mb-6">
-                  🚀 AI-Powered Google Ads Automation
-                </div>
-                <h1 className="text-4xl font-bold mb-4 bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-                  REVV Marketing
-                </h1>
-                <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
-                  Transform your Google Ads performance with AI-driven insights, automated optimizations, and data-backed creative suggestions
-                </p>
-                <div className="flex flex-wrap justify-center gap-4">
-                  <Button size="lg" className="px-8">
-                    Start Free Trial
-                  </Button>
-                  <Button size="lg" variant="outline" className="px-8">
-                    Watch Demo
-                  </Button>
-                </div>
-              </div>
+            {selectedAccountForAnalysis && selectedCampaignIds?.length > 0 ? (
+              <div className="space-y-6">
+                {/* Campaign Landing Page Overview */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Eye className="h-5 w-5" />
+                      Landing Page Analysis
+                    </CardTitle>
+                    <CardDescription>
+                      Landing page performance and optimization recommendations for selected campaigns
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {/* Mock landing page data for selected campaigns */}
+                      {selectedCampaignIds.slice(0, 3).map((campaignId, index) => (
+                        <Card key={campaignId} className="border-l-4 border-l-primary">
+                          <CardContent className="p-4">
+                            <div className="space-y-3">
+                              <div className="flex items-center justify-between">
+                                <h4 className="font-medium text-sm">Campaign Landing Page #{index + 1}</h4>
+                                <Badge variant={index === 0 ? "default" : index === 1 ? "secondary" : "destructive"}>
+                                  {index === 0 ? "Optimized" : index === 1 ? "Needs Work" : "Poor"}
+                                </Badge>
+                              </div>
+                              
+                              <div className="text-xs text-muted-foreground">
+                                URL: /landing-page-{campaignId.slice(-3)}
+                              </div>
+                              
+                              <div className="grid grid-cols-2 gap-2 text-xs">
+                                <div>
+                                  <span className="text-muted-foreground">Page Speed:</span>
+                                  <div className="font-medium">{85 - index * 15}ms</div>
+                                </div>
+                                <div>
+                                  <span className="text-muted-foreground">Conv Rate:</span>
+                                  <div className="font-medium">{(3.2 - index * 0.8).toFixed(1)}%</div>
+                                </div>
+                                <div>
+                                  <span className="text-muted-foreground">Bounce Rate:</span>
+                                  <div className="font-medium">{(45 + index * 12)}%</div>
+                                </div>
+                                <div>
+                                  <span className="text-muted-foreground">Mobile Score:</span>
+                                  <div className="font-medium">{92 - index * 8}/100</div>
+                                </div>
+                              </div>
+                              
+                              <div className="pt-2 border-t">
+                                <h5 className="text-xs font-medium mb-1">Key Issues:</h5>
+                                <ul className="text-xs text-muted-foreground space-y-1">
+                                  {index === 0 && (
+                                    <>
+                                      <li>• Headlines align well with ad copy</li>
+                                      <li>• Clear CTA placement</li>
+                                    </>
+                                  )}
+                                  {index === 1 && (
+                                    <>
+                                      <li>• Form placement could be improved</li>
+                                      <li>• Missing trust signals</li>
+                                    </>
+                                  )}
+                                  {index === 2 && (
+                                    <>
+                                      <li>• Headline/ad copy mismatch</li>
+                                      <li>• Slow loading images</li>
+                                      <li>• No clear value proposition</li>
+                                    </>
+                                  )}
+                                </ul>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
 
-              {/* Features Grid */}
-              <div className="px-6 pb-12">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl mx-auto">
-                  <Card className="bg-white/50 backdrop-blur-sm border-0 shadow-md">
-                    <CardContent className="p-6 text-center">
-                      <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg flex items-center justify-center mx-auto mb-4">
-                        <Brain className="h-6 w-6 text-white" />
+                {/* Landing Page Optimization Recommendations */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <TrendingUp className="h-5 w-5 text-green-600" />
+                      Optimization Recommendations
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-4">
+                        <h4 className="font-medium">High Priority Fixes</h4>
+                        <div className="space-y-3">
+                          <div className="flex items-start gap-3 p-3 bg-red-50 rounded-lg">
+                            <AlertTriangle className="h-4 w-4 text-red-500 mt-0.5" />
+                            <div>
+                              <div className="text-sm font-medium">Ad Copy Mismatch</div>
+                              <div className="text-xs text-muted-foreground">Landing page headline doesn't match ad promise</div>
+                              <Button size="sm" variant="outline" className="mt-2">Fix Headline</Button>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-start gap-3 p-3 bg-orange-50 rounded-lg">
+                            <AlertTriangle className="h-4 w-4 text-orange-500 mt-0.5" />
+                            <div>
+                              <div className="text-sm font-medium">Slow Loading Speed</div>
+                              <div className="text-xs text-muted-foreground">Page load time affects Quality Score</div>
+                              <Button size="sm" variant="outline" className="mt-2">Optimize Images</Button>
+                            </div>
+                          </div>
+                        </div>
                       </div>
-                      <h3 className="font-semibold mb-2">🔍 Power Audit</h3>
-                      <p className="text-sm text-muted-foreground">
-                        Comprehensive AI analysis of your account structure, keywords, ads, and landing pages with actionable recommendations
-                      </p>
-                    </CardContent>
-                  </Card>
-
-                  <Card className="bg-white/50 backdrop-blur-sm border-0 shadow-md">
-                    <CardContent className="p-6 text-center">
-                      <div className="w-12 h-12 bg-gradient-to-r from-green-500 to-green-600 rounded-lg flex items-center justify-center mx-auto mb-4">
-                        <TrendingUp className="h-6 w-6 text-white" />
+                      
+                      <div className="space-y-4">
+                        <h4 className="font-medium">Conversion Optimization</h4>
+                        <div className="space-y-3">
+                          <div className="flex items-start gap-3 p-3 bg-green-50 rounded-lg">
+                            <CheckCircle className="h-4 w-4 text-green-500 mt-0.5" />
+                            <div>
+                              <div className="text-sm font-medium">Add Trust Signals</div>
+                              <div className="text-xs text-muted-foreground">Customer testimonials and security badges</div>
+                              <Button size="sm" variant="outline" className="mt-2">Add Elements</Button>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-start gap-3 p-3 bg-blue-50 rounded-lg">
+                            <TrendingUp className="h-4 w-4 text-blue-500 mt-0.5" />
+                            <div>
+                              <div className="text-sm font-medium">Improve CTA Visibility</div>
+                              <div className="text-xs text-muted-foreground">Make primary action more prominent</div>
+                              <Button size="sm" variant="outline" className="mt-2">Enhance CTA</Button>
+                            </div>
+                          </div>
+                        </div>
                       </div>
-                      <h3 className="font-semibold mb-2">🎨 Creative Optimization</h3>
-                      <p className="text-sm text-muted-foreground">
-                        AI-powered RSA grading with intelligent rewrite suggestions and one-click execution to Google Ads
-                      </p>
-                    </CardContent>
-                  </Card>
+                    </div>
+                  </CardContent>
+                </Card>
 
-                  <Card className="bg-white/50 backdrop-blur-sm border-0 shadow-md">
-                    <CardContent className="p-6 text-center">
-                      <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg flex items-center justify-center mx-auto mb-4">
-                        <Zap className="h-6 w-6 text-white" />
+                {/* Landing Page Performance Metrics */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Page Performance Summary</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div className="text-center p-4 bg-gradient-to-br from-green-50 to-green-100 rounded-lg">
+                        <div className="text-2xl font-bold text-green-600">2.8%</div>
+                        <div className="text-sm text-muted-foreground">Avg Conversion Rate</div>
                       </div>
-                      <h3 className="font-semibold mb-2">🔥 Search Terms AI</h3>
-                      <p className="text-sm text-muted-foreground">
-                        Semantic analysis of search terms to identify irrelevant traffic, converting clusters, and optimization opportunities
-                      </p>
-                    </CardContent>
-                  </Card>
-                </div>
+                      <div className="text-center p-4 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg">
+                        <div className="text-2xl font-bold text-blue-600">1.2s</div>
+                        <div className="text-sm text-muted-foreground">Avg Load Time</div>
+                      </div>
+                      <div className="text-center p-4 bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg">
+                        <div className="text-2xl font-bold text-orange-600">52%</div>
+                        <div className="text-sm text-muted-foreground">Bounce Rate</div>
+                      </div>
+                      <div className="text-center p-4 bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg">
+                        <div className="text-2xl font-bold text-purple-600">87</div>
+                        <div className="text-sm text-muted-foreground">Mobile Score</div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
               </div>
-
-              {/* Stats Section */}
-              <div className="bg-white/30 backdrop-blur-sm py-8 px-6">
-                <div className="max-w-4xl mx-auto">
-                  <h2 className="text-2xl font-bold text-center mb-8">Proven Results</h2>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
-                    <div>
-                      <div className="text-3xl font-bold text-primary">85%</div>
-                      <div className="text-sm text-muted-foreground">Average CTR Improvement</div>
-                    </div>
-                    <div>
-                      <div className="text-3xl font-bold text-green-600">$2.4K</div>
-                      <div className="text-sm text-muted-foreground">Monthly Revenue Lift</div>
-                    </div>
-                    <div>
-                      <div className="text-3xl font-bold text-blue-600">92%</div>
-                      <div className="text-sm text-muted-foreground">Quality Score Improvement</div>
-                    </div>
-                    <div>
-                      <div className="text-3xl font-bold text-purple-600">45%</div>
-                      <div className="text-sm text-muted-foreground">Wasted Spend Reduction</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* CTA Section */}
-              <div className="text-center py-12 px-6">
-                <h2 className="text-2xl font-bold mb-4">Ready to Automate Your Google Ads Success?</h2>
-                <p className="text-muted-foreground mb-6 max-w-lg mx-auto">
-                  Join thousands of marketers using AI to optimize their campaigns and maximize ROI
-                </p>
-                <div className="flex flex-wrap justify-center gap-4">
-                  <Button size="lg" className="px-8 bg-gradient-to-r from-primary to-accent">
-                    Get Started Free
+            ) : (
+              <Card>
+                <CardContent className="text-center py-12">
+                  <Eye className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-lg font-medium mb-2">No Campaigns Selected</h3>
+                  <p className="text-muted-foreground mb-4">
+                    Select campaigns from the Accounts tab to view landing page analysis
+                  </p>
+                  <Button variant="outline" onClick={() => window.location.reload()}>
+                    Refresh Data
                   </Button>
-                  <Button size="lg" variant="outline" className="px-8">
-                    Schedule Demo
-                  </Button>
-                </div>
-              </div>
-            </div>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
         </Tabs>
       </CardContent>
