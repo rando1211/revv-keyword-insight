@@ -244,7 +244,20 @@ export const SearchTermsAnalysisUI = ({ analysisData, onUpdateAnalysisData, sele
   };
 
   if (!analysisData) {
-    return null;
+    return (
+      <Card>
+        <CardContent className="text-center py-12">
+          <Activity className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+          <h3 className="text-lg font-medium mb-2">Search Terms AI Analysis</h3>
+          <p className="text-muted-foreground mb-4">
+            Run a Power Audit first to analyze your search terms with AI
+          </p>
+          <Button variant="outline" onClick={() => window.location.reload()}>
+            Refresh Data
+          </Button>
+        </CardContent>
+      </Card>
+    );
   }
 
   return (
