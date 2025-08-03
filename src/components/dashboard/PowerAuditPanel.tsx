@@ -75,111 +75,168 @@ export const PowerAuditPanel = () => {
 
     setIsAuditing(true);
     try {
-      // Mock comprehensive audit results - in real implementation, you'd call a new edge function
-      const mockAuditResults: PowerAuditResults = {
-        overallScore: 67,
-        categoryScores: {
-          structure: { score: 78, grade: "B+", color: "text-emerald-600" },
-          budgetBidding: { score: 45, grade: "C-", color: "text-orange-600" },
-          keywords: { score: 62, grade: "C+", color: "text-yellow-600" },
-          adCopy: { score: 81, grade: "A-", color: "text-emerald-600" },
-          qualityScore: { score: 55, grade: "C", color: "text-orange-600" },
-          landingPages: { score: 72, grade: "B", color: "text-blue-600" },
-          conversionTracking: { score: 89, grade: "A", color: "text-emerald-600" }
-        },
-        insights: [
-          {
-            id: "struct_1",
+      toast({
+        title: "🔍 Starting Power Audit",
+        description: `Analyzing ${selectedAccountForAnalysis.name} campaigns...`,
+      });
+
+      // Fetch real campaign data
+      const { data: campaignResponse, error: campaignError } = await supabase.functions.invoke('fetch-google-ads-campaigns', {
+        body: { customerId: selectedAccountForAnalysis.customerId, limit: 50 }
+      });
+
+      if (campaignError) throw campaignError;
+
+      const campaigns = campaignResponse.campaigns || [];
+      
+      if (campaigns.length === 0) {
+        toast({
+          title: "No Campaigns Found",
+          description: "No active campaigns found for analysis",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Analyze real campaign data
+      const insights: AuditInsight[] = [];
+      let overallScore = 85; // Start with a good baseline
+
+      // Analyze campaign performance issues
+      const poorPerformingCampaigns = campaigns.filter(c => 
+        c.ctr < 0.02 && c.cost > 1000 // CTR < 2% and spend > $1000
+      );
+
+      const highSpendCampaigns = campaigns.filter(c => c.cost > 5000);
+      const lowCTRCampaigns = campaigns.filter(c => c.ctr < 0.01);
+
+      // Generate insights based on real data
+      if (poorPerformingCampaigns.length > 0) {
+        overallScore -= 15;
+        insights.push({
+          id: "perf_1",
+          category: "Budget & Bidding",
+          title: "High Spend, Low Performance Campaigns",
+          description: `${poorPerformingCampaigns.length} campaigns (${poorPerformingCampaigns.map(c => c.name).join(", ")}) have high spend but CTR below 2%`,
+          impact: "High",
+          urgency: "Critical",
+          recommendation: `Review and optimize ${poorPerformingCampaigns.length} underperforming campaigns: ${poorPerformingCampaigns.slice(0, 3).map(c => c.name).join(", ")}`,
+          actionable: true
+        });
+      }
+
+      if (lowCTRCampaigns.length > 0) {
+        overallScore -= 10;
+        insights.push({
+          id: "ctr_1",
+          category: "Ad Copy",
+          title: "Low Click-Through Rates",
+          description: `${lowCTRCampaigns.length} campaigns have CTR below 1%: ${lowCTRCampaigns.slice(0, 3).map(c => `${c.name} (${(c.ctr * 100).toFixed(2)}%)`).join(", ")}`,
+          impact: "High",
+          urgency: "Important",
+          recommendation: "Refresh ad copy and test new headlines for low CTR campaigns",
+          actionable: true
+        });
+      }
+
+      // Performance Max vs Search analysis
+      const pmCampaigns = campaigns.filter(c => c.name.includes("(PM)"));
+      const searchCampaigns = campaigns.filter(c => c.name.includes("(Search)"));
+
+      if (pmCampaigns.length > 0 && searchCampaigns.length > 0) {
+        const avgPMCTR = pmCampaigns.reduce((sum, c) => sum + c.ctr, 0) / pmCampaigns.length;
+        const avgSearchCTR = searchCampaigns.reduce((sum, c) => sum + c.ctr, 0) / searchCampaigns.length;
+
+        if (avgPMCTR < avgSearchCTR * 0.3) { // PM CTR significantly lower
+          insights.push({
+            id: "pm_1",
             category: "Structure",
-            title: "Ad Groups Too Broad",
-            description: "5 ad groups contain 50+ keywords, reducing relevance",
-            impact: "High",
-            urgency: "Important",
-            recommendation: "Split large ad groups into themed groups of 10-15 keywords",
-            actionable: true
-          },
-          {
-            id: "budget_1", 
-            category: "Budget & Bidding",
-            title: "Budget Waste on Low-Converting Campaigns",
-            description: "3 campaigns consuming 40% budget with <2% conversion rate",
-            impact: "High",
-            urgency: "Critical",
-            recommendation: "Reallocate $2,400/month to high-performing campaigns",
-            actionable: true
-          },
-          {
-            id: "keyword_1",
-            category: "Keywords",
-            title: "Missing Negative Keywords",
-            description: "186 wasteful search terms identified, costing $890/month",
-            impact: "High",
-            urgency: "Critical",
-            recommendation: "Add 186 negative keywords across 4 campaigns",
-            actionable: true
-          },
-          {
-            id: "ad_1",
-            category: "Ad Copy",
-            title: "RSA Assets Underperforming",
-            description: "12 headlines marked as 'LOW' performance by Google",
+            title: "Performance Max Underperforming",
+            description: `Performance Max campaigns (${(avgPMCTR * 100).toFixed(2)}% CTR) significantly underperform Search campaigns (${(avgSearchCTR * 100).toFixed(2)}% CTR)`,
             impact: "Medium",
             urgency: "Important",
-            recommendation: "Replace low-performing headlines with AI-optimized variants",
+            recommendation: "Review PM asset quality, audience signals, and budget allocation",
             actionable: true
-          },
-          {
-            id: "qs_1",
-            category: "Quality Score",
-            title: "Poor Ad Relevance",
-            description: "23% of keywords have 'Below Average' ad relevance",
-            impact: "High",
-            urgency: "Important",
-            recommendation: "Align ad copy with keyword themes in 8 ad groups",
-            actionable: true
-          },
-          {
-            id: "lp_1",
-            category: "Landing Pages",
-            title: "Page Speed Issues",
-            description: "4 landing pages load >3 seconds, hurting Quality Score",
-            impact: "Medium",
-            urgency: "Important",
-            recommendation: "Optimize page speed or redirect to faster alternatives",
-            actionable: false
-          },
-          {
-            id: "conv_1",
-            category: "Conversion Tracking",
-            title: "Enhanced Conversions Disabled",
-            description: "Missing 15-20% of conversion data due to iOS14+ changes",
-            impact: "High",
-            urgency: "Critical", 
-            recommendation: "Enable Enhanced Conversions for Web",
-            actionable: true
-          }
-        ],
-        actionPlan: []
+          });
+        }
+      }
+
+      // Budget distribution analysis
+      const totalSpend = campaigns.reduce((sum, c) => sum + c.cost, 0);
+      const topSpendingCampaign = campaigns.reduce((prev, curr) => 
+        curr.cost > prev.cost ? curr : prev
+      );
+
+      if (topSpendingCampaign.cost > totalSpend * 0.4) {
+        overallScore -= 8;
+        insights.push({
+          id: "budget_1",
+          category: "Budget & Bidding",
+          title: "Budget Concentration Risk",
+          description: `${topSpendingCampaign.name} consumes ${((topSpendingCampaign.cost / totalSpend) * 100).toFixed(1)}% of total budget ($${topSpendingCampaign.cost.toLocaleString()})`,
+          impact: "Medium",
+          urgency: "Important",
+          recommendation: "Diversify budget allocation across more campaigns to reduce risk",
+          actionable: true
+        });
+      }
+
+      // Add some general optimization insights
+      insights.push({
+        id: "conv_1",
+        category: "Conversion Tracking",
+        title: "Enhanced Conversions Setup",
+        description: "Verify Enhanced Conversions is enabled for better attribution in iOS 14+ environment",
+        impact: "High",
+        urgency: "Important",
+        recommendation: "Enable Enhanced Conversions for Web to capture more conversion data",
+        actionable: true
+      });
+
+      const categoryScores = {
+        structure: { 
+          score: pmCampaigns.length > 0 && searchCampaigns.length > 0 ? 75 : 65, 
+          grade: pmCampaigns.length > 0 && searchCampaigns.length > 0 ? "B" : "C+", 
+          color: "text-blue-600" 
+        },
+        budgetBidding: { 
+          score: poorPerformingCampaigns.length === 0 ? 80 : 60, 
+          grade: poorPerformingCampaigns.length === 0 ? "A-" : "C", 
+          color: poorPerformingCampaigns.length === 0 ? "text-emerald-600" : "text-orange-600" 
+        },
+        keywords: { score: 70, grade: "B-", color: "text-blue-600" },
+        adCopy: { 
+          score: lowCTRCampaigns.length === 0 ? 85 : 65, 
+          grade: lowCTRCampaigns.length === 0 ? "A" : "C+", 
+          color: lowCTRCampaigns.length === 0 ? "text-emerald-600" : "text-yellow-600" 
+        },
+        qualityScore: { score: 75, grade: "B", color: "text-blue-600" },
+        landingPages: { score: 78, grade: "B+", color: "text-emerald-600" },
+        conversionTracking: { score: 82, grade: "A-", color: "text-emerald-600" }
       };
 
-      // Sort insights by urgency and impact for action plan
-      mockAuditResults.actionPlan = mockAuditResults.insights
-        .filter(insight => insight.actionable)
-        .sort((a, b) => {
-          const urgencyWeight = { Critical: 3, Important: 2, Low: 1 };
-          const impactWeight = { High: 3, Medium: 2, Low: 1 };
-          
-          const aScore = urgencyWeight[a.urgency] + impactWeight[a.impact];
-          const bScore = urgencyWeight[b.urgency] + impactWeight[b.impact];
-          
-          return bScore - aScore;
-        });
+      const auditResults: PowerAuditResults = {
+        overallScore: Math.max(40, overallScore),
+        categoryScores,
+        insights,
+        actionPlan: insights
+          .filter(insight => insight.actionable)
+          .sort((a, b) => {
+            const urgencyWeight = { Critical: 3, Important: 2, Low: 1 };
+            const impactWeight = { High: 3, Medium: 2, Low: 1 };
+            
+            const aScore = urgencyWeight[a.urgency] + impactWeight[a.impact];
+            const bScore = urgencyWeight[b.urgency] + impactWeight[b.impact];
+            
+            return bScore - aScore;
+          })
+      };
 
-      setAuditResults(mockAuditResults);
+      setAuditResults(auditResults);
       
       toast({
         title: "🔍 Power Audit Complete",
-        description: `Account scored ${mockAuditResults.overallScore}/100 with ${mockAuditResults.actionPlan.length} actionable optimizations identified`,
+        description: `${selectedAccountForAnalysis.name} scored ${auditResults.overallScore}/100 with ${auditResults.actionPlan.length} actionable optimizations`,
       });
     } catch (error) {
       console.error("Power audit failed:", error);
