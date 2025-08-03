@@ -270,24 +270,25 @@ export const AIInsightsPanel = () => {
         return bScore - aScore;
       });
 
-      // Categorize actual performance
-      const avgCTR = analysis.performance.avgCTR;
+      // Categorize actual performance with better distribution
+      const avgCTR = parseFloat(analysis.performance.avgCTR) || 2.0; // Default if no CTR
       const processedAssets = sortedCreatives.map((asset, index) => {
         const ctrPercent = (asset.ctr * 100);
-        let performanceLabel = "AVERAGE";
-        let aiScore = 60;
+        let performanceLabel = "NEEDS_IMPROVEMENT"; // Default to show problems
+        let aiScore = 45;
         let suggestion = null;
 
-        // Determine performance based on actual data
-        if (ctrPercent > avgCTR * 1.5 && asset.conversions > 0) {
+        // More balanced categorization to show all performance levels
+        if (ctrPercent >= avgCTR * 1.3 && asset.conversions > 0) {
           performanceLabel = "EXCELLENT";
-          aiScore = 85 + Math.min(15, Math.floor(ctrPercent));
-        } else if (ctrPercent > avgCTR * 1.2) {
+          aiScore = 85 + Math.min(15, Math.floor(ctrPercent / 2));
+        } else if (ctrPercent >= avgCTR * 0.9) {
           performanceLabel = "GOOD";
-          aiScore = 70 + Math.min(15, Math.floor(ctrPercent * 0.8));
-        } else if (ctrPercent < avgCTR * 0.6 && asset.impressions > 100) {
+          aiScore = 65 + Math.min(20, Math.floor(ctrPercent * 0.5));
+        } else {
+          // This will catch all low performers
           performanceLabel = "NEEDS_IMPROVEMENT";
-          aiScore = 30 + Math.min(30, Math.floor(ctrPercent * 2));
+          aiScore = 25 + Math.min(35, Math.floor(ctrPercent * 1.5));
           
           // Generate AI suggestions for poor performers
           if (asset.type === 'headline') {
@@ -330,7 +331,7 @@ export const AIInsightsPanel = () => {
       const currentScore = {
         excellentAssetsPercentage: Math.round((excellentAssets / processedAssets.length) * 100),
         goodAssetsPercentage: Math.round((goodAssets / processedAssets.length) * 100),
-        alignmentScore: Math.max(40, Math.min(90, Math.round(parseFloat(avgCTR) * 4))),
+        alignmentScore: Math.max(40, Math.min(90, Math.round(avgCTR * 4))),
         overallScore: Math.max(35, Math.min(85, Math.round(
           (excellentAssets * 10 + goodAssets * 7 + (processedAssets.length - needsImprovementAssets) * 5) / processedAssets.length * 10
         )))
