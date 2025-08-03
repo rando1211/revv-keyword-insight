@@ -8,15 +8,22 @@ interface SubscriptionInfo {
   subscription_end?: string | null;
 }
 
+interface UserRole {
+  role: string;
+}
+
 interface AuthContextType {
   user: User | null;
   session: Session | null;
+  userRole: string | null;
+  isAdmin: boolean;
   signUp: (email: string, password: string) => Promise<{ error: any }>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
   loading: boolean;
   subscription: SubscriptionInfo | null;
   checkSubscription: () => Promise<void>;
+  checkUserRole: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -34,6 +41,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [subscription, setSubscription] = useState<SubscriptionInfo | null>(null);
+  const [userRole, setUserRole] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  const checkUserRole = async () => {
+    if (!session) {
+      setUserRole(null);
+      setIsAdmin(false);
+      return;
+    }
+    
+    try {
+      const { data, error } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', session.user.id)
+        .single();
+      
+      if (error && error.code !== 'PGRST116') { // PGRST116 is "no rows returned"
+        console.error('Error fetching user role:', error);
+        return;
+      }
+      
+      const role = data?.role || 'user';
+      setUserRole(role);
+      setIsAdmin(role === 'admin');
+    } catch (error) {
+      console.error('Error checking user role:', error);
+    }
+  };
 
   const checkSubscription = async () => {
     if (!session) return;
@@ -59,14 +95,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       (event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
-        setLoading(false);
         
-        // Check subscription when user signs in
-        if (session?.user && event === 'SIGNED_IN') {
+        if (session?.user) {
           setTimeout(() => {
             checkSubscription();
+            checkUserRole();
           }, 0);
+        } else {
+          setSubscription(null);
+          setUserRole(null);
+          setIsAdmin(false);
         }
+        setLoading(false);
       }
     );
 
@@ -74,14 +114,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
-      setLoading(false);
       
-      // Check subscription if user is already signed in
       if (session?.user) {
-        setTimeout(() => {
-          checkSubscription();
-        }, 0);
+        checkSubscription();
+        checkUserRole();
       }
+      setLoading(false);
     });
 
     return () => authSubscription.unsubscribe();
@@ -115,12 +153,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const value = {
     user,
     session,
+    userRole,
+    isAdmin,
     signUp,
     signIn,
     signOut,
     loading,
     subscription,
     checkSubscription,
+    checkUserRole,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

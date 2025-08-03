@@ -11,14 +11,15 @@ import { OptimizationScore } from "@/components/dashboard/OptimizationScore";
 import { OptimizationHeatmap } from "@/components/dashboard/OptimizationHeatmap";
 import { NextBestActions } from "@/components/dashboard/NextBestActions";
 import { CompetitorWatchlist } from "@/components/dashboard/CompetitorWatchlist";
-import { BarChart3, TrendingUp, DollarSign, Target, RefreshCw, Settings, Link, LogOut } from "lucide-react";
+import { AdminPanel } from "@/components/admin/AdminPanel";
+import { BarChart3, TrendingUp, DollarSign, Target, RefreshCw, Settings, Link, LogOut, Crown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { SubscriptionManager } from '@/components/subscription/SubscriptionManager';
 
 const Index = () => {
   const { toast } = useToast();
-  const { user, signOut, loading, subscription } = useAuth();
+  const { user, signOut, loading, subscription, isAdmin } = useAuth();
   const navigate = useNavigate();
 
   // Redirect to auth if not authenticated
@@ -256,14 +257,15 @@ Simulation by REVV Marketing ROI Calculator
 
         {/* Main Dashboard */}
         <Tabs defaultValue="overview" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-6">
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="subscription">💳 Subscription</TabsTrigger>
-            <TabsTrigger value="accounts">🏢 Accounts</TabsTrigger>
-            <TabsTrigger value="campaigns">🎯 Competitor Analysis</TabsTrigger>
-            <TabsTrigger value="ai-insights">🧠 AI Insights</TabsTrigger>
-            <TabsTrigger value="api-setup">⚙️ API Setup</TabsTrigger>
-          </TabsList>
+        <TabsList className={`grid w-full ${isAdmin ? 'grid-cols-7' : 'grid-cols-6'}`}>
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="subscription">💳 Subscription</TabsTrigger>
+          <TabsTrigger value="accounts">🏢 Accounts</TabsTrigger>
+          <TabsTrigger value="campaigns">🎯 Competitor Analysis</TabsTrigger>
+          <TabsTrigger value="ai-insights">🧠 AI Insights</TabsTrigger>
+          <TabsTrigger value="api-setup">⚙️ API Setup</TabsTrigger>
+          {isAdmin && <TabsTrigger value="admin">👑 Admin</TabsTrigger>}
+        </TabsList>
 
           <TabsContent value="overview" className="space-y-6">
             {/* Pro-Level Command Center Layout */}
@@ -428,8 +430,14 @@ Simulation by REVV Marketing ROI Calculator
                 </div>
               </CardContent>
             </Card>
+        </TabsContent>
+        
+        {isAdmin && (
+          <TabsContent value="admin">
+            <AdminPanel />
           </TabsContent>
-        </Tabs>
+        )}
+      </Tabs>
       </div>
     </div>
   );
