@@ -14,10 +14,11 @@ import { CompetitorWatchlist } from "@/components/dashboard/CompetitorWatchlist"
 import { BarChart3, TrendingUp, DollarSign, Target, RefreshCw, Settings, Link, LogOut } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { SubscriptionManager } from '@/components/subscription/SubscriptionManager';
 
 const Index = () => {
   const { toast } = useToast();
-  const { user, signOut, loading } = useAuth();
+  const { user, signOut, loading, subscription } = useAuth();
   const navigate = useNavigate();
 
   // Redirect to auth if not authenticated
@@ -255,8 +256,9 @@ Simulation by REVV Marketing ROI Calculator
 
         {/* Main Dashboard */}
         <Tabs defaultValue="overview" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="subscription">💳 Subscription</TabsTrigger>
             <TabsTrigger value="accounts">🏢 Accounts</TabsTrigger>
             <TabsTrigger value="campaigns">🎯 Competitor Analysis</TabsTrigger>
             <TabsTrigger value="ai-insights">🧠 AI Insights</TabsTrigger>
@@ -359,6 +361,10 @@ Simulation by REVV Marketing ROI Calculator
                 </CardContent>
               </Card>
             </div>
+          </TabsContent>
+
+          <TabsContent value="subscription" className="space-y-6">
+            <SubscriptionManager />
           </TabsContent>
 
           <TabsContent value="accounts" className="space-y-6">
