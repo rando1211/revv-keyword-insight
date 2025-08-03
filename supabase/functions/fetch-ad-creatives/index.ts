@@ -60,7 +60,7 @@ serve(async (req) => {
     // Clean customer ID
     const cleanCustomerId = customerId.replace('customers/', '');
 
-    // Fetch responsive search ads data
+    // Fetch responsive search ads data from different performance tiers
     const adQuery = `
       SELECT
         ad_group.id,
@@ -82,8 +82,13 @@ serve(async (req) => {
         AND ad_group_ad.status = 'ENABLED'
         AND ad_group_ad.ad.type = 'RESPONSIVE_SEARCH_AD'
         AND segments.date DURING LAST_30_DAYS
-      ORDER BY metrics.clicks DESC
-      LIMIT 50
+        AND (
+          campaign.name IN ('Dealership Traffic (Search)', 'Ducati (Search)', 'Triumph (Search)') OR
+          campaign.name IN ('Can-Am (Search)', 'Service (Search)', 'PWC (Search)') OR  
+          campaign.name IN ('Kawasaki Off-Road (Search)', 'KTM Off-Road (Search)', 'Discovery Campaign (AA)')
+        )
+      ORDER BY metrics.ctr DESC
+      LIMIT 100
     `;
 
     console.log(`🔍 Fetching responsive search ads...`);
