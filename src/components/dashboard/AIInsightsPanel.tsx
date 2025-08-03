@@ -259,87 +259,69 @@ export const AIInsightsPanel = () => {
         return;
       }
 
-      // Analyze real performance data
-      const headlines = creatives.filter(c => c.type === 'headline');
-      const descriptions = creatives.filter(c => c.type === 'description');
-      
-      // Sort to get diverse performance levels instead of just top performers
-      const sortedCreatives = creatives.sort((a, b) => {
-        // Group by campaign to show variety, then by performance within campaign
-        if (a.campaign !== b.campaign) {
-          return a.campaign.localeCompare(b.campaign);
+      // Send to AI auditor for proper grading instead of basic CTR analysis
+      console.log(`📊 Found ${creatives.length} real ad assets. Sending to AI auditor...`);
+
+      // Get campaign context for better AI analysis
+      const campaignGoal = `Drive conversions for ${analysis.brands.join(', ')} - Focus on sales, service, and customer acquisition`;
+      const searchTermsContext = `Motorcycle dealership, powersports, ${analysis.brands.join(', ')}, sales, service, parts, financing, dealership`;
+
+      // Send to AI auditor for proper grading
+      const { data: auditResponse, error: auditError } = await supabase.functions.invoke('ai-rsa-auditor', {
+        body: { 
+          rsaAssets: creatives,
+          campaignGoal,
+          searchTerms: searchTermsContext
         }
-        return (b.ctr * 100) - (a.ctr * 100); // Best performers first within each campaign
       });
 
-      // Categorize actual performance with better distribution
-      const avgCTR = parseFloat(analysis.performance.avgCTR) || 8.0; // Default average CTR
-      const processedAssets = sortedCreatives.map((asset, index) => {
-        const ctrPercent = (asset.ctr * 100); // Convert decimal to percentage
-        let performanceLabel = "NEEDS_IMPROVEMENT"; // Default to show problems
-        let aiScore = 45;
-        let suggestion = null;
+      if (auditError) throw auditError;
+      if (!auditResponse.success) throw new Error(auditResponse.error);
 
-        console.log(`Asset CTR: ${ctrPercent}%, Avg CTR: ${avgCTR}%`); // Debug logging
+      const { audit } = auditResponse;
+      console.log(`✅ AI Audit complete: ${audit.summary.excellent_count} excellent, ${audit.summary.good_count} good, ${audit.summary.needs_improvement_count} needs improvement`);
 
-        // Fixed categorization with proper thresholds - now we can see the variety!
-        if (ctrPercent >= 15.0) { // High performers (15%+ CTR)
-          performanceLabel = "EXCELLENT";
-          aiScore = 85 + Math.min(15, Math.floor(ctrPercent / 2));
-        } else if (ctrPercent >= 8.0) { // Average performers (8%+ CTR)  
-          performanceLabel = "GOOD";
-          aiScore = 65 + Math.min(20, Math.floor(ctrPercent * 0.5));
-        } else {
-          // Low performers (under 8% CTR)
-          performanceLabel = "NEEDS_IMPROVEMENT";
-          aiScore = 25 + Math.min(35, Math.floor(ctrPercent * 1.5));
-          
-          // Generate AI suggestions for poor performers
-          if (asset.type === 'headline') {
-            if (asset.text.toLowerCase().includes('del amo')) {
-              suggestion = `${asset.campaign.includes('PWC') ? 'Premium PWC' : asset.campaign.replace(/\s*\(.*?\)/, '')} Specialist at Del Amo Motorsports`;
-            } else {
-              suggestion = `Shop ${asset.campaign.replace(/\s*\(.*?\)/, '')} at Del Amo Motorsports - Expert Service`;
-            }
-          } else {
-            suggestion = `Visit Del Amo Motorsports for ${asset.campaign.includes('PWC') ? 'personal watercraft' : 'motorcycles'} - Expert staff, competitive pricing, full service center`;
-          }
-        }
-
-        console.log(`Asset: ${asset.text.substring(0, 30)}... | CTR: ${ctrPercent}% | Label: ${performanceLabel}`);
-
+      // Process the AI-graded assets
+      const processedAssets = audit.graded_assets.map((gradedAsset) => {
+        // Find the original asset to get real data
+        const originalAsset = creatives.find(c => c.text === gradedAsset.asset_text);
+        
         return {
-          id: asset.id,
-          type: asset.type,
-          text: asset.text,
-          performanceLabel,
-          aiScore,
-          relevanceScore: Math.min(10, Math.floor(aiScore / 10)),
-          ctaScore: asset.text.toLowerCase().includes('del amo') ? 8 : 5,
-          performancePotential: Math.min(10, Math.floor(aiScore / 10)),
-          suggestion,
-          realData: {
-            clicks: asset.clicks,
-            impressions: asset.impressions,
-            ctr: ctrPercent.toFixed(3),
-            conversions: asset.conversions,
-            campaign: asset.campaign,
-            adGroup: asset.adGroup
-          }
+          id: originalAsset?.id || `ai_${Math.random()}`,
+          type: gradedAsset.type,
+          text: gradedAsset.asset_text,
+          performanceLabel: gradedAsset.performance_category,
+          aiScore: Math.round(gradedAsset.overall_score * 10), // Convert to 0-100 scale
+          relevanceScore: gradedAsset.relevance_score,
+          ctaScore: gradedAsset.cta_score,
+          performancePotential: gradedAsset.performance_score,
+          suggestion: gradedAsset.improvement_suggestion,
+          recommendation: gradedAsset.recommendation,
+          realData: originalAsset ? {
+            clicks: originalAsset.clicks,
+            impressions: originalAsset.impressions,
+            ctr: (originalAsset.ctr * 100).toFixed(3),
+            conversions: originalAsset.conversions,
+            campaign: originalAsset.campaign,
+            adGroup: originalAsset.adGroup
+          } : null
         };
-      }).slice(0, 12); // Show top 12 for analysis
+      });
 
-      // Calculate real performance scores
-      const excellentAssets = processedAssets.filter(a => a.performanceLabel === "EXCELLENT").length;
-      const goodAssets = processedAssets.filter(a => a.performanceLabel === "GOOD").length;
-      const needsImprovementAssets = processedAssets.filter(a => a.performanceLabel === "NEEDS_IMPROVEMENT").length;
+      // Calculate performance distribution based on AI analysis
+      const excellentAssets = audit.summary.excellent_count;
+      const goodAssets = audit.summary.good_count;
+      const needsImprovementAssets = audit.summary.needs_improvement_count;
+      const totalAssets = excellentAssets + goodAssets + needsImprovementAssets;
       
       const currentScore = {
-        excellentAssetsPercentage: Math.round((excellentAssets / processedAssets.length) * 100),
-        goodAssetsPercentage: Math.round((goodAssets / processedAssets.length) * 100),
-        alignmentScore: Math.max(40, Math.min(90, Math.round(avgCTR * 4))),
+        excellentAssetsPercentage: Math.round((excellentAssets / totalAssets) * 100),
+        goodAssetsPercentage: Math.round((goodAssets / totalAssets) * 100),
+        alignmentScore: Math.max(40, Math.min(90, Math.round(
+          (excellentAssets * 10 + goodAssets * 7 + needsImprovementAssets * 3) / totalAssets
+        ))),
         overallScore: Math.max(35, Math.min(85, Math.round(
-          (excellentAssets * 10 + goodAssets * 7 + (processedAssets.length - needsImprovementAssets) * 5) / processedAssets.length * 10
+          (excellentAssets * 9 + goodAssets * 6 + needsImprovementAssets * 3) / totalAssets * 10
         )))
       };
 
@@ -347,14 +329,14 @@ export const AIInsightsPanel = () => {
         rsaAssets: processedAssets,
         realDataSummary: {
           totalCreatives: creatives.length,
-          headlines: headlines.length,
-          descriptions: descriptions.length,
+          headlines: creatives.filter(c => c.type === 'headline').length,
+          descriptions: creatives.filter(c => c.type === 'description').length,
           campaigns: analysis.campaigns,
           brands: analysis.brands,
-          avgCTR: avgCTR,
+          avgCTR: analysis.performance.avgCTR,
           totalClicks: analysis.performance.totalClicks,
           totalImpressions: analysis.performance.totalImpressions,
-          timeframe: "Last 30 days - Real Google Ads Data"
+          timeframe: "Last 30 days - AI Audited Data"
         },
         currentScore,
         projectedScore: {
@@ -367,14 +349,18 @@ export const AIInsightsPanel = () => {
           ctrImprovement: Math.round(15 + (needsImprovementAssets * 2)),
           conversionLift: Math.round(20 + (needsImprovementAssets * 3)),
           monthlyRevenueLift: Math.round(1200 + (analysis.performance.totalClicks * 0.5))
+        },
+        aiInsights: {
+          themeGaps: audit.theme_gaps,
+          summary: audit.summary
         }
       };
 
       setCreativesData(rsaData);
       
       toast({
-        title: "🎨 Real Creative Analysis Complete",
-        description: `Analyzed ${processedAssets.length} real RSA assets from ${analysis.brands.length} brands across ${analysis.campaigns} campaigns`,
+        title: "🤖 AI Creative Analysis Complete",
+        description: `Analyzed ${processedAssets.length} assets: ${excellentAssets} excellent, ${goodAssets} good, ${needsImprovementAssets} need improvement`,
       });
     } catch (error) {
       console.error("Creative analysis failed:", error);
