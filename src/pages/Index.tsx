@@ -1,3 +1,5 @@
+import { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -9,11 +11,47 @@ import { OptimizationScore } from "@/components/dashboard/OptimizationScore";
 import { OptimizationHeatmap } from "@/components/dashboard/OptimizationHeatmap";
 import { NextBestActions } from "@/components/dashboard/NextBestActions";
 import { CompetitorWatchlist } from "@/components/dashboard/CompetitorWatchlist";
-import { BarChart3, TrendingUp, DollarSign, Target, RefreshCw, Settings, Link } from "lucide-react";
+import { BarChart3, TrendingUp, DollarSign, Target, RefreshCw, Settings, Link, LogOut } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Index = () => {
   const { toast } = useToast();
+  const { user, signOut, loading } = useAuth();
+  const navigate = useNavigate();
+
+  // Redirect to auth if not authenticated
+  useEffect(() => {
+    if (!loading && !user) {
+      navigate('/auth');
+    }
+  }, [user, loading, navigate]);
+
+  const handleSignOut = async () => {
+    await signOut();
+    toast({
+      title: "Signed out",
+      description: "You have been successfully signed out.",
+    });
+    navigate('/auth');
+  };
+
+  // Show loading while checking auth
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p>Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Don't render dashboard if user not authenticated
+  if (!user) {
+    return null;
+  }
 
   const handleDeepAudit = () => {
     toast({
@@ -188,12 +226,26 @@ Simulation by REVV Marketing ROI Calculator
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <div className="bg-primary-foreground text-primary rounded-lg p-2 font-bold text-lg">
-                REVV
+                AI
               </div>
               <div>
-                <h1 className="text-xl font-bold">Marketing</h1>
-                <p className="text-sm opacity-90">Campaign Automation Dashboard</p>
+                <h1 className="text-xl font-bold">Ads Accelerator</h1>
+                <p className="text-sm opacity-90">Google Ads Optimization Dashboard</p>
               </div>
+            </div>
+            <div className="flex items-center space-x-4">
+              <Badge variant="secondary">
+                {user?.email}
+              </Badge>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleSignOut}
+                className="text-primary-foreground border-primary-foreground hover:bg-primary-foreground hover:text-primary"
+              >
+                <LogOut className="h-4 w-4 mr-2" />
+                Sign Out
+              </Button>
             </div>
           </div>
         </div>
