@@ -233,174 +233,147 @@ export const AIInsightsPanel = () => {
     setIsAnalyzingCreatives(true);
     try {
       toast({
-        title: "🎨 Analyzing RSA Creatives",
-        description: `Fetching ad assets from ${selectedAccountForAnalysis.name}...`,
+        title: "🎨 Analyzing Real Ad Creatives",
+        description: `Fetching all RSA headlines and descriptions from ${selectedAccountForAnalysis.name} (last 30 days)...`,
       });
 
-      // Fetch real campaign data first
-      const { data: campaignResponse, error: campaignError } = await supabase.functions.invoke('fetch-google-ads-campaigns', {
-        body: { customerId: selectedAccountForAnalysis.customerId, limit: 20 }
+      // Fetch real ad creatives from your account
+      const { data: creativesResponse, error: creativesError } = await supabase.functions.invoke('fetch-ad-creatives', {
+        body: { customerId: selectedAccountForAnalysis.customerId }
       });
 
-      if (campaignError) throw campaignError;
+      if (creativesError) throw creativesError;
 
-      const campaigns = campaignResponse.campaigns || [];
+      if (!creativesResponse.success) {
+        throw new Error(creativesResponse.error || 'Failed to fetch ad creatives');
+      }
+
+      const { creatives, analysis } = creativesResponse;
       
-      if (campaigns.length === 0) {
+      if (creatives.length === 0) {
         toast({
-          title: "No Campaigns Found",
-          description: "No active campaigns found for creative analysis",
+          title: "No Ad Creatives Found",
+          description: "No responsive search ads found in the last 30 days",
           variant: "destructive",
         });
         return;
       }
 
-      // Generate RSA data based on real campaign names and performance
-      const searchCampaigns = campaigns.filter(c => c.name.includes("(Search)"));
-      const pmCampaigns = campaigns.filter(c => c.name.includes("(PM)"));
+      // Analyze real performance data
+      const headlines = creatives.filter(c => c.type === 'headline');
+      const descriptions = creatives.filter(c => c.type === 'description');
       
-      // Extract brand names from campaigns
-      const brandNames = [...new Set(campaigns.map(c => c.name.replace(/\s*\(PM\)|\s*\(Search\)/, '').trim()))];
-      const topBrands = brandNames.slice(0, 4); // Top 4 brands
+      // Sort by performance (CTR and conversions)
+      const sortedCreatives = creatives.sort((a, b) => {
+        const aScore = (a.ctr * 100) + (a.conversions * 10);
+        const bScore = (b.ctr * 100) + (b.conversions * 10);
+        return bScore - aScore;
+      });
 
-      const rsaAssets = [
-        // Generate headlines based on actual brands
-        {
-          id: "headline_1",
-          type: "headline",
-          text: `${topBrands[0] || 'Premium'} ${topBrands.includes('PWC') ? 'Personal Watercraft' : 'Motorcycles'} - Del Amo Motorsports`,
-          performanceLabel: "BEST",
-          aiScore: 92,
-          relevanceScore: 9,
-          ctaScore: 8,
-          performancePotential: 9,
-          suggestion: null
-        },
-        {
-          id: "headline_2", 
-          type: "headline",
-          text: `${topBrands[1] || 'Quality'} Motorcycles for Sale`,
-          performanceLabel: campaigns.find(c => c.name.includes(topBrands[1] || ''))?.ctr > 0.05 ? "GOOD" : "LOW",
-          aiScore: campaigns.find(c => c.name.includes(topBrands[1] || ''))?.ctr > 0.05 ? 78 : 45,
-          relevanceScore: 7,
-          ctaScore: 6,
-          performancePotential: 8,
-          suggestion: `Shop ${topBrands[1] || 'Premium'} ${topBrands.includes('PWC') ? 'PWC' : 'Motorcycles'} at Del Amo Motorsports`
-        },
-        {
-          id: "headline_3",
-          type: "headline", 
-          text: `${topBrands[2] || 'Best'} Dealer in Redondo Beach`,
-          performanceLabel: "GOOD",
-          aiScore: 73,
-          relevanceScore: 8,
-          ctaScore: 7,
-          performancePotential: 8,
-          suggestion: null
-        },
-        {
-          id: "headline_4",
-          type: "headline",
-          text: `Motorcycle dealership near me`,
-          performanceLabel: "LOW",
-          aiScore: 42,
-          relevanceScore: 5,
-          ctaScore: 3,
-          performancePotential: 4,
-          suggestion: `Your Local ${topBrands[0] || 'Motorcycle'} Dealer - Del Amo Motorsports`
-        },
-        // Generate descriptions based on actual business
-        {
-          id: "description_1",
-          type: "description", 
-          text: `Largest ${topBrands.includes('PWC') ? 'PWC and Motorcycle' : 'Motorcycle'} dealer serving Redondo Beach, Long Beach & surrounding areas`,
-          performanceLabel: "BEST",
-          aiScore: 88,
-          relevanceScore: 9,
-          ctaScore: 8,
-          performancePotential: 9,
-          suggestion: null
-        },
-        {
-          id: "description_2",
-          type: "description",
-          text: `Shop new and used motorcycles`,
-          performanceLabel: "LOW",
-          aiScore: 38,
-          relevanceScore: 5,
-          ctaScore: 3,
-          performancePotential: 4,
-          suggestion: `Discover New & Pre-Owned ${topBrands.slice(0, 2).join(', ')} at Del Amo Motorsports - Expert Service Included`
-        },
-        {
-          id: "description_3",
-          type: "description",
-          text: `Professional service and parts for all major brands`,
-          performanceLabel: "GOOD",
-          aiScore: 72,
-          relevanceScore: 7,
-          ctaScore: 6,
-          performancePotential: 7,
-          suggestion: null
-        },
-        {
-          id: "description_4",
-          type: "description",
-          text: `Call us today for more information`,
-          performanceLabel: "LOW",
-          aiScore: 35,
-          relevanceScore: 4,
-          ctaScore: 3,
-          performancePotential: 3,
-          suggestion: `Visit Del Amo Motorsports Today - Expert Staff, Competitive Pricing, Full Service Center`
+      // Categorize actual performance
+      const avgCTR = analysis.performance.avgCTR;
+      const processedAssets = sortedCreatives.map((asset, index) => {
+        const ctrPercent = (asset.ctr * 100);
+        let performanceLabel = "AVERAGE";
+        let aiScore = 60;
+        let suggestion = null;
+
+        // Determine performance based on actual data
+        if (ctrPercent > avgCTR * 1.5 && asset.conversions > 0) {
+          performanceLabel = "EXCELLENT";
+          aiScore = 85 + Math.min(15, Math.floor(ctrPercent));
+        } else if (ctrPercent > avgCTR * 1.2) {
+          performanceLabel = "GOOD";
+          aiScore = 70 + Math.min(15, Math.floor(ctrPercent * 0.8));
+        } else if (ctrPercent < avgCTR * 0.6 && asset.impressions > 100) {
+          performanceLabel = "NEEDS_IMPROVEMENT";
+          aiScore = 30 + Math.min(30, Math.floor(ctrPercent * 2));
+          
+          // Generate AI suggestions for poor performers
+          if (asset.type === 'headline') {
+            if (asset.text.toLowerCase().includes('del amo')) {
+              suggestion = `${asset.campaign.includes('PWC') ? 'Premium PWC' : asset.campaign.replace(/\s*\(.*?\)/, '')} Specialist at Del Amo Motorsports`;
+            } else {
+              suggestion = `Shop ${asset.campaign.replace(/\s*\(.*?\)/, '')} at Del Amo Motorsports - Expert Service`;
+            }
+          } else {
+            suggestion = `Visit Del Amo Motorsports for ${asset.campaign.includes('PWC') ? 'personal watercraft' : 'motorcycles'} - Expert staff, competitive pricing, full service center`;
+          }
         }
-      ];
 
-      // Calculate performance based on actual campaign data
-      const avgCTR = campaigns.reduce((sum, c) => sum + c.ctr, 0) / campaigns.length;
-      const highPerformingCampaigns = campaigns.filter(c => c.ctr > avgCTR * 1.2).length;
-      const lowPerformingCampaigns = campaigns.filter(c => c.ctr < avgCTR * 0.8).length;
+        return {
+          id: asset.id,
+          type: asset.type,
+          text: asset.text,
+          performanceLabel,
+          aiScore,
+          relevanceScore: Math.min(10, Math.floor(aiScore / 10)),
+          ctaScore: asset.text.toLowerCase().includes('del amo') ? 8 : 5,
+          performancePotential: Math.min(10, Math.floor(aiScore / 10)),
+          suggestion,
+          realData: {
+            clicks: asset.clicks,
+            impressions: asset.impressions,
+            ctr: ctrPercent.toFixed(3),
+            conversions: asset.conversions,
+            campaign: asset.campaign,
+            adGroup: asset.adGroup
+          }
+        };
+      }).slice(0, 12); // Show top 12 for analysis
 
-      const bestAssets = rsaAssets.filter(a => a.performanceLabel === "BEST").length;
-      const bestAssetsPercentage = Math.round((bestAssets / rsaAssets.length) * 100);
+      // Calculate real performance scores
+      const excellentAssets = processedAssets.filter(a => a.performanceLabel === "EXCELLENT").length;
+      const goodAssets = processedAssets.filter(a => a.performanceLabel === "GOOD").length;
+      const needsImprovementAssets = processedAssets.filter(a => a.performanceLabel === "NEEDS_IMPROVEMENT").length;
       
+      const currentScore = {
+        excellentAssetsPercentage: Math.round((excellentAssets / processedAssets.length) * 100),
+        goodAssetsPercentage: Math.round((goodAssets / processedAssets.length) * 100),
+        alignmentScore: Math.max(40, Math.min(90, Math.round(parseFloat(avgCTR) * 4))),
+        overallScore: Math.max(35, Math.min(85, Math.round(
+          (excellentAssets * 10 + goodAssets * 7 + (processedAssets.length - needsImprovementAssets) * 5) / processedAssets.length * 10
+        )))
+      };
+
       const rsaData = {
-        rsaAssets,
-        campaignContext: {
-          totalCampaigns: campaigns.length,
-          brands: topBrands,
-          highPerforming: highPerformingCampaigns,
-          lowPerforming: lowPerformingCampaigns,
-          avgCTR: (avgCTR * 100).toFixed(2)
+        rsaAssets: processedAssets,
+        realDataSummary: {
+          totalCreatives: creatives.length,
+          headlines: headlines.length,
+          descriptions: descriptions.length,
+          campaigns: analysis.campaigns,
+          brands: analysis.brands,
+          avgCTR: avgCTR,
+          totalClicks: analysis.performance.totalClicks,
+          totalImpressions: analysis.performance.totalImpressions,
+          timeframe: "Last 30 days - Real Google Ads Data"
         },
-        currentScore: {
-          bestAssetsPercentage,
-          alignmentScore: Math.max(45, Math.min(85, Math.round(avgCTR * 1000))),
-          overallScore: Math.max(40, Math.min(80, Math.round((bestAssetsPercentage + avgCTR * 1000) / 2)))
-        },
+        currentScore,
         projectedScore: {
-          bestAssetsPercentage: Math.min(100, bestAssetsPercentage + 35),
-          alignmentScore: Math.min(95, Math.round(avgCTR * 1000) + 25),
-          overallScore: Math.min(95, Math.round((bestAssetsPercentage + avgCTR * 1000) / 2) + 20)
+          excellentAssetsPercentage: Math.min(100, currentScore.excellentAssetsPercentage + 30),
+          goodAssetsPercentage: Math.min(100, currentScore.goodAssetsPercentage + 25),
+          alignmentScore: Math.min(95, currentScore.alignmentScore + 20),
+          overallScore: Math.min(95, currentScore.overallScore + 25)
         },
         projectedImpact: {
-          ctrImprovement: Math.round(15 + (lowPerformingCampaigns * 2)),
-          conversionLift: Math.round(20 + (lowPerformingCampaigns * 3)),
-          monthlyRevenueLift: Math.round(1500 + (campaigns.reduce((sum, c) => sum + c.cost, 0) * 0.15))
+          ctrImprovement: Math.round(15 + (needsImprovementAssets * 2)),
+          conversionLift: Math.round(20 + (needsImprovementAssets * 3)),
+          monthlyRevenueLift: Math.round(1200 + (analysis.performance.totalClicks * 0.5))
         }
       };
 
       setCreativesData(rsaData);
       
       toast({
-        title: "🎨 Creative Analysis Complete",
-        description: `Analyzed ${rsaData.rsaAssets.length} RSA assets for ${topBrands.length} brands across ${campaigns.length} campaigns`,
+        title: "🎨 Real Creative Analysis Complete",
+        description: `Analyzed ${processedAssets.length} real RSA assets from ${analysis.brands.length} brands across ${analysis.campaigns} campaigns`,
       });
     } catch (error) {
       console.error("Creative analysis failed:", error);
       toast({
         title: "Analysis Failed",
-        description: "Unable to analyze creatives",
+        description: "Unable to analyze creatives: " + error.message,
         variant: "destructive",
       });
     } finally {
@@ -658,12 +631,47 @@ export const AIInsightsPanel = () => {
 
             {creativesData ? (
               <>
+                {/* Real Data Summary */}
+                {creativesData.realDataSummary && (
+                  <Card className="mb-4 bg-gradient-to-r from-blue-50 to-indigo-50">
+                    <CardHeader>
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <Activity className="h-4 w-4 text-blue-600" />
+                        Real Campaign Data Analysis
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-blue-600">{creativesData.realDataSummary.totalCreatives}</div>
+                          <div className="text-xs text-muted-foreground">Total Assets</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-green-600">{creativesData.realDataSummary.campaigns}</div>
+                          <div className="text-xs text-muted-foreground">Campaigns</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-purple-600">{creativesData.realDataSummary.avgCTR}%</div>
+                          <div className="text-xs text-muted-foreground">Avg CTR</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-orange-600">{creativesData.realDataSummary.totalClicks?.toLocaleString()}</div>
+                          <div className="text-xs text-muted-foreground">Total Clicks</div>
+                        </div>
+                      </div>
+                      <div className="mt-3 text-xs text-center text-muted-foreground">
+                        {creativesData.realDataSummary.timeframe}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
                 {/* RSA Optimization Score Card */}
                 <Card className="mb-4">
                   <CardHeader>
                     <CardTitle className="text-base flex items-center gap-2">
                       <TrendingUp className="h-4 w-4 text-green-600" />
-                      RSA Optimization Score
+                      RSA Performance Analysis (Real Data)
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
@@ -672,15 +680,15 @@ export const AIInsightsPanel = () => {
                         <h4 className="font-medium text-muted-foreground">Current Performance</h4>
                         <div className="space-y-2">
                           <div className="flex justify-between">
-                            <span className="text-sm">Assets with "BEST" label</span>
-                            <span className="font-medium">{creativesData.currentScore?.bestAssetsPercentage || 0}%</span>
+                            <span className="text-sm">Excellent Assets</span>
+                            <span className="font-medium">{creativesData.currentScore?.excellentAssetsPercentage || 0}%</span>
                           </div>
                           <div className="flex justify-between">
-                            <span className="text-sm">Search Term Alignment</span>
-                            <span className="font-medium">{creativesData.currentScore?.alignmentScore || 0}%</span>
+                            <span className="text-sm">Good Assets</span>
+                            <span className="font-medium">{creativesData.currentScore?.goodAssetsPercentage || 0}%</span>
                           </div>
                           <div className="flex justify-between">
-                            <span className="text-sm">Overall RSA Score</span>
+                            <span className="text-sm">Overall Performance Score</span>
                             <span className="font-medium text-orange-600">{creativesData.currentScore?.overallScore || 0}/100</span>
                           </div>
                         </div>
@@ -690,15 +698,15 @@ export const AIInsightsPanel = () => {
                         <h4 className="font-medium text-green-600">Projected After Optimization</h4>
                         <div className="space-y-2">
                           <div className="flex justify-between">
-                            <span className="text-sm">Assets with "BEST" label</span>
-                            <span className="font-medium text-green-600">{creativesData.projectedScore?.bestAssetsPercentage || 0}%</span>
+                            <span className="text-sm">Excellent Assets</span>
+                            <span className="font-medium text-green-600">{creativesData.projectedScore?.excellentAssetsPercentage || 0}%</span>
                           </div>
                           <div className="flex justify-between">
-                            <span className="text-sm">Search Term Alignment</span>
-                            <span className="font-medium text-green-600">{creativesData.projectedScore?.alignmentScore || 0}%</span>
+                            <span className="text-sm">Good Assets</span>
+                            <span className="font-medium text-green-600">{creativesData.projectedScore?.goodAssetsPercentage || 0}%</span>
                           </div>
                           <div className="flex justify-between">
-                            <span className="text-sm">Overall RSA Score</span>
+                            <span className="text-sm">Overall Performance Score</span>
                             <span className="font-medium text-green-600">{creativesData.projectedScore?.overallScore || 0}/100</span>
                           </div>
                         </div>
@@ -748,20 +756,34 @@ export const AIInsightsPanel = () => {
                                   {asset.type === 'headline' ? 'Headline' : 'Description'}
                                 </Badge>
                                 <Badge variant={
-                                  asset.performanceLabel === 'BEST' ? 'default' :
+                                  asset.performanceLabel === 'EXCELLENT' ? 'default' :
                                   asset.performanceLabel === 'GOOD' ? 'secondary' : 'destructive'
                                 }>
-                                  {asset.performanceLabel}
+                                  {asset.performanceLabel === 'NEEDS_IMPROVEMENT' ? 'NEEDS IMPROVEMENT' : asset.performanceLabel}
                                 </Badge>
                                 <span className="text-sm text-muted-foreground">
                                   AI Score: {asset.aiScore}/100
                                 </span>
                               </div>
                               <p className="text-sm font-medium mb-2">{asset.text}</p>
+                              
+                              {/* Real performance data */}
+                              {asset.realData && (
+                                <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground bg-gray-50 p-2 rounded mb-2">
+                                  <div>CTR: {asset.realData.ctr}%</div>
+                                  <div>Clicks: {asset.realData.clicks}</div>
+                                  <div>Impressions: {asset.realData.impressions}</div>
+                                  <div>Conversions: {asset.realData.conversions}</div>
+                                  <div className="col-span-2 pt-1 border-t text-xs">
+                                    <strong>{asset.realData.campaign}</strong> → {asset.realData.adGroup}
+                                  </div>
+                                </div>
+                              )}
+
                               {asset.suggestion && (
                                 <div className="bg-blue-50 p-3 rounded-lg">
                                   <p className="text-sm text-blue-700">
-                                    <strong>AI Suggestion:</strong> {asset.suggestion}
+                                    <strong>💡 AI Suggestion:</strong> {asset.suggestion}
                                   </p>
                                 </div>
                               )}
