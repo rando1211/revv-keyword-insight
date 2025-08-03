@@ -263,11 +263,13 @@ export const AIInsightsPanel = () => {
       const headlines = creatives.filter(c => c.type === 'headline');
       const descriptions = creatives.filter(c => c.type === 'description');
       
-      // Sort by performance (CTR and conversions)
+      // Sort to get diverse performance levels instead of just top performers
       const sortedCreatives = creatives.sort((a, b) => {
-        const aScore = (a.ctr * 100) + (a.conversions * 10);
-        const bScore = (b.ctr * 100) + (b.conversions * 10);
-        return bScore - aScore;
+        // Group by campaign to show variety, then by performance within campaign
+        if (a.campaign !== b.campaign) {
+          return a.campaign.localeCompare(b.campaign);
+        }
+        return (b.ctr * 100) - (a.ctr * 100); // Best performers first within each campaign
       });
 
       // Categorize actual performance with better distribution
