@@ -271,22 +271,24 @@ export const AIInsightsPanel = () => {
       });
 
       // Categorize actual performance with better distribution
-      const avgCTR = parseFloat(analysis.performance.avgCTR) || 2.0; // Default if no CTR
+      const avgCTR = parseFloat(analysis.performance.avgCTR) || 8.0; // Default average CTR
       const processedAssets = sortedCreatives.map((asset, index) => {
-        const ctrPercent = (asset.ctr * 100);
+        const ctrPercent = (asset.ctr * 100); // Convert decimal to percentage
         let performanceLabel = "NEEDS_IMPROVEMENT"; // Default to show problems
         let aiScore = 45;
         let suggestion = null;
 
-        // More balanced categorization to show all performance levels
-        if (ctrPercent >= avgCTR * 1.3 && asset.conversions > 0) {
+        console.log(`Asset CTR: ${ctrPercent}%, Avg CTR: ${avgCTR}%`); // Debug logging
+
+        // Fixed categorization with proper thresholds
+        if (ctrPercent >= 15.0) { // High performers (15%+ CTR)
           performanceLabel = "EXCELLENT";
           aiScore = 85 + Math.min(15, Math.floor(ctrPercent / 2));
-        } else if (ctrPercent >= avgCTR * 0.9) {
+        } else if (ctrPercent >= 8.0) { // Average performers (8%+ CTR)
           performanceLabel = "GOOD";
           aiScore = 65 + Math.min(20, Math.floor(ctrPercent * 0.5));
         } else {
-          // This will catch all low performers
+          // Low performers (under 8% CTR)
           performanceLabel = "NEEDS_IMPROVEMENT";
           aiScore = 25 + Math.min(35, Math.floor(ctrPercent * 1.5));
           
