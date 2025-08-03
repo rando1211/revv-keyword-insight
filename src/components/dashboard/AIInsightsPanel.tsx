@@ -280,11 +280,11 @@ export const AIInsightsPanel = () => {
 
         console.log(`Asset CTR: ${ctrPercent}%, Avg CTR: ${avgCTR}%`); // Debug logging
 
-        // Fixed categorization with proper thresholds
+        // Fixed categorization with proper thresholds - now we can see the variety!
         if (ctrPercent >= 15.0) { // High performers (15%+ CTR)
           performanceLabel = "EXCELLENT";
           aiScore = 85 + Math.min(15, Math.floor(ctrPercent / 2));
-        } else if (ctrPercent >= 8.0) { // Average performers (8%+ CTR)
+        } else if (ctrPercent >= 8.0) { // Average performers (8%+ CTR)  
           performanceLabel = "GOOD";
           aiScore = 65 + Math.min(20, Math.floor(ctrPercent * 0.5));
         } else {
