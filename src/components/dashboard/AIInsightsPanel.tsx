@@ -304,6 +304,8 @@ export const AIInsightsPanel = () => {
           }
         }
 
+        console.log(`Asset: ${asset.text.substring(0, 30)}... | CTR: ${ctrPercent}% | Label: ${performanceLabel}`);
+
         return {
           id: asset.id,
           type: asset.type,
