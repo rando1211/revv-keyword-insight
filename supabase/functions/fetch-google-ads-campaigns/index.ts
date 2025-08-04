@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.53.0';
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -11,6 +12,34 @@ serve(async (req) => {
   }
 
   try {
+    // Get user from JWT token
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      throw new Error('No authorization header');
+    }
+
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      { global: { headers: { Authorization: authHeader } } }
+    );
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      throw new Error('Invalid user token');
+    }
+
+    // Get user's Google Ads credentials
+    const { data: credentials, error: credentialsError } = await supabase
+      .from('user_google_ads_credentials')
+      .select('*')
+      .eq('user_id', user.id)
+      .single();
+
+    if (credentialsError || !credentials || !credentials.is_configured) {
+      throw new Error('Google Ads credentials not configured');
+    }
+
     console.log('Starting fetch-google-ads-campaigns function');
     const { customerId } = await req.json();
     console.log('Received customerId:', customerId);
@@ -27,38 +56,20 @@ serve(async (req) => {
     console.log('Clean customerId:', cleanCustomerId);
     console.log('Is MCC account?', cleanCustomerId === "9301596383");
     
-    // Google Ads API configuration
+    // Google Ads API configuration - use shared developer token but user's OAuth credentials
     const DEVELOPER_TOKEN = Deno.env.get("Developer Token");
     const API_VERSION = "v18";
     
-    // Get OAuth tokens from Supabase secrets
-    const CLIENT_ID = Deno.env.get("Client ID");
-    const CLIENT_SECRET = Deno.env.get("Secret");
-    const REFRESH_TOKEN = Deno.env.get("Refresh token");
-    
-    console.log('Environment check:', {
-      hasDeveloperToken: !!DEVELOPER_TOKEN,
-      hasClientId: !!CLIENT_ID,
-      hasClientSecret: !!CLIENT_SECRET,
-      hasRefreshToken: !!REFRESH_TOKEN,
-      clientIdLength: CLIENT_ID?.length,
-      clientSecretLength: CLIENT_SECRET?.length
-    });
+    console.log('Using user credentials for:', user.email);
 
-    // Get access token
-    console.log('Making OAuth request with:', {
-      client_id: CLIENT_ID ? `${CLIENT_ID.substring(0, 10)}...` : 'missing',
-      client_secret: CLIENT_SECRET ? `${CLIENT_SECRET.substring(0, 10)}...` : 'missing',
-      refresh_token: REFRESH_TOKEN ? `${REFRESH_TOKEN.substring(0, 10)}...` : 'missing'
-    });
-    
+    // Get access token using user's credentials
     const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({
-        client_id: CLIENT_ID,
-        client_secret: CLIENT_SECRET,
-        refresh_token: REFRESH_TOKEN,
+        client_id: credentials.client_id,
+        client_secret: credentials.client_secret,
+        refresh_token: credentials.refresh_token,
         grant_type: "refresh_token",
       }),
     });

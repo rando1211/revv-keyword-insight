@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.53.0';
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -11,23 +12,46 @@ serve(async (req) => {
   }
 
   try {
-    // Google Ads API configuration
+    // Get user from JWT token
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      throw new Error('No authorization header');
+    }
+
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      { global: { headers: { Authorization: authHeader } } }
+    );
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      throw new Error('Invalid user token');
+    }
+
+    // Get user's Google Ads credentials
+    const { data: credentials, error: credentialsError } = await supabase
+      .from('user_google_ads_credentials')
+      .select('*')
+      .eq('user_id', user.id)
+      .single();
+
+    if (credentialsError || !credentials || !credentials.is_configured) {
+      throw new Error('Google Ads credentials not configured');
+    }
+
+    // Google Ads API configuration - use shared developer token but user's OAuth credentials
     const DEVELOPER_TOKEN = Deno.env.get("Developer Token");
     const API_VERSION = "v18";
-    
-    // Get OAuth tokens from Supabase secrets
-    const CLIENT_ID = Deno.env.get("Client ID");
-    const CLIENT_SECRET = Deno.env.get("Secret");
-    const REFRESH_TOKEN = Deno.env.get("Refresh token");
 
-    // Get access token
+    // Get access token using user's credentials
     const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({
-        client_id: CLIENT_ID,
-        client_secret: CLIENT_SECRET,
-        refresh_token: REFRESH_TOKEN,
+        client_id: credentials.client_id,
+        client_secret: credentials.client_secret,
+        refresh_token: credentials.refresh_token,
         grant_type: "refresh_token",
       }),
     });
@@ -49,8 +73,8 @@ serve(async (req) => {
     
     console.log('Child accounts query:', query.trim());
 
-    // Make Google Ads API call to get customer info
-    const customerId = "9301596383"; // Use your MCC customer ID
+    // Make Google Ads API call to get customer info using user's customer ID
+    const customerId = credentials.customer_id;
     const apiResponse = await fetch(
       `https://googleads.googleapis.com/${API_VERSION}/customers/${customerId}/googleAds:search`, 
       {
