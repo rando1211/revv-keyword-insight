@@ -198,11 +198,20 @@ serve(async (req) => {
     
   } catch (error) {
     console.error("🔥 Function Error:", error);
+    console.error("🔥 Error stack:", error.stack);
+    
+    // Return more specific error information
+    const errorResponse = {
+      error: error.message || 'Unknown error occurred',
+      success: false,
+      timestamp: new Date().toISOString(),
+      function: 'fetch-google-ads-campaigns'
+    };
+    
+    console.log("🔥 Returning error response:", errorResponse);
+    
     return new Response(
-      JSON.stringify({ 
-        error: error.message,
-        success: false
-      }),
+      JSON.stringify(errorResponse),
       { 
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 500 
