@@ -72,7 +72,7 @@ serve(async (req) => {
       throw new Error(`OAuth token error: ${tokenData.error}`);
     }
 
-    // First try to get child accounts (if this is an MCC account)
+    // First check if this is an MCC account by trying to get child accounts
     const childAccountsQuery = `
       SELECT 
         customer_client.client_customer, 
@@ -82,18 +82,19 @@ serve(async (req) => {
       FROM customer_client
       WHERE customer_client.level = 1`;
     
-    // Also prepare a query to get the account itself
+    // Also prepare a query to get the account itself (for individual accounts)
     const accountInfoQuery = `
       SELECT 
         customer.id,
         customer.descriptive_name,
-        customer.manager
+        customer.manager,
+        customer.currency_code
       FROM customer`;
     
-    console.log('Checking if account is MCC or individual account for:', userMccId);
+    console.log('Checking if Customer ID is MCC or individual account:', userMccId);
 
-    // Query all available accounts under the user's Customer ID
-    const apiResponse = await fetch(
+    // Try to get child accounts first (MCC scenario)
+    const mccResponse = await fetch(
       `https://googleads.googleapis.com/${API_VERSION}/customers/${userMccId}/googleAds:search`, 
       {
         method: "POST",
@@ -107,17 +108,43 @@ serve(async (req) => {
       }
     );
 
-    const apiData = await apiResponse.json();
-    console.log('MCC child accounts response:', JSON.stringify(apiData, null, 2));
+    const mccData = await mccResponse.json();
+    console.log('MCC child accounts response status:', mccResponse.status);
+    console.log('MCC response:', JSON.stringify(mccData, null, 2));
     
-    if (!apiResponse.ok) {
-      // Check if it's a permission error
-      if (apiData.error?.message?.includes('permission') || apiData.error?.message?.includes('USER_PERMISSION_DENIED')) {
-        throw new Error(`The shared API credentials don't have access to Customer ID ${credentials.customer_id}. Please contact your administrator to grant access, or provide your own API credentials.`);
-      }
-      
-      // If we can't get child accounts, try to get the account itself
-      console.log('Failed to get child accounts, trying direct account info...');
+    if (mccResponse.ok && mccData.results && mccData.results.length > 0) {
+      // This is an MCC account with child accounts
+      console.log('Customer ID is an MCC account with child accounts');
+      const accounts = mccData.results.map((result: any) => {
+        const clientCustomer = result.customerClient.clientCustomer;
+        const descriptiveName = result.customerClient.descriptiveName || '';
+        
+        return {
+          id: clientCustomer,
+          name: descriptiveName,
+          customerId: clientCustomer,
+          status: 'ENABLED',
+          isManager: result.customerClient.manager || false,
+        };
+      });
+
+      console.log(`Found ${accounts.length} child accounts for MCC ${credentials.customer_id}:`, accounts);
+
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          accounts,
+          total: accounts.length,
+          message: `Found ${accounts.length} account(s) under MCC ${credentials.customer_id}.`
+        }),
+        { 
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200 
+        }
+      );
+    } else {
+      // Not an MCC or no child accounts, try to get the account itself
+      console.log('Not an MCC account or no child accounts found. Trying to get individual account info...');
       
       const directResponse = await fetch(
         `https://googleads.googleapis.com/${API_VERSION}/customers/${userMccId}/googleAds:search`, 
@@ -133,19 +160,21 @@ serve(async (req) => {
       );
 
       const directData = await directResponse.json();
+      console.log('Direct account response status:', directResponse.status);
       console.log('Direct account response:', JSON.stringify(directData, null, 2));
       
       if (!directResponse.ok) {
-        // Check for permission errors in direct response too
+        // Check for permission errors
         if (directData.error?.message?.includes('permission') || directData.error?.message?.includes('USER_PERMISSION_DENIED')) {
           throw new Error(`The shared API credentials don't have access to Customer ID ${credentials.customer_id}. Please contact your administrator to grant access, or provide your own API credentials.`);
         }
-        throw new Error(`Google Ads API error: ${directData.error?.message || apiData.error?.message || 'Unknown error'}`);
+        throw new Error(`Google Ads API error: ${directData.error?.message || mccData.error?.message || 'Unknown error'}`);
       }
 
       // Return the single account
       const accountInfo = directData.results?.[0]?.customer;
       if (accountInfo) {
+        console.log('Customer ID is an individual account');
         const accounts = [{
           id: accountInfo.id,
           name: accountInfo.descriptiveName || credentials.customer_id,
@@ -153,6 +182,8 @@ serve(async (req) => {
           status: 'ENABLED',
           isManager: accountInfo.manager || false,
         }];
+
+        console.log(`Found individual account for ${credentials.customer_id}:`, accounts);
 
         return new Response(
           JSON.stringify({ 
@@ -167,38 +198,9 @@ serve(async (req) => {
           }
         );
       } else {
-        throw new Error('No account information found');
+        throw new Error('No account information found for the provided Customer ID');
       }
     }
-
-    // Process child accounts
-    const accounts = apiData.results?.map((result: any) => {
-      const clientCustomer = result.customerClient.clientCustomer;
-      const descriptiveName = result.customerClient.descriptiveName || '';
-      
-      return {
-        id: clientCustomer,
-        name: descriptiveName,
-        customerId: clientCustomer,
-        status: 'ENABLED',
-        isManager: result.customerClient.manager || false,
-      };
-    }) || [];
-
-    console.log(`Found ${accounts.length} accounts for ${credentials.customer_id}:`, accounts);
-
-    return new Response(
-      JSON.stringify({ 
-        success: true, 
-        accounts,
-        total: accounts.length,
-        message: `Found ${accounts.length} account(s) for customer ID ${credentials.customer_id}.`
-      }),
-      { 
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 200 
-      }
-    );
     
   } catch (error) {
     console.error("Google Ads API Error:", error);
