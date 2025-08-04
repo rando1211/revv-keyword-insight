@@ -148,14 +148,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signInWithGoogle = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: `${window.location.origin}/dashboard`,
-        scopes: 'openid profile email https://www.googleapis.com/auth/adwords'
+    console.log('🔍 Starting Google OAuth flow...');
+    try {
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/dashboard`,
+          scopes: 'openid profile email https://www.googleapis.com/auth/adwords'
+        }
+      });
+      
+      console.log('🔍 Google OAuth response:', { data, error });
+      
+      if (error) {
+        console.error('🔍 Google OAuth error:', error);
       }
-    });
-    return { error };
+      
+      return { error };
+    } catch (e) {
+      console.error('🔍 Exception in Google OAuth:', e);
+      return { error: e as any };
+    }
   };
 
   const signOut = async () => {
