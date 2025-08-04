@@ -155,11 +155,18 @@ serve(async (req) => {
 
       const apiResponse = await fetch(apiUrl, {
         method: "POST",
-        headers,
+        headers: {
+          ...headers,
+          'Accept': 'application/json'
+        },
         body: requestBody,
       });
 
+      console.log("📋 Response Status:", apiResponse.status);
+      console.log("📋 Response Headers:", Object.fromEntries(apiResponse.headers.entries()));
+      
       const responseText = await apiResponse.text();
+      console.log("📋 Raw Response Text (first 1000 chars):", responseText.substring(0, 1000));
 
       if (!apiResponse.ok) {
         console.error("❌ API Response Status:", apiResponse.status);
@@ -167,10 +174,27 @@ serve(async (req) => {
         throw new Error(`Google Ads API error: ${responseText}`);
       }
 
-      console.log("✅ API Response OK:", responseText);
+      // Check if response is JSON before parsing
+      const contentType = apiResponse.headers.get("Content-Type");
+      console.log("📋 Content-Type:", contentType);
+      
+      if (!contentType?.includes("application/json")) {
+        console.error("❌ Expected JSON but got Content-Type:", contentType);
+        console.error("❌ Response body:", responseText);
+        throw new Error(`Expected JSON response but got Content-Type: ${contentType}. Response: ${responseText.substring(0, 500)}`);
+      }
+
+      console.log("✅ API Response OK, parsing JSON...");
       
       // Parse the successful response
-      const apiData = JSON.parse(responseText);
+      let apiData;
+      try {
+        apiData = JSON.parse(responseText);
+        console.log("✅ Successfully parsed JSON response");
+      } catch (parseError) {
+        console.error("❌ Failed to parse JSON. Raw response was:", responseText);
+        throw new Error(`Failed to parse JSON response: ${parseError.message}. Raw response: ${responseText.substring(0, 500)}`);
+      }
       console.log("🔍 DEBUG: Parsed API data:", JSON.stringify(apiData, null, 2));
       
       // Process and format the response with actual campaign data
