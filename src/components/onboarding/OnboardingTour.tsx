@@ -14,44 +14,51 @@ interface OnboardingTourProps {
 
 const tourSteps = [
   {
-    title: "Welcome to AI Ads Accelerator! 🎉",
-    content: "We'll take you on a quick tour to help you get the most out of your dashboard. This will only take 2 minutes!",
+    title: "Welcome to DEXTRUM! ⚡",
+    content: "Your tactical optimization butler is ready for deployment. We'll guide you through a quick tactical briefing to maximize your operational efficiency.",
     icon: Target,
     highlight: "overview"
   },
   {
-    title: "Optimization Score",
-    content: "Your real-time optimization score shows how well your campaigns are performing. Green means great, red means there's room for improvement!",
+    title: "Connect Google Ads API",
+    content: "First, deploy your Google Ads API credentials. DEXTRUM requires access to execute tactical optimization protocols on your campaigns.",
+    icon: Settings,
+    highlight: "api-setup",
+    isApiStep: true
+  },
+  {
+    title: "Tactical Efficiency Score",
+    content: "Monitor your operational efficiency in real-time. Green signals optimal performance, red indicates tactical adjustments required.",
     icon: BarChart3,
     highlight: "optimization-score"
   },
   {
-    title: "AI Insights Panel",
-    content: "Get intelligent recommendations powered by OpenAI. Click the '🧠 AI Insights' tab to see detailed campaign analysis and optimization suggestions.",
+    title: "AI Intelligence Panel",
+    content: "Access elite-level campaign intelligence. Deploy AI reconnaissance through the '🧠 AI Insights' tab for tactical recommendations.",
     icon: Brain,
     highlight: "ai-insights"
   },
   {
-    title: "Competitor Analysis",
-    content: "Monitor your competitors and discover new opportunities. The '🎯 Competitor Analysis' tab helps you stay ahead of the competition.",
+    title: "Competitor Surveillance",
+    content: "Maintain tactical advantage through competitor reconnaissance. The '🎯 Competitor Analysis' tab provides strategic intelligence.",
     icon: Users,
     highlight: "competitor-analysis"
   },
   {
-    title: "Account Management",
-    content: "Connect your Google Ads accounts in the '🏢 Accounts' tab. You can manage multiple accounts and switch between them easily.",
+    title: "Account Command Center",
+    content: "Manage multiple Google Ads accounts from your command center. Switch between operations seamlessly in the '🏢 Accounts' tab.",
     icon: Settings,
     highlight: "accounts"
   },
   {
-    title: "Quick Actions",
-    content: "Use the Quick Actions panel for instant tools like ROI Simulator, Deep Audit, and Report Generation. These help you make data-driven decisions fast!",
+    title: "Rapid Deployment Tools",
+    content: "Execute instant tactical operations: ROI Analysis, Deep Campaign Audits, and Intelligence Reports. Swift decisions through precision tools.",
     icon: Zap,
     highlight: "quick-actions"
   },
   {
-    title: "You're All Set! 🚀",
-    content: "That's it! You're ready to optimize your Google Ads campaigns with AI. Start by connecting your Google Ads account and running your first analysis.",
+    title: "Tactical Deployment Complete! 🎯",
+    content: "DEXTRUM is now operational. Begin by connecting your Google Ads account and initiating your first optimization protocol.",
     icon: Target,
     highlight: "complete"
   }
@@ -110,6 +117,14 @@ export function OnboardingTour({ isOpen, onComplete, onSkip }: OnboardingTourPro
               <p className="text-muted-foreground leading-relaxed">
                 {step.content}
               </p>
+              {step.isApiStep && (
+                <div className="mt-4 p-4 bg-destructive/10 rounded-lg border border-destructive/20">
+                  <p className="text-sm font-medium text-destructive mb-2">API Credentials Required</p>
+                  <p className="text-xs text-muted-foreground">
+                    You'll need your Google Ads Developer Token, Client ID, Client Secret, and Refresh Token to enable DEXTRUM's tactical operations.
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
           
