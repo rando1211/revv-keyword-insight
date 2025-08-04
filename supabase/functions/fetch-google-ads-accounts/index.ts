@@ -29,7 +29,7 @@ serve(async (req) => {
       throw new Error('Invalid user token');
     }
 
-    // Get user's Customer ID
+    // Get user's Customer ID (this should be their MCC account ID)
     const { data: credentials, error: credentialsError } = await supabase
       .from('user_google_ads_credentials')
       .select('customer_id')
@@ -39,6 +39,10 @@ serve(async (req) => {
     if (credentialsError || !credentials || !credentials.customer_id) {
       throw new Error('Google Ads Customer ID not configured');
     }
+
+    // The user's customer ID should be their MCC account ID
+    const userMccId = credentials.customer_id.replace(/-/g, '');
+    console.log('User MCC account ID:', credentials.customer_id, '-> cleaned:', userMccId);
 
     // Google Ads API configuration - use shared credentials
     const DEVELOPER_TOKEN = Deno.env.get("Developer Token");
@@ -80,22 +84,18 @@ serve(async (req) => {
     
     console.log('Child accounts query:', query.trim());
 
-    // Clean the customer ID (remove dashes) for API call
-    const customerId = credentials.customer_id;
-    const cleanCustomerId = customerId.replace(/-/g, '');
     
-    console.log('Using customer ID:', customerId, '-> cleaned:', cleanCustomerId);
+    console.log('Using user MCC account ID:', credentials.customer_id, '-> cleaned:', userMccId);
 
-    // Make Google Ads API call to get customer info using MCC credentials
-    const MCC_CUSTOMER_ID = "9301596383"; // The MCC account that manages all child accounts
+    // Make Google Ads API call using the user's MCC account to get child accounts
     const apiResponse = await fetch(
-      `https://googleads.googleapis.com/${API_VERSION}/customers/${MCC_CUSTOMER_ID}/googleAds:search`, 
+      `https://googleads.googleapis.com/${API_VERSION}/customers/${userMccId}/googleAds:search`, 
       {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${tokenData.access_token}`,
           "developer-token": DEVELOPER_TOKEN,
-          "login-customer-id": MCC_CUSTOMER_ID, // Use MCC ID for login
+          "login-customer-id": userMccId, // Use user's MCC ID for login
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ query: query.trim() }),
