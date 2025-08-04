@@ -29,20 +29,32 @@ serve(async (req) => {
       throw new Error('Invalid user token');
     }
 
+    console.log('🔍 DEBUG: Starting fetch-google-ads-campaigns function');
+    console.log('🔍 DEBUG: User ID:', user.id);
+    console.log('🔍 DEBUG: User email:', user.email);
+
     // Get user's Customer ID (not needed here since it comes from request body, but keep for consistency)
     const { data: userCreds, error: credentialsError } = await supabase
       .from('user_google_ads_credentials')
       .select('customer_id')
       .eq('user_id', user.id)
-      .single();
+      .maybeSingle();
 
-    if (credentialsError || !userCreds || !userCreds.customer_id) {
+    console.log('🔍 DEBUG: User credentials query result:', { userCreds, credentialsError });
+
+    if (credentialsError) {
+      console.error('🔍 DEBUG: Credentials error:', credentialsError);
+      throw new Error(`Database error: ${credentialsError.message}`);
+    }
+
+    if (!userCreds || !userCreds.customer_id) {
+      console.error('🔍 DEBUG: No customer ID configured for user');
       throw new Error('Google Ads Customer ID not configured');
     }
 
-    console.log('Starting fetch-google-ads-campaigns function');
+    console.log('🔍 DEBUG: Starting fetch-google-ads-campaigns function');
     const { customerId } = await req.json();
-    console.log('Received customerId:', customerId);
+    console.log('🔍 DEBUG: Received customerId:', customerId);
     
     // Handle different customer ID formats
     let cleanCustomerId;
