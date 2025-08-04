@@ -14,6 +14,24 @@ export type Database = {
   }
   public: {
     Tables: {
+      config_notes: {
+        Row: {
+          created_at: string | null
+          id: string
+          note: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          note: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          note?: string
+        }
+        Relationships: []
+      }
       subscribers: {
         Row: {
           created_at: string
