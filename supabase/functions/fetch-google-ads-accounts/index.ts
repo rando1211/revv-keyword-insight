@@ -60,7 +60,11 @@ serve(async (req) => {
     });
 
     const tokenData = await tokenResponse.json();
+    console.log('OAuth token response status:', tokenResponse.status);
+    console.log('Has access token:', !!tokenData.access_token);
+    
     if (!tokenResponse.ok) {
+      console.error('OAuth token error:', tokenData);
       throw new Error(`OAuth token error: ${tokenData.error}`);
     }
 
