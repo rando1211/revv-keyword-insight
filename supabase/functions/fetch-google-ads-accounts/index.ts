@@ -93,22 +93,15 @@ serve(async (req) => {
     console.log('Checking if account is MCC or individual account for:', userMccId);
 
     
-    console.log('Searching for Boston Medical Group in available accounts...');
-    console.log('User requested customer ID:', credentials.customer_id);
-
-    // Since the specific customer ID isn't accessible, let's search through available accounts
-    // for Boston Medical Group related accounts
-    const SHARED_MCC_ID = "9301596383"; // The shared MCC that has access to accounts
-    
-    // Query all available accounts
+    // Query all available accounts under the user's Customer ID
     const apiResponse = await fetch(
-      `https://googleads.googleapis.com/${API_VERSION}/customers/${SHARED_MCC_ID}/googleAds:search`, 
+      `https://googleads.googleapis.com/${API_VERSION}/customers/${userMccId}/googleAds:search`, 
       {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${tokenData.access_token}`,
           "developer-token": DEVELOPER_TOKEN,
-          "login-customer-id": SHARED_MCC_ID,
+          "login-customer-id": userMccId,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ query: childAccountsQuery.trim() }),
@@ -116,14 +109,62 @@ serve(async (req) => {
     );
 
     const apiData = await apiResponse.json();
-    console.log('All available accounts:', JSON.stringify(apiData, null, 2));
+    console.log('MCC child accounts response:', JSON.stringify(apiData, null, 2));
     
     if (!apiResponse.ok) {
-      throw new Error(`Google Ads API error: ${apiData.error?.message || 'Unknown error'}`);
+      // If we can't get child accounts, try to get the account itself
+      console.log('Failed to get child accounts, trying direct account info...');
+      
+      const directResponse = await fetch(
+        `https://googleads.googleapis.com/${API_VERSION}/customers/${userMccId}/googleAds:search`, 
+        {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${tokenData.access_token}`,
+            "developer-token": DEVELOPER_TOKEN,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ query: accountInfoQuery.trim() }),
+        }
+      );
+
+      const directData = await directResponse.json();
+      console.log('Direct account response:', JSON.stringify(directData, null, 2));
+      
+      if (!directResponse.ok) {
+        throw new Error(`Google Ads API error: ${directData.error?.message || apiData.error?.message || 'Unknown error'}`);
+      }
+
+      // Return the single account
+      const accountInfo = directData.results?.[0]?.customer;
+      if (accountInfo) {
+        const accounts = [{
+          id: accountInfo.id,
+          name: accountInfo.descriptiveName || credentials.customer_id,
+          customerId: accountInfo.id,
+          status: 'ENABLED',
+          isManager: accountInfo.manager || false,
+        }];
+
+        return new Response(
+          JSON.stringify({ 
+            success: true, 
+            accounts,
+            total: accounts.length,
+            message: `Found ${accounts.length} account(s) for customer ID ${credentials.customer_id}.`
+          }),
+          { 
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+            status: 200 
+          }
+        );
+      } else {
+        throw new Error('No account information found');
+      }
     }
 
-    // Filter accounts to find Boston Medical Group related ones
-    const allAccounts = apiData.results?.map((result: any) => {
+    // Process child accounts
+    const accounts = apiData.results?.map((result: any) => {
       const clientCustomer = result.customerClient.clientCustomer;
       const descriptiveName = result.customerClient.descriptiveName || '';
       
@@ -132,46 +173,9 @@ serve(async (req) => {
         name: descriptiveName,
         customerId: clientCustomer,
         status: 'ENABLED',
-        isManager: false,
+        isManager: result.customerClient.manager || false,
       };
     }) || [];
-
-    // Search for Boston Medical Group related accounts
-    const bostonMedicalAccounts = allAccounts.filter(account => {
-      const name = account.name.toLowerCase();
-      return name.includes('boston') || 
-             name.includes('medical') || 
-             name.includes('bmg') || 
-             name.includes('damg') ||
-             name.includes('dental') ||
-             account.customerId.includes(userMccId); // Also check if the customer ID matches
-    });
-
-    console.log(`Found ${bostonMedicalAccounts.length} Boston Medical Group related accounts:`, bostonMedicalAccounts);
-
-    let accounts = [];
-    
-    if (bostonMedicalAccounts.length > 0) {
-      accounts = bostonMedicalAccounts;
-    } else {
-      // If no Boston Medical Group accounts found, show a message and available accounts
-      console.log('No Boston Medical Group accounts found. Customer ID 991-884-9848 is not accessible.');
-      
-      // Show first 10 available accounts for reference
-      accounts = allAccounts.slice(0, 10).map(account => ({
-        ...account,
-        name: `${account.name} (Available Account)`
-      }));
-      
-      // Add a note about the inaccessible customer ID
-      accounts.unshift({
-        id: 'not-accessible',
-        name: `⚠️ Customer ID ${credentials.customer_id} is not accessible through current credentials`,
-        customerId: 'not-accessible',
-        status: 'SUSPENDED',
-        isManager: false,
-      });
-    }
 
     console.log(`Found ${accounts.length} accounts for ${credentials.customer_id}:`, accounts);
 
