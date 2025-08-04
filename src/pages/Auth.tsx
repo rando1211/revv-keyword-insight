@@ -21,7 +21,7 @@ export default function Auth() {
   // Redirect if already authenticated
   useEffect(() => {
     if (user) {
-      navigate('/');
+      navigate('/dashboard');
     }
   }, [user, navigate]);
 
@@ -44,7 +44,7 @@ export default function Auth() {
         title: "Welcome back!",
         description: "You have successfully signed in.",
       });
-      navigate('/');
+      navigate('/dashboard');
     }
     
     setLoading(false);
@@ -73,7 +73,7 @@ export default function Auth() {
         title: "Welcome to AI Ads Accelerator!",
         description: "Your account has been created with a 14-day trial. Check your email to verify your account.",
       });
-      navigate('/');
+      navigate('/dashboard');
     }
     
     setLoading(false);
