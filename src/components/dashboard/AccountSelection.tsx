@@ -213,13 +213,13 @@ export const AccountSelection = () => {
         <CardHeader>
           <CardTitle className="flex items-center space-x-2">
             <Building2 className="h-5 w-5" />
-            <span>Available Google Ads Accounts</span>
+            <span>Boston Medical Group - Google Ads Accounts</span>
           </CardTitle>
           <p className="text-sm text-muted-foreground">
-            All accounts accessible through the shared MCC. Select accounts to manage campaigns and run optimizations.
+            Accounts available under your MCC (991-884-9848). Select accounts to manage campaigns and run optimizations.
             <br />
             <span className="text-xs text-muted-foreground mt-1 block">
-              Note: Your entered Customer ID was used to determine available accounts. You can select any account below to work with.
+              These are the accounts accessible through Boston Medical Group's Google Ads account.
             </span>
           </p>
         </CardHeader>
