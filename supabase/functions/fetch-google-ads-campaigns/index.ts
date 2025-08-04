@@ -106,25 +106,12 @@ serve(async (req) => {
 
     const accessToken = tokenData.access_token;
 
-    // Step 1: Determine login-customer-id using hardcoded known relationships
-    console.log("🔍 STEP 1: Getting login-customer-id for customer", cleanCustomerId);
+    // Step 1: ALWAYS use the MCC for all requests to avoid permission issues
+    console.log("🔍 STEP 1: Setting login-customer-id for customer", cleanCustomerId);
     
-    let loginCustomerId = null;
-    
-    // Known MCC relationships that work (based on previous testing)
-    const knownMCCMappings = {
-      '9918849848': '9301596383', // This customer is managed by this MCC
-    };
-    
-    // Check if this customer needs a specific MCC
-    if (knownMCCMappings[cleanCustomerId]) {
-      loginCustomerId = knownMCCMappings[cleanCustomerId];
-      console.log(`✅ Using known MCC mapping: ${cleanCustomerId} -> ${loginCustomerId}`);
-    } else {
-      // For unknown customers, try the default MCC
-      loginCustomerId = '9301596383';
-      console.log(`🔍 Using default MCC for unknown customer: ${cleanCustomerId} -> ${loginCustomerId}`);
-    }
+    // ALWAYS use the MCC that we know works
+    const loginCustomerId = '9301596383';
+    console.log(`✅ FORCED MCC usage: ${cleanCustomerId} -> ${loginCustomerId}`);
     
     console.log("🔍 STEP 2: Making campaign query with login-customer-id:", loginCustomerId);
     
