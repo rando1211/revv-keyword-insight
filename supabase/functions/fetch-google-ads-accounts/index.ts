@@ -93,37 +93,68 @@ serve(async (req) => {
     console.log('Checking if account is MCC or individual account for:', userMccId);
 
     
-    console.log('Using user MCC account:', credentials.customer_id, '-> cleaned:', userMccId);
+    console.log('Looking for Boston Medical Group accounts under customer ID:', credentials.customer_id, '-> cleaned:', userMccId);
 
-    // Use the user's customer ID as the MCC to query for child accounts
-    // This customer ID (991-884-9848) should be the Boston Medical Group MCC
+    // First, try to see if this customer ID is a direct account (not MCC)
+    const SHARED_MCC_FOR_AUTH = "9301596383"; // Only for authentication
     
-    // For authentication, we need to use the shared credentials but query the user's MCC
-    const SHARED_MCC_FOR_AUTH = "9301596383"; // Only for authentication/login
-    
-    // Query child accounts under the user's MCC (Boston Medical Group)
-    const apiResponse = await fetch(
+    // Try to get the account information first
+    let directAccountResponse = await fetch(
       `https://googleads.googleapis.com/${API_VERSION}/customers/${userMccId}/googleAds:search`, 
       {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${tokenData.access_token}`,
           "developer-token": DEVELOPER_TOKEN,
-          "login-customer-id": SHARED_MCC_FOR_AUTH, // Use shared MCC for auth
+          "login-customer-id": SHARED_MCC_FOR_AUTH,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ query: childAccountsQuery.trim() }),
+        body: JSON.stringify({ query: accountInfoQuery.trim() }),
       }
     );
 
-    const apiData = await apiResponse.json();
-    console.log(`Child accounts under ${credentials.customer_id} (Boston Medical Group):`, JSON.stringify(apiData, null, 2));
+    let directAccountData = await directAccountResponse.json();
+    console.log(`Direct account info for ${credentials.customer_id}:`, JSON.stringify(directAccountData, null, 2));
     
-    if (!apiResponse.ok) {
-      // If we can't access it as MCC, try to get the account itself
-      console.log('Failed to get child accounts, trying to get account info directly');
+    let accounts = [];
+    
+    if (directAccountResponse.ok && directAccountData.results && directAccountData.results.length > 0) {
+      // This is a direct account, not an MCC
+      const accountInfo = directAccountData.results[0];
+      const accountName = accountInfo.customer.descriptiveName || credentials.customer_id;
       
-      const directAccountResponse = await fetch(
+      console.log('Found direct account:', accountName);
+      
+      // Check if this is Boston Medical Group related
+      if (accountName.toLowerCase().includes('boston') || 
+          accountName.toLowerCase().includes('medical') || 
+          accountName.toLowerCase().includes('bmg') ||
+          accountName.toLowerCase().includes('damg')) {
+        
+        accounts = [{
+          id: userMccId,
+          name: accountName,
+          customerId: `customers/${userMccId}`,
+          status: 'ENABLED',
+          isManager: false,
+        }];
+        
+        console.log('This appears to be Boston Medical Group account:', accountName);
+      } else {
+        console.log('Account found but name does not indicate Boston Medical Group:', accountName);
+        accounts = [{
+          id: userMccId,
+          name: `${accountName} (${credentials.customer_id})`,
+          customerId: `customers/${userMccId}`,
+          status: 'ENABLED',
+          isManager: false,
+        }];
+      }
+    } else {
+      // Try as MCC to see if it has child accounts
+      console.log('Trying to query as MCC for child accounts...');
+      
+      const mccResponse = await fetch(
         `https://googleads.googleapis.com/${API_VERSION}/customers/${userMccId}/googleAds:search`, 
         {
           method: "POST",
@@ -133,58 +164,40 @@ serve(async (req) => {
             "login-customer-id": SHARED_MCC_FOR_AUTH,
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ query: accountInfoQuery.trim() }),
+          body: JSON.stringify({ query: childAccountsQuery.trim() }),
         }
       );
 
-      const directAccountData = await directAccountResponse.json();
-      console.log('Direct account response:', JSON.stringify(directAccountData, null, 2));
+      const mccData = await mccResponse.json();
+      console.log('MCC query response:', JSON.stringify(mccData, null, 2));
       
-      if (!directAccountResponse.ok) {
-        throw new Error(`Cannot access account ${credentials.customer_id}: ${directAccountData.error?.message || apiData.error?.message || 'Unknown error'}`);
+      if (mccResponse.ok && mccData.results && mccData.results.length > 0) {
+        // This is an MCC with child accounts
+        accounts = mccData.results.map((result: any) => {
+          const clientCustomer = result.customerClient.clientCustomer;
+          const descriptiveName = result.customerClient.descriptiveName;
+          
+          return {
+            id: clientCustomer,
+            name: descriptiveName || 'Unnamed Account',
+            customerId: clientCustomer,
+            status: 'ENABLED',
+            isManager: false,
+          };
+        });
+      } else {
+        throw new Error(`Cannot access customer ID ${credentials.customer_id}. Error: ${mccData.error?.message || directAccountData.error?.message || 'Account not found'}`);
       }
     }
 
-    // Process accounts based on what we found
-    let accounts = [];
-    
-    if (apiResponse.ok && apiData.results && apiData.results.length > 0) {
-      // This is an MCC with child accounts
-      console.log('Found child accounts under Boston Medical Group MCC');
-      accounts = apiData.results.map((result: any) => {
-        const clientCustomer = result.customerClient.clientCustomer;
-        const descriptiveName = result.customerClient.descriptiveName;
-        
-        console.log('Processing child account:', { clientCustomer, descriptiveName });
-        
-        return {
-          id: clientCustomer,
-          name: descriptiveName || 'Unnamed Account',
-          customerId: clientCustomer,
-          status: 'ENABLED',
-          isManager: false,
-        };
-      });
-    } else {
-      // No child accounts found, this might be an individual account
-      console.log('No child accounts found, treating as individual account');
-      accounts = [{
-        id: userMccId,
-        name: `Boston Medical Group (${credentials.customer_id})`,
-        customerId: `customers/${userMccId}`,
-        status: 'ENABLED',
-        isManager: false,
-      }];
-    }
-
-    console.log(`Found ${accounts.length} accounts under Boston Medical Group:`, accounts);
+    console.log(`Found ${accounts.length} accounts for ${credentials.customer_id}:`, accounts);
 
     return new Response(
       JSON.stringify({ 
         success: true, 
         accounts,
         total: accounts.length,
-        message: `Found ${accounts.length} accounts under Boston Medical Group (${credentials.customer_id}).`
+        message: `Found ${accounts.length} account(s) for customer ID ${credentials.customer_id}.`
       }),
       { 
         headers: { ...corsHeaders, "Content-Type": "application/json" },
