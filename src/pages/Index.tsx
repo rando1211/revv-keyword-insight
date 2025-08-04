@@ -18,6 +18,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { SubscriptionManager } from '@/components/subscription/SubscriptionManager';
 import { OnboardingTour } from '@/components/onboarding/OnboardingTour';
 import { useOnboarding } from '@/hooks/useOnboarding';
+import { UserApiCredentialsSetup } from '@/components/dashboard/UserApiCredentialsSetup';
 
 const Index = () => {
   const { toast } = useToast();
@@ -230,12 +231,12 @@ Simulation by REVV Marketing ROI Calculator
         <div className="container mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
-              <div className="bg-primary-foreground text-primary rounded-lg p-2 font-bold text-lg">
-                AI
+              <div className="bg-primary-foreground text-primary rounded-lg p-2 font-bold text-lg tracking-wider">
+                DEXTRUM
               </div>
               <div>
-                <h1 className="text-xl font-bold">Ads Accelerator</h1>
-                <p className="text-sm opacity-90">Google Ads Optimization Dashboard</p>
+                <h1 className="text-xl font-bold">Command Center</h1>
+                <p className="text-sm opacity-90">Tactical Optimization Dashboard</p>
               </div>
             </div>
             <div className="flex items-center space-x-4">
@@ -385,55 +386,8 @@ Simulation by REVV Marketing ROI Calculator
           </TabsContent>
 
           <TabsContent value="api-setup" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>🔑 Google Ads API Connection Status</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="p-4 bg-success/10 border border-success/20 rounded-lg">
-                    <h4 className="font-semibold text-success mb-2">✅ API Successfully Connected!</h4>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span>Developer Token:</span>
-                        <span className="font-mono">DwIxmnLQLA2T8TyaNnQMcg</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>OAuth Status:</span>
-                        <span className="text-success">✅ Authorized</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Refresh Token:</span>
-                        <span className="text-success">✅ Active</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>OpenAI API:</span>
-                        <span className="text-success">✅ Connected</span>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-3">
-                    <h4 className="font-semibold">SaaS Configuration:</h4>
-                    <div className="space-y-2">
-                      <Button className="w-full justify-start">
-                        💳 Configure Stripe Billing
-                      </Button>
-                      <Button variant="outline" className="w-full justify-start">
-                        ⚙️ Set Account Pricing Rules
-                      </Button>
-                      <Button variant="outline" className="w-full justify-start">
-                        📊 Setup Usage Analytics
-                      </Button>
-                      <Button variant="outline" className="w-full justify-start">
-                        🔐 Configure User Authentication
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-        </TabsContent>
+            <UserApiCredentialsSetup />
+          </TabsContent>
         
         {isAdmin && (
           <TabsContent value="admin">
