@@ -77,6 +77,45 @@ export type Database = {
         }
         Relationships: []
       }
+      user_google_ads_credentials: {
+        Row: {
+          client_id: string | null
+          client_secret: string | null
+          created_at: string
+          customer_id: string | null
+          developer_token: string | null
+          id: string
+          is_configured: boolean | null
+          refresh_token: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          client_id?: string | null
+          client_secret?: string | null
+          created_at?: string
+          customer_id?: string | null
+          developer_token?: string | null
+          id?: string
+          is_configured?: boolean | null
+          refresh_token?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          client_id?: string | null
+          client_secret?: string | null
+          created_at?: string
+          customer_id?: string | null
+          developer_token?: string | null
+          id?: string
+          is_configured?: boolean | null
+          refresh_token?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
