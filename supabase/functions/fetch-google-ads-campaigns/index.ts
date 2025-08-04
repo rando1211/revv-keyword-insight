@@ -167,6 +167,7 @@ serve(async (req) => {
       
       // Parse the successful response
       const apiData = JSON.parse(responseText);
+      console.log("🔍 DEBUG: Parsed API data:", JSON.stringify(apiData, null, 2));
       
       // Process and format the response with actual campaign data
       const campaigns = apiData.results?.map((result: any) => ({
@@ -180,7 +181,8 @@ serve(async (req) => {
         ctr: parseFloat(result.metrics?.ctr || "0"),
       })) || [];
 
-      console.log(`✅ Found ${campaigns.length} campaigns with activity for customer ${cleanCustomerId}`);
+      console.log(`🔍 DEBUG: Processed ${campaigns.length} campaigns from API response`);
+      console.log("🔍 DEBUG: Final campaigns array:", JSON.stringify(campaigns, null, 2));
 
       return new Response(
         JSON.stringify({ 
