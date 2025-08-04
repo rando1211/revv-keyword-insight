@@ -86,15 +86,16 @@ serve(async (req) => {
     
     console.log('Using customer ID:', customerId, '-> cleaned:', cleanCustomerId);
 
-    // Make Google Ads API call to get customer info using user's customer ID
+    // Make Google Ads API call to get customer info using MCC credentials
+    const MCC_CUSTOMER_ID = "9301596383"; // The MCC account that manages all child accounts
     const apiResponse = await fetch(
-      `https://googleads.googleapis.com/${API_VERSION}/customers/${cleanCustomerId}/googleAds:search`, 
+      `https://googleads.googleapis.com/${API_VERSION}/customers/${MCC_CUSTOMER_ID}/googleAds:search`, 
       {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${tokenData.access_token}`,
           "developer-token": DEVELOPER_TOKEN,
-          "login-customer-id": cleanCustomerId, // Required for MCC access
+          "login-customer-id": MCC_CUSTOMER_ID, // Use MCC ID for login
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ query: query.trim() }),
