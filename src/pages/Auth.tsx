@@ -70,8 +70,8 @@ export default function Auth() {
       });
     } else {
       toast({
-        title: "Welcome to AI Ads Accelerator!",
-        description: "Your account has been created with a 14-day trial. Check your email to verify your account.",
+        title: "Welcome to DEXTRUM!",
+        description: "Your tactical optimization butler is ready. Check your email to verify your account.",
       });
       navigate('/dashboard');
     }
@@ -80,14 +80,14 @@ export default function Auth() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-destructive/5 p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-            AI Ads Accelerator
+          <CardTitle className="text-3xl font-bold tracking-wider bg-gradient-to-r from-destructive to-destructive/70 bg-clip-text text-transparent">
+            DEXTRUM
           </CardTitle>
           <CardDescription>
-            Access your Google Ads optimization dashboard
+            Access your tactical optimization command center
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -162,10 +162,10 @@ export default function Auth() {
                   </Alert>
                 )}
                 <Button type="submit" className="w-full" disabled={loading}>
-                  {loading ? 'Creating account...' : 'Start Free Trial'}
+                  {loading ? 'Deploying DEXTRUM...' : 'Deploy DEXTRUM'}
                 </Button>
                 <p className="text-sm text-muted-foreground text-center">
-                  Get 14 days free access to all features
+                  Elite optimization protocols await deployment
                 </p>
               </form>
             </TabsContent>
