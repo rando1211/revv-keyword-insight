@@ -80,7 +80,11 @@ serve(async (req) => {
     
     // Get the user's Google OAuth token from their session
     const { data: { session } } = await supabase.auth.getSession();
-    console.log('🔍 DEBUG: Session data:', session?.user?.app_metadata);
+    console.log('🔍 DEBUG: Full session object:', JSON.stringify(session, null, 2));
+    console.log('🔍 DEBUG: User metadata:', session?.user?.user_metadata);
+    console.log('🔍 DEBUG: App metadata:', session?.user?.app_metadata);
+    console.log('🔍 DEBUG: Provider token:', session?.provider_token);
+    console.log('🔍 DEBUG: Provider refresh token:', session?.provider_refresh_token);
     
     let accessToken;
     
