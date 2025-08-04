@@ -76,15 +76,21 @@ serve(async (req) => {
     
     console.log('Child accounts query:', query.trim());
 
-    // Make Google Ads API call to get customer info using user's customer ID
+    // Clean the customer ID (remove dashes) for API call
     const customerId = credentials.customer_id;
+    const cleanCustomerId = customerId.replace(/-/g, '');
+    
+    console.log('Using customer ID:', customerId, '-> cleaned:', cleanCustomerId);
+
+    // Make Google Ads API call to get customer info using user's customer ID
     const apiResponse = await fetch(
-      `https://googleads.googleapis.com/${API_VERSION}/customers/${customerId}/googleAds:search`, 
+      `https://googleads.googleapis.com/${API_VERSION}/customers/${cleanCustomerId}/googleAds:search`, 
       {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${tokenData.access_token}`,
           "developer-token": DEVELOPER_TOKEN,
+          "login-customer-id": cleanCustomerId, // Required for MCC access
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ query: query.trim() }),
