@@ -75,26 +75,42 @@ serve(async (req) => {
     const REFRESH_TOKEN = Deno.env.get("Refresh token");
     const API_VERSION = "v18";
     
-    console.log('Using shared credentials for user:', user.email);
-
-    // Get access token using shared credentials
-    const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({
-        client_id: CLIENT_ID,
-        client_secret: CLIENT_SECRET,
-        refresh_token: REFRESH_TOKEN,
-        grant_type: "refresh_token",
-      }),
-    });
-
-    const tokenData = await tokenResponse.json();
-    console.log('OAuth response status:', tokenResponse.status);
-    console.log('OAuth response data:', tokenData);
     
-    if (!tokenResponse.ok) {
-      throw new Error(`OAuth token error: ${tokenData.error}`);
+    console.log('🔍 DEBUG: Using user OAuth token instead of shared credentials');
+    
+    // Get the user's Google OAuth token from their session
+    const { data: { session } } = await supabase.auth.getSession();
+    console.log('🔍 DEBUG: Session data:', session?.user?.app_metadata);
+    
+    let accessToken;
+    
+    // Check if user has Google OAuth token
+    if (session?.user?.app_metadata?.provider === 'google' && session?.provider_token) {
+      console.log('✅ Using user OAuth token');
+      accessToken = session.provider_token;
+    } else {
+      console.log('❌ No user OAuth token found, falling back to shared credentials');
+      
+      // Fallback to shared credentials (but this will likely fail for this customer)
+      const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          client_id: CLIENT_ID,
+          client_secret: CLIENT_SECRET,
+          refresh_token: REFRESH_TOKEN,
+          grant_type: "refresh_token",
+        }),
+      });
+
+      const tokenData = await tokenResponse.json();
+      console.log('OAuth response status:', tokenResponse.status);
+      
+      if (!tokenResponse.ok) {
+        throw new Error(`OAuth token error: ${tokenData.error}`);
+      }
+      
+      accessToken = tokenData.access_token;
     }
 
     // Query campaigns directly from the requested customer account
@@ -124,9 +140,10 @@ serve(async (req) => {
       console.log("🚀 Customer ID being used:", cleanCustomerId);
 
       const headers = {
-        "Authorization": `Bearer ${tokenData.access_token}`,
+        "Authorization": `Bearer ${accessToken}`,
         "developer-token": DEVELOPER_TOKEN,
-        "login-customer-id": "9301596383", // MCC account ID
+        // Only use login-customer-id if we're using shared credentials, not user's own OAuth
+        ...(session?.user?.app_metadata?.provider !== 'google' ? { "login-customer-id": "9301596383" } : {}),
         "Content-Type": "application/json",
       };
 
