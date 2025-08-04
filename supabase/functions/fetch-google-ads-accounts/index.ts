@@ -50,26 +50,40 @@ serve(async (req) => {
     const CLIENT_SECRET = Deno.env.get("Secret");
     const REFRESH_TOKEN = Deno.env.get("Refresh token");
     const API_VERSION = "v18";
-    const SHARED_MCC_ID = "9301596383"; // Shared MCC that has access
 
-    // Get access token using shared credentials
-    const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({
-        client_id: CLIENT_ID,
-        client_secret: CLIENT_SECRET,
-        refresh_token: REFRESH_TOKEN,
-        grant_type: "refresh_token",
-      }),
-    });
-
-    const tokenData = await tokenResponse.json();
-    console.log('OAuth token response status:', tokenResponse.status);
+    // Check if user has Google OAuth session with Google Ads scope
+    const { data: authData } = await supabase.auth.getUser();
+    console.log('Auth user data:', authData);
     
-    if (!tokenResponse.ok) {
-      console.error('OAuth token error:', tokenData);
-      throw new Error(`OAuth token error: ${tokenData.error}`);
+    let accessToken;
+    
+    // First try to use user's own Google OAuth token
+    if (authData.user?.app_metadata?.provider === 'google' && authData.user?.user_metadata?.provider_token) {
+      console.log('Using user OAuth token');
+      accessToken = authData.user.user_metadata.provider_token;
+    } else {
+      // Fallback to shared credentials
+      console.log('Using shared credentials fallback');
+      const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          client_id: CLIENT_ID,
+          client_secret: CLIENT_SECRET,
+          refresh_token: REFRESH_TOKEN,
+          grant_type: "refresh_token",
+        }),
+      });
+
+      const tokenData = await tokenResponse.json();
+      console.log('Shared OAuth token response status:', tokenResponse.status);
+      
+      if (!tokenResponse.ok) {
+        console.error('OAuth token error:', tokenData);
+        throw new Error(`OAuth token error: ${tokenData.error}`);
+      }
+      
+      accessToken = tokenData.access_token;
     }
 
     // Query to get child accounts (for MCC)
@@ -97,9 +111,9 @@ serve(async (req) => {
       {
         method: "POST",
         headers: {
-          "Authorization": `Bearer ${tokenData.access_token}`,
+          "Authorization": `Bearer ${accessToken}`,
           "developer-token": DEVELOPER_TOKEN,
-          "login-customer-id": SHARED_MCC_ID,
+          ...(authData.user?.app_metadata?.provider !== 'google' ? { "login-customer-id": "9301596383" } : {}),
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ query: childAccountsQuery.trim() }),
