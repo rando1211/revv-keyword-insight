@@ -95,6 +95,9 @@ serve(async (req) => {
     
     console.log('Using user account ID:', credentials.customer_id, '-> cleaned:', userMccId);
 
+    // Use the shared MCC account as login-customer-id for proper access
+    const SHARED_MCC_ID = "9301596383"; // The shared MCC that has access to accounts
+
     // First try to get child accounts (if this is an MCC account)
     let apiResponse = await fetch(
       `https://googleads.googleapis.com/${API_VERSION}/customers/${userMccId}/googleAds:search`, 
@@ -103,7 +106,7 @@ serve(async (req) => {
         headers: {
           "Authorization": `Bearer ${tokenData.access_token}`,
           "developer-token": DEVELOPER_TOKEN,
-          "login-customer-id": userMccId,
+          "login-customer-id": SHARED_MCC_ID, // Use shared MCC for authentication
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ query: childAccountsQuery.trim() }),
@@ -143,7 +146,7 @@ serve(async (req) => {
           headers: {
             "Authorization": `Bearer ${tokenData.access_token}`,
             "developer-token": DEVELOPER_TOKEN,
-            "login-customer-id": userMccId,
+            "login-customer-id": SHARED_MCC_ID, // Use shared MCC for authentication
             "Content-Type": "application/json",
           },
           body: JSON.stringify({ query: accountInfoQuery.trim() }),
@@ -168,7 +171,9 @@ serve(async (req) => {
           isManager: false,
         }];
       } else {
-        throw new Error(`Google Ads API error: ${apiData.error?.message || 'Failed to fetch account info'}`);
+        // If still no results, the account might not be accessible or doesn't exist
+        console.error('Account not found or not accessible:', apiData);
+        throw new Error(`Account ${credentials.customer_id} not found or not accessible through the shared MCC. Please verify the Customer ID is correct.`);
       }
     }
 
