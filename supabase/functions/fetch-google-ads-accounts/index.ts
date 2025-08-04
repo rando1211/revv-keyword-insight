@@ -29,29 +29,32 @@ serve(async (req) => {
       throw new Error('Invalid user token');
     }
 
-    // Get user's Google Ads credentials
+    // Get user's Customer ID
     const { data: credentials, error: credentialsError } = await supabase
       .from('user_google_ads_credentials')
-      .select('*')
+      .select('customer_id')
       .eq('user_id', user.id)
       .single();
 
-    if (credentialsError || !credentials || !credentials.is_configured) {
-      throw new Error('Google Ads credentials not configured');
+    if (credentialsError || !credentials || !credentials.customer_id) {
+      throw new Error('Google Ads Customer ID not configured');
     }
 
-    // Google Ads API configuration - use shared developer token but user's OAuth credentials
+    // Google Ads API configuration - use shared credentials
     const DEVELOPER_TOKEN = Deno.env.get("Developer Token");
+    const CLIENT_ID = Deno.env.get("Client ID");
+    const CLIENT_SECRET = Deno.env.get("Secret");
+    const REFRESH_TOKEN = Deno.env.get("Refresh token");
     const API_VERSION = "v18";
 
-    // Get access token using user's credentials
+    // Get access token using shared credentials
     const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({
-        client_id: credentials.client_id,
-        client_secret: credentials.client_secret,
-        refresh_token: credentials.refresh_token,
+        client_id: CLIENT_ID,
+        client_secret: CLIENT_SECRET,
+        refresh_token: REFRESH_TOKEN,
         grant_type: "refresh_token",
       }),
     });

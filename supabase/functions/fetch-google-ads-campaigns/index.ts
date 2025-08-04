@@ -29,15 +29,15 @@ serve(async (req) => {
       throw new Error('Invalid user token');
     }
 
-    // Get user's Google Ads credentials
-    const { data: credentials, error: credentialsError } = await supabase
+    // Get user's Customer ID (not needed here since it comes from request body, but keep for consistency)
+    const { data: userCreds, error: credentialsError } = await supabase
       .from('user_google_ads_credentials')
-      .select('*')
+      .select('customer_id')
       .eq('user_id', user.id)
       .single();
 
-    if (credentialsError || !credentials || !credentials.is_configured) {
-      throw new Error('Google Ads credentials not configured');
+    if (credentialsError || !userCreds || !userCreds.customer_id) {
+      throw new Error('Google Ads Customer ID not configured');
     }
 
     console.log('Starting fetch-google-ads-campaigns function');
@@ -56,20 +56,23 @@ serve(async (req) => {
     console.log('Clean customerId:', cleanCustomerId);
     console.log('Is MCC account?', cleanCustomerId === "9301596383");
     
-    // Google Ads API configuration - use shared developer token but user's OAuth credentials
+    // Google Ads API configuration - use shared credentials
     const DEVELOPER_TOKEN = Deno.env.get("Developer Token");
+    const CLIENT_ID = Deno.env.get("Client ID");
+    const CLIENT_SECRET = Deno.env.get("Secret");
+    const REFRESH_TOKEN = Deno.env.get("Refresh token");
     const API_VERSION = "v18";
     
-    console.log('Using user credentials for:', user.email);
+    console.log('Using shared credentials for user:', user.email);
 
-    // Get access token using user's credentials
+    // Get access token using shared credentials
     const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({
-        client_id: credentials.client_id,
-        client_secret: credentials.client_secret,
-        refresh_token: credentials.refresh_token,
+        client_id: CLIENT_ID,
+        client_secret: CLIENT_SECRET,
+        refresh_token: REFRESH_TOKEN,
         grant_type: "refresh_token",
       }),
     });

@@ -14,10 +14,6 @@ import { GoogleAdsApiGuide } from './GoogleAdsApiGuide';
 
 export const UserApiCredentialsSetup = () => {
   const [credentials, setCredentials] = useState({
-    developer_token: '',
-    client_id: '',
-    client_secret: '',
-    refresh_token: '',
     customer_id: ''
   });
   const [isLoading, setIsLoading] = useState(false);
@@ -41,13 +37,10 @@ export const UserApiCredentialsSetup = () => {
     }
 
     // Basic validation
-    const requiredFields = ['developer_token', 'client_id', 'client_secret', 'refresh_token'];
-    const missingFields = requiredFields.filter(field => !credentials[field as keyof typeof credentials]);
-    
-    if (missingFields.length > 0) {
+    if (!credentials.customer_id) {
       toast({
         title: "Missing Information",
-        description: `Please provide: ${missingFields.join(', ').replace(/_/g, ' ')}`,
+        description: "Please provide your Google Ads Customer ID",
         variant: "destructive",
       });
       return;
@@ -109,7 +102,7 @@ export const UserApiCredentialsSetup = () => {
             </div>
             <div className="p-4 bg-destructive/10 rounded-lg">
               <p className="text-sm text-muted-foreground">
-                Your Google Ads API credentials are securely stored and encrypted. DEXTRUM can now access your campaigns for optimization protocols.
+                Your Customer ID is configured. DEXTRUM can now access your campaigns for optimization protocols.
               </p>
             </div>
             <Button 
@@ -118,7 +111,7 @@ export const UserApiCredentialsSetup = () => {
               className="w-full"
             >
               <Key className="h-4 w-4 mr-2" />
-              Update Credentials
+              Update Customer ID
             </Button>
           </div>
         </CardContent>
@@ -131,107 +124,36 @@ export const UserApiCredentialsSetup = () => {
       <CardHeader>
         <CardTitle className="flex items-center space-x-2 text-destructive">
           <Key className="h-5 w-5" />
-          <span>Deploy Your API Credentials</span>
+          <span>Connect Your Google Ads Account</span>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <Alert>
           <Shield className="h-4 w-4" />
           <AlertDescription>
-            <strong>Secure Storage:</strong> Your credentials are encrypted and stored securely in your personal account. Only you can access them.
+            <strong>Simplified Setup:</strong> We handle all API credentials for you. Just provide your Google Ads Customer ID to get started.
           </AlertDescription>
         </Alert>
 
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="developer_token">Google Ads Developer Token *</Label>
-            <Input
-              id="developer_token"
-              placeholder="Your Developer Token"
-              value={credentials.developer_token}
-              onChange={(e) => handleInputChange('developer_token', e.target.value)}
-              className="font-mono text-sm"
-            />
-            <div className="flex items-center gap-2">
-              <Button 
-                size="sm" 
-                variant="outline"
-                onClick={() => window.open('https://developers.google.com/google-ads/api/docs/first-call/dev-token', '_blank')}
-              >
-                <ExternalLink className="h-3 w-3 mr-1" />
-                Get Token
-              </Button>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="client_id">OAuth2 Client ID *</Label>
-            <Input
-              id="client_id"
-              placeholder="Your OAuth2 Client ID"
-              value={credentials.client_id}
-              onChange={(e) => handleInputChange('client_id', e.target.value)}
-              className="font-mono text-sm"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="client_secret">OAuth2 Client Secret *</Label>
-            <Input
-              id="client_secret"
-              type="password"
-              placeholder="Your OAuth2 Client Secret"
-              value={credentials.client_secret}
-              onChange={(e) => handleInputChange('client_secret', e.target.value)}
-              className="font-mono text-sm"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="refresh_token">Refresh Token *</Label>
-            <Input
-              id="refresh_token"
-              type="password"
-              placeholder="Your OAuth2 Refresh Token"
-              value={credentials.refresh_token}
-              onChange={(e) => handleInputChange('refresh_token', e.target.value)}
-              className="font-mono text-sm"
-            />
-            <Button 
-              size="sm" 
-              variant="outline"
-              onClick={() => window.open('https://developers.google.com/oauthplayground/', '_blank')}
-            >
-              <ExternalLink className="h-3 w-3 mr-1" />
-              OAuth2 Playground
-            </Button>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="customer_id">Customer ID (Optional)</Label>
+            <Label htmlFor="customer_id">Google Ads Customer ID *</Label>
             <Input
               id="customer_id"
-              placeholder="xxx-xxx-xxxx (can be set later)"
+              placeholder="xxx-xxx-xxxx"
               value={credentials.customer_id}
               onChange={(e) => handleInputChange('customer_id', e.target.value)}
+              className="font-mono text-sm"
             />
             <p className="text-xs text-muted-foreground">
-              Your Google Ads Customer ID - can be configured later when selecting accounts
+              Find this in your Google Ads account under Settings → Account settings
             </p>
           </div>
 
           <Alert>
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
-              <strong>Need help?</strong> Follow our comprehensive setup guide to get your Google Ads API credentials.
-              <Button 
-                variant="link" 
-                className="p-0 h-auto ml-2 text-destructive"
-                onClick={() => setShowGuide(true)}
-              >
-                <BookOpen className="h-3 w-3 mr-1" />
-                Open Setup Guide
-              </Button>
+              <strong>That's it!</strong> We handle all the API credentials for you. Just provide your Customer ID and you're ready to go.
             </AlertDescription>
           </Alert>
 
@@ -243,12 +165,12 @@ export const UserApiCredentialsSetup = () => {
             {isLoading ? (
               <>
                 <Key className="h-4 w-4 mr-2 animate-pulse" />
-                Deploying Credentials...
+                Connecting Account...
               </>
             ) : (
               <>
                 <Shield className="h-4 w-4 mr-2" />
-                Deploy DEXTRUM Credentials
+                Connect Account
               </>
             )}
           </Button>
