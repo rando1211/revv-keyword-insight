@@ -11,6 +11,7 @@ import { useAccount } from '@/contexts/AccountContext';
 import { generateCampaignAnalysis } from '@/lib/openai-service';
 import { supabase } from '@/integrations/supabase/client';
 import { CampaignSelection } from './CampaignSelection';
+import { GoogleAdsAccountSetup } from './GoogleAdsAccountSetup';
 
 export const AccountSelection = () => {
   const [selectedAccounts, setSelectedAccounts] = useState<string[]>([]);
@@ -18,6 +19,7 @@ export const AccountSelection = () => {
   const [loading, setLoading] = useState(true);
   const [analyzingAccount, setAnalyzingAccount] = useState<string | null>(null);
   const [selectedAccountForCampaigns, setSelectedAccountForCampaigns] = useState<GoogleAdsAccount | null>(null);
+  const [needsSetup, setNeedsSetup] = useState(false);
   
   const { toast } = useToast();
   const { setSelectedAccountForAnalysis, setAnalysisResults, setIsAnalyzing, setAnalysisStep } = useAccount();
@@ -25,9 +27,10 @@ export const AccountSelection = () => {
   const loadAccounts = async () => {
     try {
       setLoading(true);
+      setNeedsSetup(false);
       toast({
         title: "Fetching Your Google Ads Accounts",
-        description: "Connecting to your MCC...",
+        description: "Connecting to your account...",
       });
       
       const accountData = await fetchGoogleAdsAccounts();
@@ -35,18 +38,34 @@ export const AccountSelection = () => {
       
       toast({
         title: "✅ Accounts Loaded Successfully", 
-        description: `Found ${accountData.length} Google Ads accounts in your MCC`,
+        description: `Found ${accountData.length} Google Ads account(s)`,
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to load accounts:', error);
-      toast({
-        title: "Error Loading Accounts",
-        description: `Unable to fetch accounts from your MCC: ${error.message}`,
-        variant: "destructive",
-      });
+      
+      // Check if the error indicates need for setup
+      if (error.message.includes('Google Ads Customer ID not configured') || 
+          error.message.includes('needsSetup')) {
+        setNeedsSetup(true);
+        toast({
+          title: "Google Ads Setup Required",
+          description: "Please configure your Google Ads Customer ID to continue.",
+        });
+      } else {
+        toast({
+          title: "Error Loading Accounts",
+          description: `Unable to fetch accounts: ${error.message}`,
+          variant: "destructive",
+        });
+      }
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSetupComplete = () => {
+    setNeedsSetup(false);
+    loadAccounts(); // Reload accounts after setup
   };
 
   useEffect(() => {
@@ -194,6 +213,25 @@ export const AccountSelection = () => {
           </div>
         </CardContent>
       </Card>
+    );
+  }
+
+  // Show setup if needed
+  if (needsSetup) {
+    return (
+      <div className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <Building2 className="h-5 w-5" />
+              <span>Google Ads Account Setup</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <GoogleAdsAccountSetup onSetupComplete={handleSetupComplete} />
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 

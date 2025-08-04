@@ -34,10 +34,25 @@ serve(async (req) => {
       .from('user_google_ads_credentials')
       .select('customer_id')
       .eq('user_id', user.id)
-      .single();
+      .maybeSingle();
 
-    if (credentialsError || !credentials || !credentials.customer_id) {
-      throw new Error('Google Ads Customer ID not configured');
+    if (credentialsError) {
+      console.error('Error fetching credentials:', credentialsError);
+      throw new Error('Failed to fetch Google Ads credentials');
+    }
+
+    if (!credentials || !credentials.customer_id) {
+      return new Response(
+        JSON.stringify({ 
+          error: 'Google Ads Customer ID not configured. Please set up your Google Ads account first.',
+          success: false,
+          needsSetup: true
+        }),
+        { 
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 400 
+        }
+      );
     }
 
     // Clean the customer ID (remove dashes)
