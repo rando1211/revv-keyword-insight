@@ -16,10 +16,13 @@ import { BarChart3, TrendingUp, DollarSign, Target, RefreshCw, Settings, Link, L
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { SubscriptionManager } from '@/components/subscription/SubscriptionManager';
+import { OnboardingTour } from '@/components/onboarding/OnboardingTour';
+import { useOnboarding } from '@/hooks/useOnboarding';
 
 const Index = () => {
   const { toast } = useToast();
   const { user, signOut, loading, subscription, isAdmin } = useAuth();
+  const { isOnboardingOpen, loading: onboardingLoading, completeOnboarding, skipOnboarding } = useOnboarding();
   const navigate = useNavigate();
 
   // Redirect to auth if not authenticated
@@ -38,8 +41,8 @@ const Index = () => {
     navigate('/auth');
   };
 
-  // Show loading while checking auth
-  if (loading) {
+  // Show loading while checking auth or onboarding
+  if (loading || onboardingLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -439,6 +442,13 @@ Simulation by REVV Marketing ROI Calculator
         )}
       </Tabs>
       </div>
+      
+      {/* Onboarding Tour */}
+      <OnboardingTour 
+        isOpen={isOnboardingOpen}
+        onComplete={completeOnboarding}
+        onSkip={skipOnboarding}
+      />
     </div>
   );
 };
