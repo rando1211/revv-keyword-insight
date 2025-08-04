@@ -34,6 +34,12 @@ export function useOnboarding() {
 
       // If no subscriber record exists or onboarding not completed, show onboarding
       const needsOnboarding = !data || !data.onboarding_completed;
+      console.log('🎯 Onboarding check:', { 
+        hasData: !!data, 
+        onboardingCompleted: data?.onboarding_completed, 
+        needsOnboarding,
+        userId: user.id 
+      });
       setIsOnboardingOpen(needsOnboarding);
       setLoading(false);
     } catch (error) {
@@ -43,6 +49,7 @@ export function useOnboarding() {
   };
 
   const completeOnboarding = async () => {
+    console.log('🚀 completeOnboarding called for user:', user?.id);
     if (!user) return;
 
     try {
@@ -85,6 +92,7 @@ export function useOnboarding() {
   };
 
   const skipOnboarding = async () => {
+    console.log('⏭️ skipOnboarding called for user:', user?.id);
     await completeOnboarding(); // Same action, different messaging
     
     toast({
