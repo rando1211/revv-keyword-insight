@@ -22,6 +22,26 @@ export const UserApiCredentialsSetup = () => {
   const { toast } = useToast();
   const { user } = useAuth();
 
+  // Check if user already has credentials configured
+  React.useEffect(() => {
+    const checkExistingCredentials = async () => {
+      if (!user) return;
+      
+      const { data } = await supabase
+        .from('user_google_ads_credentials')
+        .select('customer_id, is_configured')
+        .eq('user_id', user.id)
+        .maybeSingle();
+        
+      if (data?.is_configured && data?.customer_id) {
+        setIsConfigured(true);
+        setCredentials({ customer_id: data.customer_id });
+      }
+    };
+    
+    checkExistingCredentials();
+  }, [user]);
+
   const handleInputChange = (field: string, value: string) => {
     setCredentials(prev => ({ ...prev, [field]: value }));
   };
@@ -49,16 +69,36 @@ export const UserApiCredentialsSetup = () => {
     setIsLoading(true);
 
     try {
-      const { error } = await supabase
+      // First check if a record exists (suppress error if none found)
+      const { data: existingRecord } = await supabase
         .from('user_google_ads_credentials')
-        .upsert({
-          user_id: user.id,
-          ...credentials,
-          is_configured: true
-        });
+        .select('id')
+        .eq('user_id', user.id)
+        .maybeSingle();
 
-      if (error) {
-        console.error('Error saving credentials:', error);
+      let result;
+      if (existingRecord) {
+        // Update existing record
+        result = await supabase
+          .from('user_google_ads_credentials')
+          .update({
+            customer_id: credentials.customer_id,
+            is_configured: true
+          })
+          .eq('user_id', user.id);
+      } else {
+        // Insert new record
+        result = await supabase
+          .from('user_google_ads_credentials')
+          .insert({
+            user_id: user.id,
+            customer_id: credentials.customer_id,
+            is_configured: true
+          });
+      }
+
+      if (result.error) {
+        console.error('Error saving credentials:', result.error);
         toast({
           title: "Error",
           description: "Failed to save credentials. Please try again.",
@@ -68,7 +108,7 @@ export const UserApiCredentialsSetup = () => {
         setIsConfigured(true);
         toast({
           title: "✅ DEXTRUM Armed",
-          description: "Your tactical credentials are deployed and ready for operations.",
+          description: "Your Customer ID is configured and ready for operations.",
         });
       }
     } catch (error) {
