@@ -25,38 +25,27 @@ export interface GoogleAdsAccount {
 // Fetch accounts from MCC using Google Ads API
 export const fetchGoogleAdsAccounts = async (): Promise<GoogleAdsAccount[]> => {
   try {
-    console.log('Fetching Google Ads accounts from MCC...');
+    console.log('Fetching Google Ads accounts from API...');
     
     const { data, error } = await supabase.functions.invoke('fetch-google-ads-accounts');
     
     if (error) {
+      console.error('Supabase function error:', error);
       throw new Error(`Supabase function error: ${error.message}`);
     }
     
     if (!data.success) {
+      console.error('API response error:', data);
       throw new Error(data.error || 'Failed to fetch accounts');
     }
     
+    console.log('Successfully fetched accounts:', data.accounts);
     return data.accounts || [];
     
   } catch (error) {
     console.error('Error fetching Google Ads accounts:', error);
-    
-    // Return mock data for now to prevent crashes
-    return [
-      {
-        id: '1234567890',
-        name: '[DEMO] Your MCC Account 1',
-        customerId: '123-456-7890',
-        status: 'ENABLED'
-      },
-      {
-        id: '1234567891',
-        name: '[DEMO] Your MCC Account 2', 
-        customerId: '123-456-7891',
-        status: 'ENABLED'
-      }
-    ];
+    // Re-throw the error instead of returning demo data
+    throw error;
   }
 };
 
