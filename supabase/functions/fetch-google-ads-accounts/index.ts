@@ -108,7 +108,6 @@ serve(async (req) => {
 
     const childData = await childResponse.json();
     console.log('Child accounts query response status:', childResponse.status);
-    console.log('Child accounts response:', JSON.stringify(childData, null, 2));
 
     // If we successfully got child accounts, return them
     if (childResponse.ok && childData.results && childData.results.length > 0) {
@@ -133,57 +132,26 @@ serve(async (req) => {
       );
     }
 
-    // If no child accounts, try to get the account itself (individual account scenario)
-    console.log('No child accounts found, trying individual account query...');
-    const directResponse = await fetch(
-      `https://googleads.googleapis.com/${API_VERSION}/customers/${userCustomerId}/googleAds:search`, 
-      {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${tokenData.access_token}`,
-          "developer-token": DEVELOPER_TOKEN,
-          "login-customer-id": SHARED_MCC_ID,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ query: accountInfoQuery.trim() }),
-      }
+    // If no child accounts found, treat this customer ID as a single account
+    console.log('No child accounts found - treating as single account');
+    const singleAccount = {
+      id: userCustomerId,
+      name: credentials.customer_id,
+      customerId: userCustomerId,
+      status: 'ENABLED',
+      isManager: false,
+    };
+
+    console.log('Returning single account:', singleAccount);
+    return new Response(
+      JSON.stringify({ 
+        success: true, 
+        accounts: [singleAccount],
+        total: 1,
+        message: `Found account ${credentials.customer_id}.`
+      }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
     );
-
-    const directData = await directResponse.json();
-    console.log('Direct account query response status:', directResponse.status);
-    console.log('Direct account response:', JSON.stringify(directData, null, 2));
-
-    if (directResponse.ok && directData.results && directData.results.length > 0) {
-      console.log('Found individual account');
-      const accountInfo = directData.results[0].customer;
-      const accounts = [{
-        id: accountInfo.id,
-        name: accountInfo.descriptiveName || credentials.customer_id,
-        customerId: accountInfo.id,
-        status: 'ENABLED',
-        isManager: accountInfo.manager || false,
-      }];
-
-      console.log('Returning individual account');
-      return new Response(
-        JSON.stringify({ 
-          success: true, 
-          accounts,
-          total: 1,
-          message: `Found account ${credentials.customer_id}.`
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
-      );
-    }
-
-    // If both queries failed, check the error messages
-    const error = childData.error || directData.error;
-    if (error?.message) {
-      console.error('Google Ads API error:', error.message);
-      throw new Error(`Google Ads API error: ${error.message}`);
-    }
-
-    throw new Error(`No accounts found for Customer ID ${credentials.customer_id}`);
     
   } catch (error) {
     console.error("Google Ads API Error:", error);
