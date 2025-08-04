@@ -93,97 +93,58 @@ serve(async (req) => {
     console.log('Checking if account is MCC or individual account for:', userMccId);
 
     
-    console.log('Using user account ID:', credentials.customer_id, '-> cleaned:', userMccId);
+    console.log('User wants to access account:', credentials.customer_id);
 
-    // Use the shared MCC account as login-customer-id for proper access
+    // Use the shared MCC account to get all available child accounts
     const SHARED_MCC_ID = "9301596383"; // The shared MCC that has access to accounts
 
-    // First try to get child accounts (if this is an MCC account)
-    let apiResponse = await fetch(
-      `https://googleads.googleapis.com/${API_VERSION}/customers/${userMccId}/googleAds:search`, 
+    // Query all child accounts available through the shared MCC
+    const apiResponse = await fetch(
+      `https://googleads.googleapis.com/${API_VERSION}/customers/${SHARED_MCC_ID}/googleAds:search`, 
       {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${tokenData.access_token}`,
           "developer-token": DEVELOPER_TOKEN,
-          "login-customer-id": SHARED_MCC_ID, // Use shared MCC for authentication
+          "login-customer-id": SHARED_MCC_ID,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ query: childAccountsQuery.trim() }),
       }
     );
 
-    let apiData = await apiResponse.json();
-    console.log('Child accounts API Response:', JSON.stringify(apiData, null, 2));
+    const apiData = await apiResponse.json();
+    console.log('MCC child accounts API Response:', JSON.stringify(apiData, null, 2));
     
-    let accounts = [];
-
-    if (apiResponse.ok && apiData.results && apiData.results.length > 0) {
-      // This is an MCC account with child accounts
-      console.log('Found MCC account with child accounts');
-      accounts = apiData.results.map((result: any) => {
-        const clientCustomer = result.customerClient.clientCustomer;
-        const descriptiveName = result.customerClient.descriptiveName;
-        
-        console.log('Processing child account:', { clientCustomer, descriptiveName });
-        
-        return {
-          id: clientCustomer,
-          name: descriptiveName || 'Unnamed Account',
-          customerId: clientCustomer,
-          status: 'ENABLED',
-          isManager: false,
-        };
-      });
-    } else {
-      // This might be an individual account, get its info
-      console.log('No child accounts found, treating as individual account');
-      
-      apiResponse = await fetch(
-        `https://googleads.googleapis.com/${API_VERSION}/customers/${userMccId}/googleAds:search`, 
-        {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${tokenData.access_token}`,
-            "developer-token": DEVELOPER_TOKEN,
-            "login-customer-id": SHARED_MCC_ID, // Use shared MCC for authentication
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ query: accountInfoQuery.trim() }),
-        }
-      );
-
-      apiData = await apiResponse.json();
-      console.log('Individual account API Response:', JSON.stringify(apiData, null, 2));
-      
-      if (apiResponse.ok && apiData.results && apiData.results.length > 0) {
-        const result = apiData.results[0];
-        const customerId = result.customer.id;
-        const descriptiveName = result.customer.descriptiveName;
-        
-        console.log('Processing individual account:', { customerId, descriptiveName });
-        
-        accounts = [{
-          id: customerId,
-          name: descriptiveName || credentials.customer_id,
-          customerId: `customers/${customerId}`,
-          status: 'ENABLED',
-          isManager: false,
-        }];
-      } else {
-        // If still no results, the account might not be accessible or doesn't exist
-        console.error('Account not found or not accessible:', apiData);
-        throw new Error(`Account ${credentials.customer_id} not found or not accessible through the shared MCC. Please verify the Customer ID is correct.`);
-      }
+    if (!apiResponse.ok) {
+      throw new Error(`Google Ads API error: ${apiData.error?.message || 'Unknown error'}`);
     }
 
-    console.log('Final accounts array:', accounts);
+    // Process all available accounts
+    const accounts = apiData.results?.map((result: any) => {
+      const clientCustomer = result.customerClient.clientCustomer;
+      const descriptiveName = result.customerClient.descriptiveName;
+      
+      console.log('Processing available account:', { clientCustomer, descriptiveName });
+      
+      return {
+        id: clientCustomer,
+        name: descriptiveName || 'Unnamed Account',
+        customerId: clientCustomer,
+        status: 'ENABLED',
+        isManager: false,
+      };
+    }) || [];
+
+    console.log('Available accounts through shared MCC:', accounts);
+    console.log(`Total accounts found: ${accounts.length}`);
 
     return new Response(
       JSON.stringify({ 
         success: true, 
         accounts,
-        total: accounts.length
+        total: accounts.length,
+        message: `Found ${accounts.length} accounts available through the shared MCC. You can select any of these accounts to work with.`
       }),
       { 
         headers: { ...corsHeaders, "Content-Type": "application/json" },

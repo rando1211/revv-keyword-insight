@@ -213,10 +213,14 @@ export const AccountSelection = () => {
         <CardHeader>
           <CardTitle className="flex items-center space-x-2">
             <Building2 className="h-5 w-5" />
-            <span>Select Google Ads Accounts from Your MCC</span>
+            <span>Available Google Ads Accounts</span>
           </CardTitle>
           <p className="text-sm text-muted-foreground">
-            Choose which Google Ads accounts you want to access and manage. Pricing is $100 per account per month.
+            All accounts accessible through the shared MCC. Select accounts to manage campaigns and run optimizations.
+            <br />
+            <span className="text-xs text-muted-foreground mt-1 block">
+              Note: Your entered Customer ID was used to determine available accounts. You can select any account below to work with.
+            </span>
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
