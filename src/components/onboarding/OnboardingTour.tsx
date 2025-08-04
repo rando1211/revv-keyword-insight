@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
-import { ChevronLeft, ChevronRight, X, Target, Brain, BarChart3, Settings, Users, Zap } from "lucide-react";
+import { ChevronLeft, ChevronRight, X, Target, Brain, BarChart3, Settings, Users, Zap, Key } from "lucide-react";
 
 interface OnboardingTourProps {
   isOpen: boolean;
@@ -20,11 +20,12 @@ const tourSteps = [
     highlight: "overview"
   },
   {
-    title: "Connect Google Ads API",
-    content: "First, deploy your Google Ads API credentials. DEXTRUM requires access to execute tactical optimization protocols on your campaigns.",
+    title: "Deploy Your API Credentials",
+    content: "DEXTRUM requires your own Google Ads API credentials for tactical operations. Click below to configure your Developer Token, Client ID, Client Secret, and Refresh Token.",
     icon: Settings,
     highlight: "api-setup",
-    isApiStep: true
+    isApiStep: true,
+    showApiForm: true
   },
   {
     title: "Tactical Efficiency Score",
@@ -117,12 +118,39 @@ export function OnboardingTour({ isOpen, onComplete, onSkip }: OnboardingTourPro
               <p className="text-muted-foreground leading-relaxed">
                 {step.content}
               </p>
-              {step.isApiStep && (
-                <div className="mt-4 p-4 bg-destructive/10 rounded-lg border border-destructive/20">
-                  <p className="text-sm font-medium text-destructive mb-2">API Credentials Required</p>
-                  <p className="text-xs text-muted-foreground">
-                    You'll need your Google Ads Developer Token, Client ID, Client Secret, and Refresh Token to enable DEXTRUM's tactical operations.
-                  </p>
+              {step.showApiForm && (
+                <div className="mt-6 space-y-4">
+                  <div className="p-4 bg-destructive/10 rounded-lg border border-destructive/20">
+                    <p className="text-sm font-medium text-destructive mb-2">Required API Credentials</p>
+                    <p className="text-xs text-muted-foreground mb-3">
+                      You need your own Google Ads API credentials to deploy DEXTRUM:
+                    </p>
+                    <ul className="text-xs text-muted-foreground space-y-1 list-disc list-inside">
+                      <li>Developer Token</li>
+                      <li>Client ID</li>
+                      <li>Client Secret</li>
+                      <li>Refresh Token</li>
+                    </ul>
+                  </div>
+                  
+                  <div className="flex flex-col gap-2">
+                    <Button 
+                      size="sm" 
+                      className="w-full"
+                      onClick={() => window.open('https://supabase.com/dashboard/project/vplwrfapmvxffnrfywqh/settings/functions', '_blank')}
+                    >
+                      <Key className="h-4 w-4 mr-2" />
+                      Configure API Credentials
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      className="w-full text-xs"
+                      onClick={() => window.open('https://developers.google.com/google-ads/api/docs/first-call/dev-token', '_blank')}
+                    >
+                      Get Google Ads Developer Token
+                    </Button>
+                  </div>
                 </div>
               )}
             </CardContent>
