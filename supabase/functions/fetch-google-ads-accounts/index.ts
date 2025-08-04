@@ -29,7 +29,7 @@ serve(async (req) => {
       throw new Error('Invalid user token');
     }
 
-    // Get user's Customer ID (this should be their MCC account ID)
+    // Get user's Customer ID
     const { data: credentials, error: credentialsError } = await supabase
       .from('user_google_ads_credentials')
       .select('customer_id')
@@ -40,9 +40,9 @@ serve(async (req) => {
       throw new Error('Google Ads Customer ID not configured');
     }
 
-    // The user's customer ID should be their MCC account ID
-    const userMccId = credentials.customer_id.replace(/-/g, '');
-    console.log('User MCC account ID:', credentials.customer_id, '-> cleaned:', userMccId);
+    // Clean the customer ID (remove dashes)
+    const userCustomerId = credentials.customer_id.replace(/-/g, '');
+    console.log('User Customer ID:', credentials.customer_id, '-> cleaned:', userCustomerId);
 
     // Google Ads API configuration - use shared credentials
     const DEVELOPER_TOKEN = Deno.env.get("Developer Token");
@@ -65,132 +65,123 @@ serve(async (req) => {
 
     const tokenData = await tokenResponse.json();
     console.log('OAuth token response status:', tokenResponse.status);
-    console.log('Has access token:', !!tokenData.access_token);
     
     if (!tokenResponse.ok) {
       console.error('OAuth token error:', tokenData);
       throw new Error(`OAuth token error: ${tokenData.error}`);
     }
 
-    // First check if this is an MCC account by trying to get child accounts
+    // Query to get child accounts (for MCC)
     const childAccountsQuery = `
       SELECT 
         customer_client.client_customer, 
         customer_client.descriptive_name,
-        customer_client.level,
         customer_client.manager
       FROM customer_client
       WHERE customer_client.level = 1`;
     
-    // Also prepare a query to get the account itself (for individual accounts)
+    // Query to get account info (for individual accounts)
     const accountInfoQuery = `
       SELECT 
         customer.id,
         customer.descriptive_name,
-        customer.manager,
-        customer.currency_code
+        customer.manager
       FROM customer`;
-    
-    console.log('Checking if Customer ID is MCC or individual account:', userMccId);
 
-    // Use the shared MCC account to search for the user's accounts
-    const SHARED_MCC_ID = "9301596383"; // The shared MCC that has access to accounts
-    
-    console.log(`Searching in shared MCC ${SHARED_MCC_ID} for accounts related to customer ID: ${credentials.customer_id}`);
-    
-    const mccResponse = await fetch(
-      `https://googleads.googleapis.com/${API_VERSION}/customers/${SHARED_MCC_ID}/googleAds:search`, 
+    console.log('Querying Customer ID:', userCustomerId);
+
+    // First, try to get child accounts (MCC scenario)
+    const childResponse = await fetch(
+      `https://googleads.googleapis.com/${API_VERSION}/customers/${userCustomerId}/googleAds:search`, 
       {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${tokenData.access_token}`,
           "developer-token": DEVELOPER_TOKEN,
-          "login-customer-id": SHARED_MCC_ID,
+          "login-customer-id": userCustomerId,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ query: childAccountsQuery.trim() }),
       }
     );
 
-    const mccData = await mccResponse.json();
-    console.log('Shared MCC response status:', mccResponse.status);
-    console.log('Shared MCC response:', JSON.stringify(mccData, null, 2));
-    
-    if (!mccResponse.ok) {
-      throw new Error(`Google Ads API error: ${mccData.error?.message || 'Unknown error'}`);
-    }
+    const childData = await childResponse.json();
+    console.log('Child accounts query response status:', childResponse.status);
+    console.log('Child accounts response:', JSON.stringify(childData, null, 2));
 
-    // Get all available accounts from the shared MCC
-    const allAccounts = mccData.results?.map((result: any) => {
-      const clientCustomer = result.customerClient.clientCustomer;
-      const descriptiveName = result.customerClient.descriptiveName || '';
-      
-      return {
-        id: clientCustomer,
-        name: descriptiveName,
-        customerId: clientCustomer,
+    // If we successfully got child accounts, return them
+    if (childResponse.ok && childData.results && childData.results.length > 0) {
+      console.log('Found child accounts - this is an MCC');
+      const accounts = childData.results.map((result: any) => ({
+        id: result.customerClient.clientCustomer,
+        name: result.customerClient.descriptiveName || 'Unnamed Account',
+        customerId: result.customerClient.clientCustomer,
         status: 'ENABLED',
         isManager: result.customerClient.manager || false,
-      };
-    }) || [];
-
-    console.log(`Found ${allAccounts.length} total accounts in shared MCC`);
-
-    // Try multiple matching strategies to find user's accounts
-    const userCustomerIdVariations = [
-      credentials.customer_id,
-      userMccId,
-      credentials.customer_id.replace(/-/g, ''),
-    ];
-
-    let matchedAccounts = [];
-
-    // Strategy 1: Direct customer ID match
-    matchedAccounts = allAccounts.filter(account => 
-      userCustomerIdVariations.some(variation => 
-        account.customerId.includes(variation) || 
-        account.id.includes(variation)
-      )
-    );
-
-    // Strategy 2: If no direct match and this is 991-884-9848, look for Boston Medical Group related accounts
-    if (matchedAccounts.length === 0 && credentials.customer_id === '991-884-9848') {
-      console.log('No direct customer ID match found. Searching for Boston Medical Group related accounts...');
-      matchedAccounts = allAccounts.filter(account => {
-        const name = account.name.toLowerCase();
-        return name.includes('boston') || 
-               name.includes('medical') || 
-               name.includes('bmg') || 
-               name.includes('damg') ||
-               name.includes('dental') ||
-               name.includes('dr amy') ||
-               name.includes('smile');
-      });
-    }
-
-    // Strategy 3: If still no matches, return first 5 accounts as fallback
-    if (matchedAccounts.length === 0) {
-      console.log('No specific matches found. Returning first 5 available accounts as fallback...');
-      matchedAccounts = allAccounts.slice(0, 5).map(account => ({
-        ...account,
-        name: `${account.name} (Available Account)`
       }));
+
+      console.log(`Returning ${accounts.length} child accounts`);
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          accounts,
+          total: accounts.length,
+          message: `Found ${accounts.length} account(s) under MCC ${credentials.customer_id}.`
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
+      );
     }
 
-    console.log(`Found ${matchedAccounts.length} matching accounts for ${credentials.customer_id}:`, matchedAccounts);
-
-    return new Response(
-      JSON.stringify({ 
-        success: true, 
-        accounts: matchedAccounts,
-        total: matchedAccounts.length,
-        message: `Found ${matchedAccounts.length} account(s) for customer ID ${credentials.customer_id}.`
-      }),
-      { 
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 200 
+    // If no child accounts, try to get the account itself (individual account scenario)
+    console.log('No child accounts found, trying individual account query...');
+    const directResponse = await fetch(
+      `https://googleads.googleapis.com/${API_VERSION}/customers/${userCustomerId}/googleAds:search`, 
+      {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${tokenData.access_token}`,
+          "developer-token": DEVELOPER_TOKEN,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ query: accountInfoQuery.trim() }),
       }
     );
+
+    const directData = await directResponse.json();
+    console.log('Direct account query response status:', directResponse.status);
+    console.log('Direct account response:', JSON.stringify(directData, null, 2));
+
+    if (directResponse.ok && directData.results && directData.results.length > 0) {
+      console.log('Found individual account');
+      const accountInfo = directData.results[0].customer;
+      const accounts = [{
+        id: accountInfo.id,
+        name: accountInfo.descriptiveName || credentials.customer_id,
+        customerId: accountInfo.id,
+        status: 'ENABLED',
+        isManager: accountInfo.manager || false,
+      }];
+
+      console.log('Returning individual account');
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          accounts,
+          total: 1,
+          message: `Found account ${credentials.customer_id}.`
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
+      );
+    }
+
+    // If both queries failed, check the error messages
+    const error = childData.error || directData.error;
+    if (error?.message) {
+      console.error('Google Ads API error:', error.message);
+      throw new Error(`Google Ads API error: ${error.message}`);
+    }
+
+    throw new Error(`No accounts found for Customer ID ${credentials.customer_id}`);
     
   } catch (error) {
     console.error("Google Ads API Error:", error);
