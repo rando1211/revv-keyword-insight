@@ -106,12 +106,46 @@ serve(async (req) => {
 
     const accessToken = tokenData.access_token;
 
-    // Step 1: ALWAYS use the MCC for all requests to avoid permission issues
-    console.log("🔍 STEP 1: Setting login-customer-id for customer", cleanCustomerId);
+    // Step 1: Dynamically detect MCC hierarchy using CustomerClientService
+    console.log("🔍 STEP 1: Dynamically detecting MCC hierarchy for customer", cleanCustomerId);
     
-    // ALWAYS use the MCC that we know works
-    const loginCustomerId = '9301596383';
-    console.log(`✅ FORCED MCC usage: ${cleanCustomerId} -> ${loginCustomerId}`);
+    let loginCustomerId = null;
+
+    // Call CustomerClientService to get hierarchy info
+    const hierarchyResponse = await fetch(`https://googleads.googleapis.com/v18/customers/${cleanCustomerId}/customerClients:search`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${accessToken}`,
+        "developer-token": DEVELOPER_TOKEN,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        query: `
+          SELECT customer_client.client_customer, customer_client.level, customer_client.manager
+          FROM customer_client
+          WHERE customer_client.client_customer = 'customers/${cleanCustomerId}'
+        `
+      })
+    });
+
+    const hierarchyData = await hierarchyResponse.json();
+    console.log('🔍 DEBUG: Hierarchy Data:', JSON.stringify(hierarchyData, null, 2));
+
+    if (hierarchyData.results && hierarchyData.results.length > 0) {
+      const clientInfo = hierarchyData.results[0].customerClient;
+      if (clientInfo.level > 0 && clientInfo.manager === false) {
+        loginCustomerId = clientInfo.managerCustomer;
+        console.log(`✅ Dynamic MCC usage: ${cleanCustomerId} -> ${loginCustomerId}`);
+      } else {
+        console.log(`✅ No MCC context needed for customerId: ${cleanCustomerId}`);
+      }
+    } else {
+      console.error('❌ Failed to retrieve MCC hierarchy for customerId:', cleanCustomerId);
+      
+      // Fallback to known working MCC as last resort
+      console.log('🔄 Falling back to known working MCC: 9301596383');
+      loginCustomerId = '9301596383';
+    }
     
     console.log("🔍 STEP 2: Making campaign query with login-customer-id:", loginCustomerId);
     
