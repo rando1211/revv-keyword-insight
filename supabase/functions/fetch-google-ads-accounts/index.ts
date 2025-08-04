@@ -50,6 +50,7 @@ serve(async (req) => {
     const CLIENT_SECRET = Deno.env.get("Secret");
     const REFRESH_TOKEN = Deno.env.get("Refresh token");
     const API_VERSION = "v18";
+    const SHARED_MCC_ID = "9301596383"; // Shared MCC that has access
 
     // Get access token using shared credentials
     const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
@@ -98,7 +99,7 @@ serve(async (req) => {
         headers: {
           "Authorization": `Bearer ${tokenData.access_token}`,
           "developer-token": DEVELOPER_TOKEN,
-          "login-customer-id": userCustomerId,
+          "login-customer-id": SHARED_MCC_ID,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ query: childAccountsQuery.trim() }),
@@ -141,6 +142,7 @@ serve(async (req) => {
         headers: {
           "Authorization": `Bearer ${tokenData.access_token}`,
           "developer-token": DEVELOPER_TOKEN,
+          "login-customer-id": SHARED_MCC_ID,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ query: accountInfoQuery.trim() }),
