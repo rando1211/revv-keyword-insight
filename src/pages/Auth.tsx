@@ -80,18 +80,31 @@ export default function Auth() {
   };
 
   const handleGoogleSignIn = async () => {
+    console.log('🔍 Starting Google Sign In...');
     setLoading(true);
     setError('');
 
-    const { error } = await signInWithGoogle();
-    
-    if (error) {
-      setError(error.message);
-      toast({
-        title: "Google Sign In Failed",
-        description: error.message,
-        variant: "destructive"
-      });
+    try {
+      console.log('🔍 Calling signInWithGoogle...');
+      const { error } = await signInWithGoogle();
+      
+      if (error) {
+        console.error('🔍 Google Sign In Error:', error);
+        console.log('🔍 Error message:', error.message);
+        console.log('🔍 Error code:', error.status);
+        setError(error.message);
+        toast({
+          title: "Google Sign In Failed",
+          description: error.message,
+          variant: "destructive"
+        });
+        setLoading(false);
+      } else {
+        console.log('🔍 Google Sign In Success');
+      }
+    } catch (e) {
+      console.error('🔍 Exception during Google Sign In:', e);
+      setError('An unexpected error occurred during Google sign in');
       setLoading(false);
     }
     // Note: Don't set loading to false here as user will be redirected
