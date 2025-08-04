@@ -111,6 +111,11 @@ serve(async (req) => {
     console.log('MCC child accounts response:', JSON.stringify(apiData, null, 2));
     
     if (!apiResponse.ok) {
+      // Check if it's a permission error
+      if (apiData.error?.message?.includes('permission') || apiData.error?.message?.includes('USER_PERMISSION_DENIED')) {
+        throw new Error(`The shared API credentials don't have access to Customer ID ${credentials.customer_id}. Please contact your administrator to grant access, or provide your own API credentials.`);
+      }
+      
       // If we can't get child accounts, try to get the account itself
       console.log('Failed to get child accounts, trying direct account info...');
       
@@ -131,6 +136,10 @@ serve(async (req) => {
       console.log('Direct account response:', JSON.stringify(directData, null, 2));
       
       if (!directResponse.ok) {
+        // Check for permission errors in direct response too
+        if (directData.error?.message?.includes('permission') || directData.error?.message?.includes('USER_PERMISSION_DENIED')) {
+          throw new Error(`The shared API credentials don't have access to Customer ID ${credentials.customer_id}. Please contact your administrator to grant access, or provide your own API credentials.`);
+        }
         throw new Error(`Google Ads API error: ${directData.error?.message || apiData.error?.message || 'Unknown error'}`);
       }
 

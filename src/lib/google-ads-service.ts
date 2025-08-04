@@ -31,7 +31,7 @@ export const fetchGoogleAdsAccounts = async (): Promise<GoogleAdsAccount[]> => {
     
     if (error) {
       console.error('Supabase function error:', error);
-      throw new Error(`Supabase function error: ${error.message}`);
+      throw new Error(`API Error: ${error.message}`);
     }
     
     if (!data.success) {
@@ -44,7 +44,10 @@ export const fetchGoogleAdsAccounts = async (): Promise<GoogleAdsAccount[]> => {
     
   } catch (error) {
     console.error('Error fetching Google Ads accounts:', error);
-    // Re-throw the error instead of returning demo data
+    // Re-throw the error with better context
+    if (error.message.includes('shared API credentials')) {
+      throw new Error(`Permission Issue: ${error.message}`);
+    }
     throw error;
   }
 };
