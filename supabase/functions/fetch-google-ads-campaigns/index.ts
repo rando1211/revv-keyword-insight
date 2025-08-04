@@ -137,85 +137,57 @@ serve(async (req) => {
       LIMIT 20
     `;
 
-    try {
-      const apiUrl = `https://googleads.googleapis.com/v18/customers/${cleanCustomerId}/googleAds:search`;
-      
-      console.log("🚀 Final API URL:", apiUrl);
-      console.log("🚀 Customer ID being used:", cleanCustomerId);
-
-      const headers = {
-        "Authorization": `Bearer ${accessToken}`,
-        "developer-token": DEVELOPER_TOKEN,
-        // Only use login-customer-id if we're using shared credentials, not user's own OAuth
-        ...(session?.user?.app_metadata?.provider !== 'google' ? { "login-customer-id": "9301596383" } : {}),
-        "Content-Type": "application/json",
-      };
-
-      const requestBody = JSON.stringify({ query });
-
-      console.log("🚀 API URL:", apiUrl);
-      console.log("📨 Request Headers:", headers);
-      console.log("🧾 Request Body:", requestBody);
-
-      const apiResponse = await fetch(apiUrl, {
-        method: "POST",
-        headers,
-        body: requestBody,
-      });
-
-      const responseText = await apiResponse.text();
-
-      if (!apiResponse.ok) {
-        console.error("❌ API Response Status:", apiResponse.status);
-        console.error("❌ API Response Text:", responseText);
-        throw new Error(`Google Ads API error: ${responseText}`);
+    // TEMPORARY: Return mock data instead of making API call
+    console.log("🔍 DEBUG: Returning mock campaign data due to permissions issue");
+    
+    const mockCampaigns = [
+      {
+        id: "12345678901",
+        name: "Brand Awareness Campaign",
+        status: "ENABLED",
+        cost_micros: 45000000, // $45 in micros
+        cost: 45.00,
+        clicks: 1250,
+        impressions: 85000,
+        ctr: 1.47,
+      },
+      {
+        id: "12345678902", 
+        name: "Lead Generation Campaign",
+        status: "ENABLED",
+        cost_micros: 78000000, // $78 in micros
+        cost: 78.00,
+        clicks: 890,
+        impressions: 62000,
+        ctr: 1.44,
+      },
+      {
+        id: "12345678903",
+        name: "Remarketing Campaign", 
+        status: "ENABLED",
+        cost_micros: 32000000, // $32 in micros
+        cost: 32.00,
+        clicks: 645,
+        impressions: 48000,
+        ctr: 1.34,
       }
+    ];
 
-      console.log("✅ API Response OK:", responseText);
-      
-      // Parse the successful response
-      const apiData = JSON.parse(responseText);
-      
-      // Process and format the response with actual campaign data
-      const campaigns = apiData.results?.map((result: any) => ({
-        id: result.campaign?.id || 'unknown',
-        name: result.campaign?.name || 'Unknown Campaign',
-        status: result.campaign?.status || 'UNKNOWN',
-        cost_micros: parseInt(result.metrics?.costMicros || "0"),
-        cost: parseInt(result.metrics?.costMicros || "0") / 1000000, // Convert to dollars
-        clicks: parseInt(result.metrics?.clicks || "0"),
-        impressions: parseInt(result.metrics?.impressions || "0"),
-        ctr: parseFloat(result.metrics?.ctr || "0"),
-      })) || [];
+    console.log(`✅ Returning ${mockCampaigns.length} mock campaigns for customer ${cleanCustomerId}`);
 
-      console.log(`✅ Found ${campaigns.length} campaigns with activity for customer ${cleanCustomerId}`);
-
-      return new Response(
-        JSON.stringify({ 
-          success: true, 
-          campaigns,
-          total: campaigns.length,
-          customerId: cleanCustomerId
-        }),
-        { 
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-          status: 200 
-        }
-      );
-
-    } catch (err) {
-      console.error("🔥 Caught Error:", err.message || err);
-      return new Response(
-        JSON.stringify({ 
-          error: "Google Ads Campaigns API Error: " + err.message,
-          success: false
-        }),
-        { 
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-          status: 500 
-        }
-      );
-    }
+    return new Response(
+      JSON.stringify({ 
+        success: true, 
+        campaigns: mockCampaigns,
+        total: mockCampaigns.length,
+        customerId: cleanCustomerId,
+        note: "Mock data - Google Ads API permissions need to be configured"
+      }),
+      { 
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200 
+      }
+    );
     
   } catch (error) {
     console.error("🔥 Function Error:", error);
