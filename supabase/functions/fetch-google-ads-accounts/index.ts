@@ -92,7 +92,6 @@ serve(async (req) => {
     
     console.log('Checking if account is MCC or individual account for:', userMccId);
 
-    
     // Query all available accounts under the user's Customer ID
     const apiResponse = await fetch(
       `https://googleads.googleapis.com/${API_VERSION}/customers/${userMccId}/googleAds:search`, 
