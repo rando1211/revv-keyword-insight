@@ -72,8 +72,8 @@ serve(async (req) => {
       throw new Error(`OAuth token error: ${tokenData.error}`);
     }
 
-    // Query to get child accounts under the MCC
-    const query = `
+    // First try to get child accounts (if this is an MCC account)
+    const childAccountsQuery = `
       SELECT 
         customer_client.client_customer, 
         customer_client.descriptive_name,
@@ -82,48 +82,95 @@ serve(async (req) => {
       FROM customer_client
       WHERE customer_client.level = 1`;
     
-    console.log('Child accounts query:', query.trim());
+    // Also prepare a query to get the account itself
+    const accountInfoQuery = `
+      SELECT 
+        customer.id,
+        customer.descriptive_name,
+        customer.manager
+      FROM customer`;
+    
+    console.log('Checking if account is MCC or individual account for:', userMccId);
 
     
-    console.log('Using user MCC account ID:', credentials.customer_id, '-> cleaned:', userMccId);
+    console.log('Using user account ID:', credentials.customer_id, '-> cleaned:', userMccId);
 
-    // Make Google Ads API call using the user's MCC account to get child accounts
-    const apiResponse = await fetch(
+    // First try to get child accounts (if this is an MCC account)
+    let apiResponse = await fetch(
       `https://googleads.googleapis.com/${API_VERSION}/customers/${userMccId}/googleAds:search`, 
       {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${tokenData.access_token}`,
           "developer-token": DEVELOPER_TOKEN,
-          "login-customer-id": userMccId, // Use user's MCC ID for login
+          "login-customer-id": userMccId,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ query: query.trim() }),
+        body: JSON.stringify({ query: childAccountsQuery.trim() }),
       }
     );
 
-    const apiData = await apiResponse.json();
-    console.log('API Response:', JSON.stringify(apiData, null, 2));
+    let apiData = await apiResponse.json();
+    console.log('Child accounts API Response:', JSON.stringify(apiData, null, 2));
     
-    if (!apiResponse.ok) {
-      throw new Error(`Google Ads API error: ${apiData.error?.message || 'Unknown error'}`);
-    }
+    let accounts = [];
 
-    // Process and format the response for child accounts
-    const accounts = apiData.results?.map((result: any) => {
-      const clientCustomer = result.customerClient.clientCustomer;
-      const descriptiveName = result.customerClient.descriptiveName;
+    if (apiResponse.ok && apiData.results && apiData.results.length > 0) {
+      // This is an MCC account with child accounts
+      console.log('Found MCC account with child accounts');
+      accounts = apiData.results.map((result: any) => {
+        const clientCustomer = result.customerClient.clientCustomer;
+        const descriptiveName = result.customerClient.descriptiveName;
+        
+        console.log('Processing child account:', { clientCustomer, descriptiveName });
+        
+        return {
+          id: clientCustomer,
+          name: descriptiveName || 'Unnamed Account',
+          customerId: clientCustomer,
+          status: 'ENABLED',
+          isManager: false,
+        };
+      });
+    } else {
+      // This might be an individual account, get its info
+      console.log('No child accounts found, treating as individual account');
       
-      console.log('Processing account:', { clientCustomer, descriptiveName });
+      apiResponse = await fetch(
+        `https://googleads.googleapis.com/${API_VERSION}/customers/${userMccId}/googleAds:search`, 
+        {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${tokenData.access_token}`,
+            "developer-token": DEVELOPER_TOKEN,
+            "login-customer-id": userMccId,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ query: accountInfoQuery.trim() }),
+        }
+      );
+
+      apiData = await apiResponse.json();
+      console.log('Individual account API Response:', JSON.stringify(apiData, null, 2));
       
-      return {
-        id: clientCustomer,
-        name: descriptiveName || 'Unnamed Account',
-        customerId: clientCustomer, // This should be like "customers/2140202145"
-        status: 'ENABLED',
-        isManager: false,
-      };
-    }) || [];
+      if (apiResponse.ok && apiData.results && apiData.results.length > 0) {
+        const result = apiData.results[0];
+        const customerId = result.customer.id;
+        const descriptiveName = result.customer.descriptiveName;
+        
+        console.log('Processing individual account:', { customerId, descriptiveName });
+        
+        accounts = [{
+          id: customerId,
+          name: descriptiveName || credentials.customer_id,
+          customerId: `customers/${customerId}`,
+          status: 'ENABLED',
+          isManager: false,
+        }];
+      } else {
+        throw new Error(`Google Ads API error: ${apiData.error?.message || 'Failed to fetch account info'}`);
+      }
+    }
 
     console.log('Final accounts array:', accounts);
 
