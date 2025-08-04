@@ -21,8 +21,8 @@ const tourSteps = [
     highlight: "overview"
   },
   {
-    title: "Deploy Your API Credentials",
-    content: "DEXTRUM requires your own Google Ads API credentials for tactical operations. Click below to configure your Developer Token, Client ID, Client Secret, and Refresh Token.",
+    title: "Connect Your Google Ads Account",
+    content: "DEXTRUM handles all API credentials for you. Simply provide your Google Ads Customer ID to get started - no complex setup required.",
     icon: Settings,
     highlight: "api-setup",
     isApiStep: true,
