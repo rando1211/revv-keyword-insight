@@ -128,8 +128,20 @@ serve(async (req) => {
       })
     });
 
-    const hierarchyData = await hierarchyResponse.json();
-    console.log('🔍 DEBUG: Hierarchy Data:', JSON.stringify(hierarchyData, null, 2));
+    console.log('🔍 DEBUG: Hierarchy response status:', hierarchyResponse.status);
+    const hierarchyResponseText = await hierarchyResponse.text();
+    console.log('🔍 DEBUG: Raw hierarchy response:', hierarchyResponseText.substring(0, 500));
+
+    let hierarchyData;
+    try {
+      hierarchyData = JSON.parse(hierarchyResponseText);
+      console.log('🔍 DEBUG: Parsed Hierarchy Data:', JSON.stringify(hierarchyData, null, 2));
+    } catch (error) {
+      console.error('🔍 DEBUG: Failed to parse hierarchy response as JSON:', error);
+      console.log('🔍 DEBUG: Response was:', hierarchyResponseText);
+      // Skip MCC detection and proceed without login-customer-id
+      hierarchyData = { results: [] };
+    }
 
     if (hierarchyData.results && hierarchyData.results.length > 0) {
       const clientInfo = hierarchyData.results[0].customerClient;
