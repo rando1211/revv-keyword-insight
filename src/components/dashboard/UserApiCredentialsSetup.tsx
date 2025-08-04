@@ -5,10 +5,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Key, CheckCircle, ExternalLink, AlertCircle, Shield } from "lucide-react";
+import { Key, CheckCircle, ExternalLink, AlertCircle, Shield, BookOpen } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { GoogleAdsApiGuide } from './GoogleAdsApiGuide';
 
 export const UserApiCredentialsSetup = () => {
   const [credentials, setCredentials] = useState({
@@ -20,6 +22,7 @@ export const UserApiCredentialsSetup = () => {
   });
   const [isLoading, setIsLoading] = useState(false);
   const [isConfigured, setIsConfigured] = useState(false);
+  const [showGuide, setShowGuide] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -220,7 +223,15 @@ export const UserApiCredentialsSetup = () => {
           <Alert>
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
-              <strong>Need help?</strong> Follow our guide to set up Google Ads API access with your own credentials.
+              <strong>Need help?</strong> Follow our comprehensive setup guide to get your Google Ads API credentials.
+              <Button 
+                variant="link" 
+                className="p-0 h-auto ml-2 text-destructive"
+                onClick={() => setShowGuide(true)}
+              >
+                <BookOpen className="h-3 w-3 mr-1" />
+                Open Setup Guide
+              </Button>
             </AlertDescription>
           </Alert>
 
@@ -242,6 +253,16 @@ export const UserApiCredentialsSetup = () => {
             )}
           </Button>
         </div>
+
+        {/* Setup Guide Dialog */}
+        <Dialog open={showGuide} onOpenChange={setShowGuide}>
+          <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>DEXTRUM API Setup Guide</DialogTitle>
+            </DialogHeader>
+            <GoogleAdsApiGuide onClose={() => setShowGuide(false)} />
+          </DialogContent>
+        </Dialog>
       </CardContent>
     </Card>
   );
