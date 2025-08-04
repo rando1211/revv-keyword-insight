@@ -106,10 +106,81 @@ serve(async (req) => {
 
     const accessToken = tokenData.access_token;
 
-    // Query campaigns directly from the requested customer account
-    console.log("🎯 Analyzing customer ID:", cleanCustomerId);
-    console.log("🎯 Original customer ID:", customerId);
+    // Step 1: First, determine the correct login-customer-id by checking MCC hierarchy
+    console.log("🔍 STEP 1: Determining MCC hierarchy for customer", cleanCustomerId);
     
+    let loginCustomerId = null;
+    
+    // Query to check if this account has accessible customers (meaning it's an MCC)
+    const mccCheckQuery = `
+      SELECT 
+        customer_client.client_customer,
+        customer_client.manager
+      FROM customer_client
+      WHERE customer_client.level <= 1
+    `;
+    
+    try {
+      // First, check if the user has direct access to this customer ID
+      const directAccessUrl = `https://googleads.googleapis.com/v18/customers/${cleanCustomerId}/googleAds:search`;
+      
+      const directAccessResponse = await fetch(directAccessUrl, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${accessToken}`,
+          "developer-token": DEVELOPER_TOKEN,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ query: "SELECT customer.id FROM customer LIMIT 1" }),
+      });
+      
+      if (directAccessResponse.ok) {
+        console.log("✅ User has direct access to customer", cleanCustomerId);
+        loginCustomerId = null; // No login-customer-id needed for direct access
+      } else {
+        console.log("❌ No direct access. Checking MCC hierarchy...");
+        
+        // Query accessible customers to find MCCs
+        const accessibleCustomersQuery = `
+          SELECT 
+            customer.id,
+            customer.manager
+          FROM customer
+        `;
+        
+        const accessibleResponse = await fetch(`https://googleads.googleapis.com/v18/customers/${cleanCustomerId}/googleAds:search`, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${accessToken}`,
+            "developer-token": DEVELOPER_TOKEN,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ query: accessibleCustomersQuery }),
+        });
+        
+        if (accessibleResponse.ok) {
+          const accessibleData = await accessibleResponse.json();
+          console.log("🔍 Accessible customers data:", accessibleData);
+          
+          // Find MCC accounts that user has access to
+          const mccAccounts = accessibleData.results?.filter((result: any) => 
+            result.customer?.manager === true
+          ) || [];
+          
+          if (mccAccounts.length > 0) {
+            // Use the first available MCC as login-customer-id
+            loginCustomerId = mccAccounts[0].customer.id;
+            console.log("✅ Found MCC account to use as login-customer-id:", loginCustomerId);
+          }
+        }
+      }
+    } catch (hierarchyError) {
+      console.log("⚠️ Could not determine hierarchy, proceeding without login-customer-id");
+    }
+    
+    console.log("🔍 STEP 2: Making campaign query with login-customer-id:", loginCustomerId);
+    
+    // Campaign query
     const query = `
       SELECT
         campaign.id,
@@ -131,16 +202,14 @@ serve(async (req) => {
       
       console.log("🚀 Final API URL:", apiUrl);
       console.log("🚀 Customer ID being used:", cleanCustomerId);
+      console.log("🚀 Login Customer ID:", loginCustomerId);
 
-      // THE KEY FIX: Use the customer's own account ID as login-customer-id if it's an MCC
-      // If 991-884-9848 is an MCC, use it as login-customer-id
-      // If it's a sub-account, we need to find its parent MCC
-      
+      // Build headers dynamically based on whether we need login-customer-id
       const headers = {
         "Authorization": `Bearer ${accessToken}`,
         "developer-token": DEVELOPER_TOKEN,
-        "login-customer-id": "9918849848", // Use the cleaned customer ID as login-customer-id
         "Content-Type": "application/json",
+        ...(loginCustomerId ? { "login-customer-id": loginCustomerId } : {})
       };
 
       const requestBody = JSON.stringify({ query });
