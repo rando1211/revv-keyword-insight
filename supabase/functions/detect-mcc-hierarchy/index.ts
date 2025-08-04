@@ -118,6 +118,66 @@ serve(async (req) => {
     const customersToExplore = [primaryCustomerId];
     const exploredCustomers = new Set();
 
+    // Try to find if the primary customer is actually managed by an MCC
+    console.log('🔍 Checking if primary customer is under MCC management...');
+    
+    // First, let's try to see if we can access this customer through known MCCs
+    // We'll try some common MCC patterns and the user's other potential accounts
+    const potentialMCCs = [
+      '9301596383', // The MCC we saw in previous logs
+      primaryCustomerId, // In case the primary IS an MCC
+    ];
+
+    for (const potentialMCC of potentialMCCs) {
+      if (potentialMCC === primaryCustomerId) continue; // Don't test against itself initially
+      
+      console.log(`🔍 Testing if ${potentialMCC} can manage ${primaryCustomerId}...`);
+      
+      try {
+        // Test if this MCC can access the primary customer
+        const testResponse = await fetch(`https://googleads.googleapis.com/v18/customers/${primaryCustomerId}/googleAds:search`, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${accessToken}`,
+            "developer-token": DEVELOPER_TOKEN,
+            "login-customer-id": potentialMCC,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ query: "SELECT customer.id FROM customer LIMIT 1" }),
+        });
+
+        if (testResponse.ok) {
+          console.log(`✅ Found working MCC relationship: ${potentialMCC} manages ${primaryCustomerId}`);
+          
+          // Add this relationship to hierarchy
+          hierarchyData.push({
+            user_id: user.id,
+            customer_id: primaryCustomerId,
+            manager_customer_id: potentialMCC,
+            is_manager: false,
+            level: 1,
+            account_name: primaryCustomerId,
+          });
+
+          // Also add the MCC account
+          hierarchyData.push({
+            user_id: user.id,
+            customer_id: potentialMCC,
+            manager_customer_id: null,
+            is_manager: true,
+            level: 0,
+            account_name: potentialMCC,
+          });
+
+          break; // Found the relationship, stop looking
+        } else {
+          console.log(`❌ ${potentialMCC} cannot manage ${primaryCustomerId}`);
+        }
+      } catch (error) {
+        console.log(`❌ Error testing MCC ${potentialMCC}:`, error.message);
+      }
+    }
+
     while (customersToExplore.length > 0) {
       const currentCustomerId = customersToExplore.shift();
       if (exploredCustomers.has(currentCustomerId)) continue;

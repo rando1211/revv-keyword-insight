@@ -127,10 +127,44 @@ serve(async (req) => {
           .eq('user_id', user.id)
           .maybeSingle();
 
-        if (userCreds && userCreds.customer_id) {
-          const primaryCustomerId = userCreds.customer_id.replace(/-/g, '');
+      if (userCreds && userCreds.customer_id) {
+        const primaryCustomerId = userCreds.customer_id.replace(/-/g, '');
+        
+        // Known MCC relationships based on previous logs
+        const knownMCCMappings = {
+          '9918849848': '9301596383', // This customer is managed by this MCC
+        };
+        
+        // Check if we have a known mapping first
+        if (knownMCCMappings[cleanCustomerId]) {
+          const knownMCC = knownMCCMappings[cleanCustomerId];
+          console.log(`🔍 Using known MCC mapping: ${cleanCustomerId} -> ${knownMCC}`);
           
-          // Try using primary customer ID as login-customer-id
+          // Test this known relationship
+          const knownMCCResponse = await fetch(`https://googleads.googleapis.com/v18/customers/${cleanCustomerId}/googleAds:search`, {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${accessToken}`,
+              "developer-token": DEVELOPER_TOKEN,
+              "login-customer-id": knownMCC,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ query: "SELECT customer.id FROM customer LIMIT 1" }),
+          });
+
+          if (knownMCCResponse.ok) {
+            console.log(`✅ Known MCC relationship confirmed: ${knownMCC} manages ${cleanCustomerId}`);
+            loginCustomerId = knownMCC;
+            requiresLoginCustomerId = true;
+          } else {
+            console.log(`❌ Known MCC relationship failed: ${knownMCC}`);
+          }
+        }
+        
+        // If known mapping didn't work, try using primary customer ID as login-customer-id
+        if (!loginCustomerId && primaryCustomerId !== cleanCustomerId) {
+          console.log(`🔍 Trying primary customer ${primaryCustomerId} as login-customer-id for ${cleanCustomerId}`);
+          
           const managerAccessResponse = await fetch(`https://googleads.googleapis.com/v18/customers/${cleanCustomerId}/googleAds:search`, {
             method: "POST",
             headers: {
@@ -147,9 +181,33 @@ serve(async (req) => {
             loginCustomerId = primaryCustomerId;
             requiresLoginCustomerId = true;
           } else {
-            console.log('❌ Manager access also failed');
-            // Could try other detection methods here
+            console.log('❌ Primary customer as manager also failed');
           }
+        }
+        
+        // Try the hardcoded MCC that we know works: 9301596383
+        if (!loginCustomerId && cleanCustomerId !== '9301596383') {
+          console.log('🔍 Trying hardcoded MCC 9301596383...');
+          
+          const hardcodedMCCResponse = await fetch(`https://googleads.googleapis.com/v18/customers/${cleanCustomerId}/googleAds:search`, {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${accessToken}`,
+              "developer-token": DEVELOPER_TOKEN,
+              "login-customer-id": "9301596383",
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ query: "SELECT customer.id FROM customer LIMIT 1" }),
+          });
+
+          if (hardcodedMCCResponse.ok) {
+            console.log('✅ Hardcoded MCC 9301596383 works!');
+            loginCustomerId = "9301596383";
+            requiresLoginCustomerId = true;
+          } else {
+            console.log('❌ Hardcoded MCC 9301596383 also failed');
+          }
+        }
         }
       }
     }

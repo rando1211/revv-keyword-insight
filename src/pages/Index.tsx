@@ -19,6 +19,7 @@ import { SubscriptionManager } from '@/components/subscription/SubscriptionManag
 import { OnboardingTour } from '@/components/onboarding/OnboardingTour';
 import { useOnboarding } from '@/hooks/useOnboarding';
 import { UserApiCredentialsSetup } from '@/components/dashboard/UserApiCredentialsSetup';
+import { MCCHierarchyManager } from '@/components/dashboard/MCCHierarchyManager';
 
 const Index = () => {
   const { toast } = useToast();
@@ -387,6 +388,7 @@ Simulation by REVV Marketing ROI Calculator
 
           <TabsContent value="api-setup" className="space-y-6">
             <UserApiCredentialsSetup />
+            <MCCHierarchyManager />
           </TabsContent>
         
         {isAdmin && (
