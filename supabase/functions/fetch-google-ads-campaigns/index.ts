@@ -76,46 +76,35 @@ serve(async (req) => {
     const API_VERSION = "v18";
     
     
-    console.log('🔍 DEBUG: Using user OAuth token instead of shared credentials');
-    
-    // Get the user's Google OAuth token from their session
-    const { data: { session } } = await supabase.auth.getSession();
-    console.log('🔍 DEBUG: Full session object:', JSON.stringify(session, null, 2));
-    console.log('🔍 DEBUG: User metadata:', session?.user?.user_metadata);
-    console.log('🔍 DEBUG: App metadata:', session?.user?.app_metadata);
-    console.log('🔍 DEBUG: Provider token:', session?.provider_token);
-    console.log('🔍 DEBUG: Provider refresh token:', session?.provider_refresh_token);
-    
-    let accessToken;
-    
-    // Check if user has Google OAuth token
-    if (session?.user?.app_metadata?.provider === 'google' && session?.provider_token) {
-      console.log('✅ Using user OAuth token');
-      accessToken = session.provider_token;
-    } else {
-      console.log('❌ No user OAuth token found, falling back to shared credentials');
-      
-      // Fallback to shared credentials (but this will likely fail for this customer)
-      const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({
-          client_id: CLIENT_ID,
-          client_secret: CLIENT_SECRET,
-          refresh_token: REFRESH_TOKEN,
-          grant_type: "refresh_token",
-        }),
-      });
+    console.log('🔍 DEBUG: Getting access token using shared credentials');
+    console.log('🔍 DEBUG: Available env vars:', {
+      hasDevToken: !!DEVELOPER_TOKEN,
+      hasClientId: !!CLIENT_ID, 
+      hasClientSecret: !!CLIENT_SECRET,
+      hasRefreshToken: !!REFRESH_TOKEN
+    });
 
-      const tokenData = await tokenResponse.json();
-      console.log('OAuth response status:', tokenResponse.status);
-      
-      if (!tokenResponse.ok) {
-        throw new Error(`OAuth token error: ${tokenData.error}`);
-      }
-      
-      accessToken = tokenData.access_token;
+    // Get access token using shared credentials
+    const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        client_id: CLIENT_ID,
+        client_secret: CLIENT_SECRET,
+        refresh_token: REFRESH_TOKEN,
+        grant_type: "refresh_token",
+      }),
+    });
+
+    const tokenData = await tokenResponse.json();
+    console.log('🔍 DEBUG: OAuth response status:', tokenResponse.status);
+    console.log('🔍 DEBUG: OAuth response:', tokenData);
+    
+    if (!tokenResponse.ok) {
+      throw new Error(`OAuth token error: ${JSON.stringify(tokenData)}`);
     }
+
+    const accessToken = tokenData.access_token;
 
     // Query campaigns directly from the requested customer account
     console.log("🎯 Analyzing customer ID:", cleanCustomerId);
@@ -137,57 +126,88 @@ serve(async (req) => {
       LIMIT 20
     `;
 
-    // TEMPORARY: Return mock data instead of making API call
-    console.log("🔍 DEBUG: Returning mock campaign data due to permissions issue");
-    
-    const mockCampaigns = [
-      {
-        id: "12345678901",
-        name: "Brand Awareness Campaign",
-        status: "ENABLED",
-        cost_micros: 45000000, // $45 in micros
-        cost: 45.00,
-        clicks: 1250,
-        impressions: 85000,
-        ctr: 1.47,
-      },
-      {
-        id: "12345678902", 
-        name: "Lead Generation Campaign",
-        status: "ENABLED",
-        cost_micros: 78000000, // $78 in micros
-        cost: 78.00,
-        clicks: 890,
-        impressions: 62000,
-        ctr: 1.44,
-      },
-      {
-        id: "12345678903",
-        name: "Remarketing Campaign", 
-        status: "ENABLED",
-        cost_micros: 32000000, // $32 in micros
-        cost: 32.00,
-        clicks: 645,
-        impressions: 48000,
-        ctr: 1.34,
-      }
-    ];
+    try {
+      const apiUrl = `https://googleads.googleapis.com/v18/customers/${cleanCustomerId}/googleAds:search`;
+      
+      console.log("🚀 Final API URL:", apiUrl);
+      console.log("🚀 Customer ID being used:", cleanCustomerId);
 
-    console.log(`✅ Returning ${mockCampaigns.length} mock campaigns for customer ${cleanCustomerId}`);
+      // THE KEY FIX: Use the customer's own account ID as login-customer-id if it's an MCC
+      // If 991-884-9848 is an MCC, use it as login-customer-id
+      // If it's a sub-account, we need to find its parent MCC
+      
+      const headers = {
+        "Authorization": `Bearer ${accessToken}`,
+        "developer-token": DEVELOPER_TOKEN,
+        "login-customer-id": "9918849848", // Use the cleaned customer ID as login-customer-id
+        "Content-Type": "application/json",
+      };
 
-    return new Response(
-      JSON.stringify({ 
-        success: true, 
-        campaigns: mockCampaigns,
-        total: mockCampaigns.length,
-        customerId: cleanCustomerId,
-        note: "Mock data - Google Ads API permissions need to be configured"
-      }),
-      { 
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 200 
+      const requestBody = JSON.stringify({ query });
+
+      console.log("🚀 API URL:", apiUrl);
+      console.log("📨 Request Headers:", headers);
+      console.log("🧾 Request Body:", requestBody);
+
+      const apiResponse = await fetch(apiUrl, {
+        method: "POST",
+        headers,
+        body: requestBody,
+      });
+
+      const responseText = await apiResponse.text();
+
+      if (!apiResponse.ok) {
+        console.error("❌ API Response Status:", apiResponse.status);
+        console.error("❌ API Response Text:", responseText);
+        throw new Error(`Google Ads API error: ${responseText}`);
       }
-    );
+
+      console.log("✅ API Response OK:", responseText);
+      
+      // Parse the successful response
+      const apiData = JSON.parse(responseText);
+      
+      // Process and format the response with actual campaign data
+      const campaigns = apiData.results?.map((result: any) => ({
+        id: result.campaign?.id || 'unknown',
+        name: result.campaign?.name || 'Unknown Campaign',
+        status: result.campaign?.status || 'UNKNOWN',
+        cost_micros: parseInt(result.metrics?.costMicros || "0"),
+        cost: parseInt(result.metrics?.costMicros || "0") / 1000000, // Convert to dollars
+        clicks: parseInt(result.metrics?.clicks || "0"),
+        impressions: parseInt(result.metrics?.impressions || "0"),
+        ctr: parseFloat(result.metrics?.ctr || "0"),
+      })) || [];
+
+      console.log(`✅ Found ${campaigns.length} campaigns with activity for customer ${cleanCustomerId}`);
+
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          campaigns,
+          total: campaigns.length,
+          customerId: cleanCustomerId
+        }),
+        { 
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200 
+        }
+      );
+
+    } catch (err) {
+      console.error("🔥 Caught Error:", err.message || err);
+      return new Response(
+        JSON.stringify({ 
+          error: "Google Ads Campaigns API Error: " + err.message,
+          success: false
+        }),
+        { 
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 500 
+        }
+      );
+    }
     
   } catch (error) {
     console.error("🔥 Function Error:", error);
