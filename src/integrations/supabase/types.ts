@@ -32,6 +32,42 @@ export type Database = {
         }
         Relationships: []
       }
+      google_ads_mcc_hierarchy: {
+        Row: {
+          account_name: string | null
+          created_at: string
+          customer_id: string
+          id: string
+          is_manager: boolean
+          level: number
+          manager_customer_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          account_name?: string | null
+          created_at?: string
+          customer_id: string
+          id?: string
+          is_manager?: boolean
+          level?: number
+          manager_customer_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          account_name?: string | null
+          created_at?: string
+          customer_id?: string
+          id?: string
+          is_manager?: boolean
+          level?: number
+          manager_customer_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       subscribers: {
         Row: {
           created_at: string

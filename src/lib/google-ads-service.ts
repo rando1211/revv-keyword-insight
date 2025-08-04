@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { detectMCCHierarchy, getLoginCustomerId, hasMCCHierarchy } from "./mcc-detection-service";
 
 // Google Ads API Service with real Supabase integration
 export interface Campaign {
@@ -22,10 +23,40 @@ export interface GoogleAdsAccount {
   status: 'ENABLED' | 'SUSPENDED';
 }
 
+// Initialize MCC hierarchy detection for better API performance
+export const initializeMCCHierarchy = async (): Promise<boolean> => {
+  try {
+    console.log('🔍 Checking if MCC hierarchy needs initialization...');
+    
+    const hasHierarchy = await hasMCCHierarchy();
+    if (hasHierarchy) {
+      console.log('✅ MCC hierarchy already detected');
+      return true;
+    }
+    
+    console.log('🚀 Initializing MCC hierarchy detection...');
+    const result = await detectMCCHierarchy();
+    
+    if (result.success) {
+      console.log(`✅ MCC hierarchy initialized with ${result.total_accounts} accounts`);
+      return true;
+    } else {
+      console.log('⚠️ MCC hierarchy detection failed:', result.error);
+      return false;
+    }
+  } catch (error) {
+    console.error('❌ Error initializing MCC hierarchy:', error);
+    return false;
+  }
+};
+
 // Fetch accounts from MCC using Google Ads API
 export const fetchGoogleAdsAccounts = async (): Promise<GoogleAdsAccount[]> => {
   try {
     console.log('Fetching Google Ads accounts from API...');
+    
+    // Initialize MCC hierarchy if needed (runs in background)
+    initializeMCCHierarchy().catch(console.error);
     
     const { data, error } = await supabase.functions.invoke('fetch-google-ads-accounts');
     

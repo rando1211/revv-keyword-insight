@@ -106,76 +106,37 @@ serve(async (req) => {
 
     const accessToken = tokenData.access_token;
 
-    // Step 1: First, determine the correct login-customer-id by checking MCC hierarchy
-    console.log("🔍 STEP 1: Determining MCC hierarchy for customer", cleanCustomerId);
+    // Step 1: Use automated MCC hierarchy detection to get login-customer-id
+    console.log("🔍 STEP 1: Getting login-customer-id using automated detection for customer", cleanCustomerId);
     
     let loginCustomerId = null;
     
-    // Query to check if this account has accessible customers (meaning it's an MCC)
-    const mccCheckQuery = `
-      SELECT 
-        customer_client.client_customer,
-        customer_client.manager
-      FROM customer_client
-      WHERE customer_client.level <= 1
-    `;
-    
     try {
-      // First, check if the user has direct access to this customer ID
-      const directAccessUrl = `https://googleads.googleapis.com/v18/customers/${cleanCustomerId}/googleAds:search`;
-      
-      const directAccessResponse = await fetch(directAccessUrl, {
+      // Call our automated detection service
+      const detectionResponse = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/get-login-customer-id`, {
         method: "POST",
         headers: {
-          "Authorization": `Bearer ${accessToken}`,
-          "developer-token": DEVELOPER_TOKEN,
+          "Authorization": authHeader,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ query: "SELECT customer.id FROM customer LIMIT 1" }),
+        body: JSON.stringify({ customerId: cleanCustomerId }),
       });
-      
-      if (directAccessResponse.ok) {
-        console.log("✅ User has direct access to customer", cleanCustomerId);
-        loginCustomerId = null; // No login-customer-id needed for direct access
-      } else {
-        console.log("❌ No direct access. Checking MCC hierarchy...");
-        
-        // Query accessible customers to find MCCs
-        const accessibleCustomersQuery = `
-          SELECT 
-            customer.id,
-            customer.manager
-          FROM customer
-        `;
-        
-        const accessibleResponse = await fetch(`https://googleads.googleapis.com/v18/customers/${cleanCustomerId}/googleAds:search`, {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${accessToken}`,
-            "developer-token": DEVELOPER_TOKEN,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ query: accessibleCustomersQuery }),
-        });
-        
-        if (accessibleResponse.ok) {
-          const accessibleData = await accessibleResponse.json();
-          console.log("🔍 Accessible customers data:", accessibleData);
-          
-          // Find MCC accounts that user has access to
-          const mccAccounts = accessibleData.results?.filter((result: any) => 
-            result.customer?.manager === true
-          ) || [];
-          
-          if (mccAccounts.length > 0) {
-            // Use the first available MCC as login-customer-id
-            loginCustomerId = mccAccounts[0].customer.id;
-            console.log("✅ Found MCC account to use as login-customer-id:", loginCustomerId);
-          }
+
+      if (detectionResponse.ok) {
+        const detectionData = await detectionResponse.json();
+        if (detectionData.success) {
+          loginCustomerId = detectionData.login_customer_id;
+          console.log(`✅ Automated detection result: login-customer-id=${loginCustomerId}, requires=${detectionData.requires_login_customer_id}`);
+          console.log(`📋 Detection method: ${detectionData.detection_method}`);
+          console.log(`📋 Account info:`, detectionData.account_info);
+        } else {
+          console.log("⚠️ Automated detection failed:", detectionData.error);
         }
+      } else {
+        console.log("⚠️ Failed to call automated detection service");
       }
-    } catch (hierarchyError) {
-      console.log("⚠️ Could not determine hierarchy, proceeding without login-customer-id");
+    } catch (detectionError) {
+      console.log("⚠️ Error calling automated detection:", detectionError.message);
     }
     
     console.log("🔍 STEP 2: Making campaign query with login-customer-id:", loginCustomerId);
