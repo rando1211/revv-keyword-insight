@@ -181,6 +181,12 @@ EXAMPLES:
 
 ✅ ONLY mark terms as irrelevant if they are truly unrelated to the specific products/services this campaign promotes.
 
+🔴 CRITICAL: HIGH CLICKS NO CONVERSIONS RULES:
+- ONLY include terms in "highClicksNoConv" if conversions = 0 (zero) 
+- If conversions > 0, DO NOT include in highClicksNoConv
+- Check the "conversions" field carefully - it contains decimal values
+- Example: If conversions = 8.666796, this means 8.67 conversions, NOT zero conversions
+
 Campaign Goal: ${campaignGoal}
 Campaign Context: ${campaignContext || 'General analysis - be conservative with irrelevant classifications'}
 
@@ -188,6 +194,12 @@ Performance Benchmarks:
 - Average CTR: ${benchmarks.avgCtr.toFixed(4)}
 - Average Impressions: ${Math.round(benchmarks.avgImpressions)}
 - Average Cost: $${benchmarks.avgCost.toFixed(2)}
+
+⚠️ CONVERSION DATA VALIDATION:
+Before categorizing any term, check these examples from the data:
+${structuredData.searchTerms.slice(0, 5).map(term => 
+  `- "${term.searchTerm}": clicks=${term.clicks}, conversions=${term.conversions} (${term.conversions > 0 ? 'HAS CONVERSIONS' : 'NO CONVERSIONS'})`
+).join('\n')}
 
 Search Terms Data: ${JSON.stringify(structuredData.searchTerms.slice(0, 20), null, 2)}
 
