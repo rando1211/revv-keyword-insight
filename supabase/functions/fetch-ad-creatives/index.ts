@@ -13,6 +13,9 @@ serve(async (req) => {
   }
 
   try {
+    // Get authorization header for Supabase client
+    const authHeader = req.headers.get('Authorization');
+    
     const { customerId } = await req.json();
     
     if (!customerId) {
@@ -70,6 +73,7 @@ serve(async (req) => {
       const supabase = createClient(
         Deno.env.get('SUPABASE_URL') ?? '',
         Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+        { global: { headers: { Authorization: authHeader } } }
       );
 
       const loginCustomerResponse = await supabase.functions.invoke('get-login-customer-id', {
@@ -81,10 +85,15 @@ serve(async (req) => {
       if (loginCustomerResponse.data && loginCustomerResponse.data.login_customer_id) {
         loginCustomerId = loginCustomerResponse.data.login_customer_id;
         console.log("✅ Got login customer ID from function:", loginCustomerId);
+      } else {
+        // Fall back to hardcoded value if function fails
+        console.log("⚠️ Login customer function failed, using fallback");
+        loginCustomerId = "9301596383";
       }
     } catch (loginError) {
       console.error("🔥 Error getting login customer ID:", loginError);
-      console.log("🔄 Continuing without login customer ID");
+      console.log("🔄 Using fallback login customer ID");
+      loginCustomerId = "9301596383";
     }
 
     // Fetch responsive search ads data - get a diverse sample
