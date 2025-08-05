@@ -95,25 +95,19 @@ serve(async (req) => {
 
     const accessToken = tokenData.access_token;
 
-    // Step 1: Get login customer ID using the existing function
-    console.log("🔍 STEP 1: Getting login customer ID using get-login-customer-id function");
+    // Step 1: Detect if we need login-customer-id (for MCC accounts)
+    console.log("🔍 STEP 1: Checking if this is an MCC account that needs login-customer-id");
     
     let loginCustomerId = null;
     
-    try {
-      const loginCustomerResponse = await supabase.functions.invoke('get-login-customer-id', {
-        body: { customerId: cleanCustomerId }
-      });
-      
-      console.log("🔍 Login customer response:", loginCustomerResponse);
-      
-      if (loginCustomerResponse.data && loginCustomerResponse.data.login_customer_id) {
-        loginCustomerId = loginCustomerResponse.data.login_customer_id;
-        console.log("✅ Got login customer ID from function:", loginCustomerId);
-      }
-    } catch (loginError) {
-      console.error("🔥 Error getting login customer ID:", loginError);
-      console.log("🔄 Continuing without login customer ID");
+    // Check if the current customer ID is the known MCC
+    const MCC_CUSTOMER_ID = "9301596383";
+    if (cleanCustomerId !== MCC_CUSTOMER_ID) {
+      // This is a child account, so we need to use the MCC as login-customer-id
+      loginCustomerId = MCC_CUSTOMER_ID;
+      console.log("✅ This is a child account, using MCC as login-customer-id:", loginCustomerId);
+    } else {
+      console.log("ℹ️ This is the MCC account itself, no login-customer-id needed");
     }
     
     console.log("🔍 STEP 2: Making campaign query with login-customer-id:", loginCustomerId);
