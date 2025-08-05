@@ -1,5 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -58,7 +59,33 @@ serve(async (req) => {
     console.log('✅ Fresh access token obtained');
 
     // Clean customer ID
-    const cleanCustomerId = customerId.replace('customers/', '');
+    const cleanCustomerId = customerId.replace('customers/', '').replace(/-/g, '');
+
+    // Get login customer ID using the existing function
+    console.log("🔍 Getting login customer ID using get-login-customer-id function");
+    
+    let loginCustomerId = null;
+    
+    try {
+      const supabase = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      );
+
+      const loginCustomerResponse = await supabase.functions.invoke('get-login-customer-id', {
+        body: { customerId: cleanCustomerId }
+      });
+      
+      console.log("🔍 Login customer response:", loginCustomerResponse);
+      
+      if (loginCustomerResponse.data && loginCustomerResponse.data.login_customer_id) {
+        loginCustomerId = loginCustomerResponse.data.login_customer_id;
+        console.log("✅ Got login customer ID from function:", loginCustomerId);
+      }
+    } catch (loginError) {
+      console.error("🔥 Error getting login customer ID:", loginError);
+      console.log("🔄 Continuing without login customer ID");
+    }
 
     // Fetch responsive search ads data - get a diverse sample
     const adQuery = `
@@ -89,14 +116,24 @@ serve(async (req) => {
 
     console.log(`🔍 Fetching responsive search ads...`);
 
+    // Build headers
+    const headers = {
+      'Authorization': `Bearer ${accessToken}`,
+      'developer-token': developerToken,
+      'Content-Type': 'application/json',
+    };
+
+    // Add login-customer-id if we have one
+    if (loginCustomerId) {
+      headers['login-customer-id'] = loginCustomerId;
+      console.log("✅ Added login-customer-id header:", loginCustomerId);
+    }
+
+    console.log("📨 Request headers:", headers);
+
     const apiResponse = await fetch(`https://googleads.googleapis.com/v18/customers/${cleanCustomerId}/googleAds:search`, {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'developer-token': developerToken,
-        'login-customer-id': '9301596383',
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: JSON.stringify({ query: adQuery }),
     });
 
