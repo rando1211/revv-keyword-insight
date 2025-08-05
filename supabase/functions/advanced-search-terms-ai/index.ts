@@ -128,7 +128,7 @@ serve(async (req) => {
         const conversions = parseFloat(term.metrics?.conversions || '0');
         const costMicros = parseInt(term.metrics?.costMicros || '0');
         
-        console.log(`🔍 Term: "${searchTerm}" -> Campaign: "${campaignName}" -> Ad Group: "${adGroupName}"`);
+        console.log(`🔍 Term: "${searchTerm}" -> Clicks: ${clicks}, Conversions: ${conversions}, Campaign: "${campaignName}" -> Ad Group: "${adGroupName}"`);
         
         return {
           searchTerm,
