@@ -40,7 +40,7 @@ export const CampaignReviewPanel: React.FC<CampaignReviewPanelProps> = ({
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Back to Settings
               </Button>
-              <Button>
+              <Button onClick={() => alert('Campaign launch integration needs to be implemented with Google Ads API')}>
                 Launch Campaign
                 <Rocket className="ml-2 h-4 w-4" />
               </Button>
