@@ -277,13 +277,24 @@ serve(async (req) => {
   } catch (error) {
     console.error("🔥 Function Error:", error);
     console.error("🔥 Error stack:", error.stack);
+    console.error("🔥 Error name:", error.name);
+    console.error("🔥 Error message:", error.message);
     
     // Return more specific error information
     const errorResponse = {
       error: error.message || 'Unknown error occurred',
       success: false,
       timestamp: new Date().toISOString(),
-      function: 'fetch-google-ads-campaigns'
+      function: 'fetch-google-ads-campaigns',
+      errorType: error.name || 'UnknownError',
+      details: {
+        hasCredentials: {
+          hasDevToken: !!DEVELOPER_TOKEN,
+          hasClientId: !!CLIENT_ID,
+          hasClientSecret: !!CLIENT_SECRET,
+          hasRefreshToken: !!REFRESH_TOKEN
+        }
+      }
     };
     
     console.log("🔥 Returning error response:", errorResponse);
