@@ -20,6 +20,7 @@ import { OnboardingTour } from '@/components/onboarding/OnboardingTour';
 import { useOnboarding } from '@/hooks/useOnboarding';
 import { UserApiCredentialsSetup } from '@/components/dashboard/UserApiCredentialsSetup';
 import { MCCHierarchyManager } from '@/components/dashboard/MCCHierarchyManager';
+import { CampaignBuilderWizard } from '@/components/campaign-builder/CampaignBuilderWizard';
 
 const Index = () => {
   const { toast } = useToast();
@@ -262,12 +263,13 @@ Simulation by REVV Marketing ROI Calculator
 
         {/* Main Dashboard */}
         <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList className={`grid w-full ${isAdmin ? 'grid-cols-7' : 'grid-cols-6'}`}>
+        <TabsList className={`grid w-full ${isAdmin ? 'grid-cols-8' : 'grid-cols-7'}`}>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="subscription">💳 Subscription</TabsTrigger>
           <TabsTrigger value="accounts">🏢 Accounts</TabsTrigger>
           <TabsTrigger value="campaigns">🎯 Competitor Analysis</TabsTrigger>
           <TabsTrigger value="ai-insights">🧠 AI Insights</TabsTrigger>
+          <TabsTrigger value="campaign-builder">🚀 Campaign Builder</TabsTrigger>
           <TabsTrigger value="api-setup">⚙️ API Setup</TabsTrigger>
           {isAdmin && <TabsTrigger value="admin">👑 Admin</TabsTrigger>}
         </TabsList>
@@ -384,6 +386,10 @@ Simulation by REVV Marketing ROI Calculator
 
           <TabsContent value="ai-insights" className="space-y-6">
             <AIInsightsPanel />
+          </TabsContent>
+
+          <TabsContent value="campaign-builder" className="space-y-6">
+            <CampaignBuilderWizard />
           </TabsContent>
 
           <TabsContent value="api-setup" className="space-y-6">
