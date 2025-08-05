@@ -171,12 +171,11 @@ serve(async (req) => {
       console.log("🚀 Customer ID being used:", cleanCustomerId);
       console.log("🚀 Login Customer ID:", loginCustomerId);
 
-      // Build headers dynamically based on whether we need login-customer-id
+    // For personal accounts, try without login-customer-id first
       const headers = {
         "Authorization": `Bearer ${accessToken}`,
         "developer-token": DEVELOPER_TOKEN,
-        "Content-Type": "application/json",
-        ...(loginCustomerId ? { "login-customer-id": loginCustomerId } : {})
+        "Content-Type": "application/json"
       };
 
       const requestBody = JSON.stringify({ query });
