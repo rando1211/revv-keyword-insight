@@ -106,47 +106,25 @@ serve(async (req) => {
 
     const accessToken = tokenData.access_token;
 
-    // Step 1: Get MCC ID dynamically from listAccessibleCustomers
-    console.log("🔍 STEP 1: Fetching accessible customers to get MCC ID");
+    // Step 1: Get login customer ID using the existing function
+    console.log("🔍 STEP 1: Getting login customer ID using get-login-customer-id function");
+    
+    let loginCustomerId = null;
     
     try {
-      const accessibleCustomersResponse = await fetch("https://googleads.googleapis.com/v18/customers:listAccessibleCustomers", {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "developer-token": DEVELOPER_TOKEN,
-        },
+      const loginCustomerResponse = await supabase.functions.invoke('get-login-customer-id', {
+        body: { customerId: cleanCustomerId }
       });
-
-      console.log("🔍 listAccessibleCustomers response status:", accessibleCustomersResponse.status);
       
-      if (!accessibleCustomersResponse.ok) {
-        const errorText = await accessibleCustomersResponse.text();
-        console.error("❌ Failed to fetch accessible customers:", errorText);
-        // Fallback to direct API call without MCC detection
-        console.log("🔄 Falling back to direct API call");
-      } else {
-        const accessibleCustomersData = await accessibleCustomersResponse.json();
-        console.log("🔍 Accessible customers response:", accessibleCustomersData);
-        
-        // Extract customer IDs from resource names
-        const customerIds = accessibleCustomersData.resourceNames?.map((resourceName: string) => 
-          resourceName.replace("customers/", "")
-        ) || [];
-        
-        console.log("🔍 Available customer IDs:", customerIds);
-        
-        // Find the MCC ID (the one that's NOT the current customer ID)
-        const mccId = customerIds.find((id: string) => id !== cleanCustomerId);
-        
-        if (mccId) {
-          var loginCustomerId = mccId;
-          console.log("✅ Found MCC ID:", loginCustomerId);
-        }
+      console.log("🔍 Login customer response:", loginCustomerResponse);
+      
+      if (loginCustomerResponse.data && loginCustomerResponse.data.login_customer_id) {
+        loginCustomerId = loginCustomerResponse.data.login_customer_id;
+        console.log("✅ Got login customer ID from function:", loginCustomerId);
       }
-    } catch (fetchError) {
-      console.error("🔥 Network error fetching accessible customers:", fetchError.message);
-      console.log("🔄 Continuing without MCC detection");
+    } catch (loginError) {
+      console.error("🔥 Error getting login customer ID:", loginError);
+      console.log("🔄 Continuing without login customer ID");
     }
     
     console.log("🔍 STEP 2: Making campaign query with login-customer-id:", loginCustomerId);
