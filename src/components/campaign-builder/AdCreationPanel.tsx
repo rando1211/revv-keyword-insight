@@ -102,10 +102,35 @@ export const AdCreationPanel: React.FC<AdCreationPanelProps> = ({
     }
 
     setIsGenerating(true);
+    let accumulatedAds = { ...ads };
+    
     try {
       for (const adGroup of adGroups) {
-        await generateAdsForAdGroup(adGroup.name);
+        const { data, error } = await supabase.functions.invoke('generate-ad-copy', {
+          body: {
+            adGroupName: adGroup.name,
+            keywords: adGroup.keywords.map(kw => kw.keyword),
+            businessInfo,
+            adGroup: {
+              theme: adGroup.name,
+              avgCpc: adGroup.maxCpc,
+              keywordCount: adGroup.keywords.length
+            }
+          }
+        });
+
+        if (error) throw error;
+
+        if (data.success) {
+          accumulatedAds[adGroup.name] = data.ads;
+          toast.success(`Generated ${data.ads.length} ads for ${adGroup.name}`);
+        } else {
+          throw new Error(data.error || `Failed to generate ads for ${adGroup.name}`);
+        }
       }
+      
+      setAds(accumulatedAds);
+      onAdsCreated(accumulatedAds);
       toast.success('Generated ads for all ad groups!');
     } catch (error) {
       console.error('Bulk ad generation error:', error);
