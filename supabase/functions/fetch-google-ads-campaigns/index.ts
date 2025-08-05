@@ -118,7 +118,10 @@ serve(async (req) => {
     
     console.log("🔍 STEP 2: Making campaign query with login-customer-id:", loginCustomerId);
     
-    // Campaign query
+    // Campaign query - using specific date range instead of DURING operator
+    const endDate = new Date().toISOString().split('T')[0];
+    const startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    
     const query = `
       SELECT
         campaign.id,
@@ -130,7 +133,7 @@ serve(async (req) => {
         metrics.ctr
       FROM campaign
       WHERE campaign.status = 'ENABLED'
-      AND segments.date DURING LAST_30_DAYS
+      AND segments.date BETWEEN '${startDate}' AND '${endDate}'
       ORDER BY metrics.cost_micros DESC
       LIMIT 50
     `;
