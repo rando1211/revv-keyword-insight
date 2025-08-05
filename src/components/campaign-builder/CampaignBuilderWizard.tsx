@@ -47,7 +47,7 @@ export const CampaignBuilderWizard: React.FC = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const [selectedKeywords, setSelectedKeywords] = useState<KeywordData[]>([]);
   const [campaignStructure, setCampaignStructure] = useState<AdGroup[]>([]);
-  const [campaignAds, setCampaignAds] = useState<any[]>([]);
+  const [campaignAds, setCampaignAds] = useState<{ [adGroupName: string]: any[] }>({});
   const [campaignSettings, setCampaignSettings] = useState<any>(null);
   const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
 
