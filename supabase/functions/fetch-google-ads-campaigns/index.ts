@@ -109,40 +109,44 @@ serve(async (req) => {
     // Step 1: Get MCC ID dynamically from listAccessibleCustomers
     console.log("🔍 STEP 1: Fetching accessible customers to get MCC ID");
     
-    const accessibleCustomersResponse = await fetch("https://googleads.googleapis.com/v18/customers:listAccessibleCustomers", {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "developer-token": DEVELOPER_TOKEN,
-      },
-    });
+    try {
+      const accessibleCustomersResponse = await fetch("https://googleads.googleapis.com/v18/customers:listAccessibleCustomers", {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "developer-token": DEVELOPER_TOKEN,
+        },
+      });
 
-    if (!accessibleCustomersResponse.ok) {
-      const errorText = await accessibleCustomersResponse.text();
-      console.error("❌ Failed to fetch accessible customers:", errorText);
-      throw new Error(`Failed to fetch accessible customers: ${errorText}`);
-    }
-
-    const accessibleCustomersData = await accessibleCustomersResponse.json();
-    console.log("🔍 Accessible customers response:", accessibleCustomersData);
-    
-    // Extract customer IDs from resource names
-    const customerIds = accessibleCustomersData.resourceNames?.map((resourceName: string) => 
-      resourceName.replace("customers/", "")
-    ) || [];
-    
-    console.log("🔍 Available customer IDs:", customerIds);
-    
-    // Find the MCC ID (the one that's NOT the current customer ID)
-    const mccId = customerIds.find((id: string) => id !== cleanCustomerId);
-    
-    if (!mccId) {
-      console.log("⚠️ No MCC found in accessible customers, using fallback");
-      var loginCustomerId = "9301596383";
-      console.log("🔄 Using fallback MCC:", loginCustomerId);
-    } else {
-      var loginCustomerId = mccId;
-      console.log("✅ Found MCC ID:", loginCustomerId);
+      console.log("🔍 listAccessibleCustomers response status:", accessibleCustomersResponse.status);
+      
+      if (!accessibleCustomersResponse.ok) {
+        const errorText = await accessibleCustomersResponse.text();
+        console.error("❌ Failed to fetch accessible customers:", errorText);
+        // Fallback to direct API call without MCC detection
+        console.log("🔄 Falling back to direct API call");
+      } else {
+        const accessibleCustomersData = await accessibleCustomersResponse.json();
+        console.log("🔍 Accessible customers response:", accessibleCustomersData);
+        
+        // Extract customer IDs from resource names
+        const customerIds = accessibleCustomersData.resourceNames?.map((resourceName: string) => 
+          resourceName.replace("customers/", "")
+        ) || [];
+        
+        console.log("🔍 Available customer IDs:", customerIds);
+        
+        // Find the MCC ID (the one that's NOT the current customer ID)
+        const mccId = customerIds.find((id: string) => id !== cleanCustomerId);
+        
+        if (mccId) {
+          var loginCustomerId = mccId;
+          console.log("✅ Found MCC ID:", loginCustomerId);
+        }
+      }
+    } catch (fetchError) {
+      console.error("🔥 Network error fetching accessible customers:", fetchError.message);
+      console.log("🔄 Continuing without MCC detection");
     }
     
     console.log("🔍 STEP 2: Making campaign query with login-customer-id:", loginCustomerId);
