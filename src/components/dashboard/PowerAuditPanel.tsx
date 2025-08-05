@@ -74,13 +74,20 @@ export const PowerAuditPanel = () => {
     }
 
     setIsAuditing(true);
+    
+    // Clear any previous audit results to ensure fresh data
+    setAuditResults(null);
+    
     try {
+      console.log('🔍 Starting Power Audit for account:', selectedAccountForAnalysis);
+      
       toast({
         title: "🔍 Starting Power Audit",
         description: `Analyzing ${selectedAccountForAnalysis.name} campaigns...`,
       });
 
-      // Fetch real campaign data
+      // Fetch real campaign data with logging
+      console.log('📡 Fetching campaigns for customerId:', selectedAccountForAnalysis.customerId);
       const { data: campaignResponse, error: campaignError } = await supabase.functions.invoke('fetch-google-ads-campaigns', {
         body: { customerId: selectedAccountForAnalysis.customerId, limit: 50 }
       });
