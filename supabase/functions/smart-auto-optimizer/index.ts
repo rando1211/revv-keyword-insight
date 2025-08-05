@@ -74,6 +74,7 @@ serve(async (req) => {
         metrics.impressions
       FROM search_term_view
       WHERE campaign.status = 'ENABLED'
+        AND ad_group.status = 'ENABLED'
         AND segments.date DURING LAST_30_DAYS
         AND metrics.cost_micros > 100000
         AND metrics.clicks > 0`;

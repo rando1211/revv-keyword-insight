@@ -57,10 +57,10 @@ serve(async (req) => {
       'Content-Type': 'application/json',
     };
 
-    // Try multiple search term queries with extensive debugging
+    // Try multiple search term queries with extensive debugging - ALL FILTERED FOR ACTIVE CAMPAIGNS/ADGROUPS
     const queries = [
       {
-        name: "Basic Search Terms",
+        name: "Basic Search Terms - Active Only",
         query: `
           SELECT
             search_term_view.search_term,
@@ -74,13 +74,16 @@ serve(async (req) => {
             metrics.cost_micros
           FROM search_term_view
           WHERE segments.date DURING LAST_30_DAYS
-          ${campaignId ? `AND campaign.id = ${campaignId}` : ''}
+            AND campaign.status = 'ENABLED'
+            AND ad_group.status = 'ENABLED'
+            AND metrics.clicks > 0
+            ${campaignId ? `AND campaign.id = ${campaignId}` : ''}
           ORDER BY metrics.clicks DESC
           LIMIT 50
         `
       },
       {
-        name: "Search Terms - No Date Filter",
+        name: "Search Terms - Active Campaigns Only",
         query: `
           SELECT
             search_term_view.search_term,
@@ -90,18 +93,25 @@ serve(async (req) => {
             metrics.conversions,
             metrics.cost_micros
           FROM search_term_view
-          ${campaignId ? `WHERE campaign.id = ${campaignId}` : ''}
+          WHERE campaign.status = 'ENABLED'
+            AND ad_group.status = 'ENABLED'
+            AND segments.date DURING LAST_30_DAYS
+            AND metrics.clicks > 0
+            ${campaignId ? `AND campaign.id = ${campaignId}` : ''}
           ORDER BY metrics.clicks DESC
           LIMIT 50
         `
       },
       {
-        name: "Search Terms - Simple",
+        name: "Search Terms - Fallback Active Only",
         query: `
           SELECT
             search_term_view.search_term,
             metrics.clicks
           FROM search_term_view
+          WHERE campaign.status = 'ENABLED'
+            AND ad_group.status = 'ENABLED'
+            AND metrics.clicks > 0
           LIMIT 20
         `
       }
