@@ -18,6 +18,10 @@ serve(async (req) => {
   const REFRESH_TOKEN = Deno.env.get("Refresh token");
 
   try {
+    // Parse request body first
+    const requestBody = await req.json();
+    const { customerId } = requestBody;
+    
     // Get user from JWT token
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
@@ -37,12 +41,6 @@ serve(async (req) => {
     console.log('🔍 DEBUG: Starting fetch-google-ads-campaigns function');
     console.log('🔍 DEBUG: User ID:', user.id);
     console.log('🔍 DEBUG: User email:', user.email);
-
-    // Customer ID comes from request body - no need to look up user credentials
-    // This function uses shared credentials like fetch-google-ads-accounts
-
-    console.log('🔍 DEBUG: Starting fetch-google-ads-campaigns function');
-    const { customerId } = await req.json();
     console.log('🔍 DEBUG: Received customerId:', customerId);
     
     // Handle different customer ID formats
