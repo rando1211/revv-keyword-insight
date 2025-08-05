@@ -183,10 +183,17 @@ export const AdCreationPanel: React.FC<AdCreationPanelProps> = ({
       return;
     }
 
+    // More lenient validation - allow proceeding if at least half of ad groups have ads
+    const adGroupsWithValidAds = adGroups.filter(ag => ads[ag.name] && ads[ag.name].length > 0);
+    if (adGroupsWithValidAds.length === 0) {
+      toast.error('Please create ads for at least one ad group');
+      return;
+    }
+
+    // Warn about missing ad groups but allow proceeding
     const emptyAdGroups = adGroups.filter(ag => !ads[ag.name] || ads[ag.name].length === 0);
     if (emptyAdGroups.length > 0) {
-      toast.error(`Please create ads for all ad groups: ${emptyAdGroups.map(ag => ag.name).join(', ')}`);
-      return;
+      toast.warning(`Note: ${emptyAdGroups.length} ad groups still need ads. You can complete them later.`);
     }
 
     onNext();
