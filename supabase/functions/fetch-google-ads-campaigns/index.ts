@@ -19,8 +19,18 @@ serve(async (req) => {
 
   try {
     // Parse request body first
-    const requestBody = await req.json();
+    let requestBody;
+    try {
+      requestBody = await req.json();
+    } catch (e) {
+      throw new Error('Invalid JSON in request body');
+    }
+    
     const { customerId } = requestBody;
+    
+    if (!customerId) {
+      throw new Error('customerId is required in request body');
+    }
     
     // Get user from JWT token
     const authHeader = req.headers.get('Authorization');
