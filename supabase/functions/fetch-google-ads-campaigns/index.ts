@@ -130,7 +130,7 @@ serve(async (req) => {
         metrics.ctr
       FROM campaign
       WHERE campaign.status = 'ENABLED'
-      AND segments.date DURING LAST_90_DAYS
+      AND segments.date DURING LAST_30_DAYS
       ORDER BY metrics.cost_micros DESC
       LIMIT 50
     `;
