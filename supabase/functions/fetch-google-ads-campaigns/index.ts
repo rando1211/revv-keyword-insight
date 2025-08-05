@@ -175,12 +175,18 @@ serve(async (req) => {
       console.log("🚀 Customer ID being used:", cleanCustomerId);
       console.log("🚀 Login Customer ID:", loginCustomerId);
 
-    // For personal accounts, try without login-customer-id first
+    // Build headers - include login-customer-id if we found an MCC
       const headers = {
         "Authorization": `Bearer ${accessToken}`,
         "developer-token": DEVELOPER_TOKEN,
         "Content-Type": "application/json"
       };
+      
+      // Add login-customer-id header if we detected an MCC
+      if (loginCustomerId) {
+        headers["login-customer-id"] = loginCustomerId;
+        console.log("✅ Added login-customer-id header:", loginCustomerId);
+      }
 
       const requestBody = JSON.stringify({ query });
 
