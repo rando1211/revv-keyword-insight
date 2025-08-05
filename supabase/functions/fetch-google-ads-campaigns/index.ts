@@ -11,6 +11,12 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Declare environment variables at top level for error handling access
+  const DEVELOPER_TOKEN = Deno.env.get("Developer Token");
+  const CLIENT_ID = Deno.env.get("Client ID");
+  const CLIENT_SECRET = Deno.env.get("Secret");
+  const REFRESH_TOKEN = Deno.env.get("Refresh token");
+
   try {
     // Get user from JWT token
     const authHeader = req.headers.get('Authorization');
@@ -66,14 +72,6 @@ serve(async (req) => {
     
     console.log('Clean customerId:', cleanCustomerId);
     console.log('Is MCC account?', cleanCustomerId === "9301596383");
-    
-    // Google Ads API configuration - use shared credentials
-    const DEVELOPER_TOKEN = Deno.env.get("Developer Token");
-    const CLIENT_ID = Deno.env.get("Client ID");
-    const CLIENT_SECRET = Deno.env.get("Secret");
-    const REFRESH_TOKEN = Deno.env.get("Refresh token");
-    const API_VERSION = "v18";
-    
     
     console.log('🔍 DEBUG: Getting access token using shared credentials');
     console.log('🔍 DEBUG: Available env vars:', {
