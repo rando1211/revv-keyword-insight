@@ -13,9 +13,6 @@ serve(async (req) => {
   }
 
   try {
-    // Get authorization header for Supabase client
-    const authHeader = req.headers.get('Authorization');
-    
     const { customerId } = await req.json();
     
     if (!customerId) {
@@ -72,8 +69,7 @@ serve(async (req) => {
     try {
       const supabase = createClient(
         Deno.env.get('SUPABASE_URL') ?? '',
-        Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-        { global: { headers: { Authorization: authHeader } } }
+        Deno.env.get('SUPABASE_ANON_KEY') ?? ''
       );
 
       const loginCustomerResponse = await supabase.functions.invoke('get-login-customer-id', {
