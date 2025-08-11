@@ -150,10 +150,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signInWithGoogle = async () => {
     console.log('🔍 Starting Google OAuth flow...');
     try {
+      // Use the current domain for redirect to avoid URL mismatch issues
+      const currentDomain = window.location.origin;
+      console.log('🔍 Current domain for redirect:', currentDomain);
+      
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/dashboard`,
+          redirectTo: `${currentDomain}/dashboard`,
           scopes: 'openid profile email https://www.googleapis.com/auth/adwords'
         }
       });
