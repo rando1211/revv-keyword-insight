@@ -95,77 +95,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   useEffect(() => {
-    let mounted = true;
-
-    const initAuth = async () => {
-      try {
-        // Clear any corrupted tokens
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.access_token) {
-          try {
-            await supabase.auth.getUser();
-          } catch {
-            await supabase.auth.signOut();
-            localStorage.clear();
-          }
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        setSession(session);
+        setUser(session?.user ?? null);
+        
+        if (session?.user) {
+          checkSubscription();
+          checkUserRole();
+        } else {
+          setSubscription(null);
+          setUserRole(null);
+          setIsAdmin(false);
         }
-      } catch {
-        await supabase.auth.signOut();
-        localStorage.clear();
+        setLoading(false);
       }
+    );
 
-      if (!mounted) return;
-
-      // Set up auth listener
-      const { data: { subscription } } = supabase.auth.onAuthStateChange(
-        async (event, session) => {
-          if (!mounted) return;
-          
-          setSession(session);
-          setUser(session?.user ?? null);
-          
-          if (session?.user) {
-            setTimeout(() => {
-              if (mounted) {
-                checkSubscription();
-                checkUserRole();
-              }
-            }, 100);
-          } else {
-            setSubscription(null);
-            setUserRole(null);
-            setIsAdmin(false);
-          }
-          setLoading(false);
-        }
-      );
-
-      // Check current session
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (mounted) {
-          setSession(session);
-          setUser(session?.user ?? null);
-          
-          if (session?.user) {
-            checkSubscription();
-            checkUserRole();
-          }
-          setLoading(false);
-        }
-      } catch {
-        if (mounted) setLoading(false);
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+      
+      if (session?.user) {
+        checkSubscription();
+        checkUserRole();
       }
+      setLoading(false);
+    });
 
-      return () => subscription.unsubscribe();
-    };
-
-    const cleanup = initAuth();
-    
-    return () => {
-      mounted = false;
-      cleanup.then(unsub => unsub?.());
-    };
+    return () => subscription.unsubscribe();
   }, []);
 
   const signUp = async (email: string, password: string) => {
