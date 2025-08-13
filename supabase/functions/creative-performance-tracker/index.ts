@@ -12,363 +12,324 @@ serve(async (req) => {
   }
 
   try {
-    const { customerId, optimizationId, timeframe = 'LAST_7_DAYS' } = await req.json();
+    console.log("📊 Starting creative performance tracking...");
+    
+    const { customerId, optimizationId, timeframe = 'LAST_7_DAYS', campaignIds } = await req.json();
     
     if (!customerId) {
-      return new Response(JSON.stringify({
-        success: false,
-        error: 'Customer ID is required'
-      }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
+      throw new Error('Missing required parameter: customerId');
     }
 
-    console.log(`📊 Tracking creative performance impact for customer: ${customerId}`);
-    console.log(`🎯 Optimization ID: ${optimizationId || 'general-analysis'}`);
-    console.log(`⏰ Timeframe: ${timeframe}`);
+    console.log(`📈 Tracking performance for customer ${customerId}`);
+    console.log(`🎯 Optimization ID: ${optimizationId}, Timeframe: ${timeframe}`);
 
-    // Get environment variables
+    // Get stored credentials
+    const developerToken = Deno.env.get('Developer Token');
+    const refreshToken = Deno.env.get('Refresh token');
     const clientId = Deno.env.get('Client ID');
     const clientSecret = Deno.env.get('Secret');
-    const refreshToken = Deno.env.get('Refresh token');
-    const developerToken = Deno.env.get('Developer Token');
 
-    if (!clientId || !clientSecret || !refreshToken || !developerToken) {
-      throw new Error('Missing required Google Ads API credentials');
+    if (!developerToken || !refreshToken || !clientId || !clientSecret) {
+      throw new Error('Missing Google Ads API credentials');
     }
 
     // Refresh access token
-    console.log('🔑 Refreshing OAuth token...');
+    console.log("🔑 Refreshing OAuth token...");
     const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
+        grant_type: 'refresh_token',
+        refresh_token: refreshToken,
         client_id: clientId,
         client_secret: clientSecret,
-        refresh_token: refreshToken,
-        grant_type: 'refresh_token',
       }),
     });
 
     if (!tokenResponse.ok) {
-      throw new Error(`OAuth token refresh failed: ${tokenResponse.statusText}`);
+      throw new Error(`Token refresh failed: ${await tokenResponse.text()}`);
     }
 
     const tokenData = await tokenResponse.json();
     const accessToken = tokenData.access_token;
-    console.log('✅ Fresh access token obtained');
+    console.log("✅ Fresh access token obtained");
 
-    // Clean customer ID
-    const cleanCustomerId = customerId.replace('customers/', '').replace(/-/g, '');
+    const headers = {
+      'Authorization': `Bearer ${accessToken}`,
+      'developer-token': developerToken,
+      'Content-Type': 'application/json',
+      'login-customer-id': customerId.replace('customers/', ''),
+    };
 
-    // Get comparative performance data
-    const currentPeriodQuery = `
-      SELECT
+    // Build campaign filter
+    let campaignFilter = '';
+    if (campaignIds && campaignIds.length > 0) {
+      const campaignResourceNames = campaignIds.map(id => `'${customerId}/campaigns/${id}'`).join(',');
+      campaignFilter = `AND campaign.resource_name IN (${campaignResourceNames})`;
+    }
+
+    // Fetch current performance data
+    const performanceQuery = `
+      SELECT 
         campaign.id,
         campaign.name,
         ad_group.id,
         ad_group.name,
         ad_group_ad.ad.id,
         ad_group_ad.ad.type,
-        ad_group_ad.status,
-        metrics.clicks,
+        ad_group_ad.ad.responsive_search_ad.headlines,
+        ad_group_ad.ad.responsive_search_ad.descriptions,
         metrics.impressions,
+        metrics.clicks,
         metrics.ctr,
         metrics.conversions,
         metrics.conversions_value,
         metrics.cost_micros,
         metrics.average_cpc,
         segments.date
-      FROM ad_group_ad
-      WHERE campaign.status = 'ENABLED'
-        AND ad_group.status = 'ENABLED'
+      FROM ad_group_ad 
+      WHERE 
+        segments.date DURING ${timeframe}
         AND ad_group_ad.ad.type = 'RESPONSIVE_SEARCH_AD'
-        AND segments.date DURING ${timeframe}
-      ORDER BY segments.date DESC
+        AND ad_group_ad.status = 'ENABLED'
+        ${campaignFilter}
+      ORDER BY segments.date DESC, metrics.impressions DESC
     `;
 
-    // Also get previous period for comparison
-    const previousTimeframe = timeframe === 'LAST_7_DAYS' ? 'LAST_14_DAYS' : 'LAST_60_DAYS';
-    const previousPeriodQuery = `
-      SELECT
-        campaign.id,
-        campaign.name,
-        ad_group.id,
-        ad_group.name,
-        ad_group_ad.ad.id,
-        metrics.clicks,
-        metrics.impressions,
-        metrics.ctr,
-        metrics.conversions,
-        metrics.conversions_value,
-        metrics.cost_micros,
-        segments.date
-      FROM ad_group_ad
-      WHERE campaign.status = 'ENABLED'
-        AND ad_group.status = 'ENABLED'
-        AND ad_group_ad.ad.type = 'RESPONSIVE_SEARCH_AD'
-        AND segments.date DURING ${previousTimeframe}
-        AND segments.date NOT DURING ${timeframe}
-      ORDER BY segments.date DESC
-    `;
-
-    console.log('📊 Fetching performance data...');
-
-    // Fetch current period data
-    const currentResponse = await fetch(`https://googleads.googleapis.com/v18/customers/${cleanCustomerId}/googleAds:search`, {
+    console.log("🔍 Fetching current performance data...");
+    const performanceResponse = await fetch(`https://googleads.googleapis.com/v16/customers/${customerId.replace('customers/', '')}/googleAds:searchStream`, {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'developer-token': developerToken,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ query: currentPeriodQuery }),
+      headers,
+      body: JSON.stringify({ query: performanceQuery })
     });
 
-    if (!currentResponse.ok) {
-      throw new Error(`Current period query failed: ${currentResponse.statusText}`);
+    if (!performanceResponse.ok) {
+      throw new Error(`Performance query failed: ${await performanceResponse.text()}`);
     }
 
-    const currentData = await currentResponse.json();
+    const performanceData = await performanceResponse.json();
+    console.log(`📊 Found performance data for ${performanceData.length || 0} ad variations`);
 
-    // Fetch previous period data
-    const previousResponse = await fetch(`https://googleads.googleapis.com/v18/customers/${cleanCustomerId}/googleAds:search`, {
+    // Calculate performance metrics
+    const trackingData = analyzePerformanceData(performanceData);
+
+    // Get historical data for comparison (previous period)
+    const historicalTimeframe = getHistoricalTimeframe(timeframe);
+    const historicalQuery = performanceQuery.replace(timeframe, historicalTimeframe);
+
+    console.log("📈 Fetching historical comparison data...");
+    const historicalResponse = await fetch(`https://googleads.googleapis.com/v16/customers/${customerId.replace('customers/', '')}/googleAds:searchStream`, {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'developer-token': developerToken,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ query: previousPeriodQuery }),
+      headers,
+      body: JSON.stringify({ query: historicalQuery })
     });
 
-    if (!previousResponse.ok) {
-      throw new Error(`Previous period query failed: ${previousResponse.statusText}`);
+    let historicalData = {};
+    if (historicalResponse.ok) {
+      const historical = await historicalResponse.json();
+      historicalData = analyzePerformanceData(historical);
+      console.log("✅ Historical data retrieved for comparison");
     }
 
-    const previousData = await previousResponse.json();
+    // Calculate optimization impact
+    const optimizationImpact = calculateOptimizationImpact(trackingData, historicalData);
 
-    // Process performance data
-    const currentPeriodMetrics = processPerformanceData(currentData.results || []);
-    const previousPeriodMetrics = processPerformanceData(previousData.results || []);
-
-    // Calculate performance changes
-    const performanceComparison = calculatePerformanceChanges(currentPeriodMetrics, previousPeriodMetrics);
-
-    // Generate daily trend data
-    const dailyTrends = generateDailyTrends(currentData.results || []);
-
-    // Calculate optimization impact score
-    const optimizationImpact = calculateOptimizationImpact(performanceComparison);
-
-    console.log('📈 Creative performance tracking complete');
+    // Generate performance insights
+    const insights = generatePerformanceInsights(trackingData, optimizationImpact);
 
     return new Response(JSON.stringify({
       success: true,
       tracking_data: {
-        optimization_id: optimizationId,
-        timeframe: timeframe,
-        current_period: currentPeriodMetrics,
-        previous_period: previousPeriodMetrics,
-        performance_comparison: performanceComparison,
-        daily_trends: dailyTrends,
+        current_performance: trackingData,
+        historical_performance: historicalData,
         optimization_impact: optimizationImpact,
-        summary: {
-          total_ads_tracked: currentPeriodMetrics.total_ads,
-          performance_direction: performanceComparison.overall_trend,
-          key_improvements: identifyKeyImprovements(performanceComparison),
-          areas_for_attention: identifyAreasForAttention(performanceComparison)
-        }
-      },
-      timestamp: new Date().toISOString()
+        insights,
+        timeframe,
+        campaigns_tracked: campaignIds?.length || 'all',
+        last_updated: new Date().toISOString()
+      }
     }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
   } catch (error) {
-    console.error('❌ Error tracking creative performance:', error);
+    console.error('❌ Error in creative performance tracking:', error);
     return new Response(JSON.stringify({
       success: false,
-      error: error.message || 'Failed to track creative performance'
+      error: error.message
     }), {
       status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 });
 
-function processPerformanceData(results) {
-  const metrics = {
-    total_ads: 0,
-    total_clicks: 0,
-    total_impressions: 0,
-    total_conversions: 0,
-    total_cost: 0,
-    total_conversion_value: 0,
-    campaigns: new Set(),
-    ad_groups: new Set(),
-    daily_data: {}
-  };
+function analyzePerformanceData(data: any[]) {
+  if (!data || !Array.isArray(data)) {
+    return {
+      total_impressions: 0,
+      total_clicks: 0,
+      total_conversions: 0,
+      total_cost: 0,
+      average_ctr: 0,
+      average_cpc: 0,
+      conversion_rate: 0,
+      ads_count: 0
+    };
+  }
 
-  results.forEach(result => {
-    const adMetrics = result.metrics;
-    const date = result.segments?.date;
-    
-    metrics.total_ads++;
-    metrics.total_clicks += parseInt(adMetrics.clicks || '0');
-    metrics.total_impressions += parseInt(adMetrics.impressions || '0');
-    metrics.total_conversions += parseFloat(adMetrics.conversions || '0');
-    metrics.total_cost += (adMetrics.costMicros || 0) / 1000000;
-    metrics.total_conversion_value += parseFloat(adMetrics.conversionsValue || '0');
-    
-    metrics.campaigns.add(result.campaign.id);
-    metrics.ad_groups.add(result.adGroup.id);
-
-    if (date) {
-      if (!metrics.daily_data[date]) {
-        metrics.daily_data[date] = {
-          clicks: 0,
-          impressions: 0,
-          conversions: 0,
-          cost: 0
-        };
-      }
-      metrics.daily_data[date].clicks += parseInt(adMetrics.clicks || '0');
-      metrics.daily_data[date].impressions += parseInt(adMetrics.impressions || '0');
-      metrics.daily_data[date].conversions += parseFloat(adMetrics.conversions || '0');
-      metrics.daily_data[date].cost += (adMetrics.costMicros || 0) / 1000000;
-    }
-  });
-
-  // Calculate derived metrics
-  metrics.avg_ctr = metrics.total_impressions > 0 ? metrics.total_clicks / metrics.total_impressions : 0;
-  metrics.avg_conversion_rate = metrics.total_clicks > 0 ? metrics.total_conversions / metrics.total_clicks : 0;
-  metrics.avg_cpc = metrics.total_clicks > 0 ? metrics.total_cost / metrics.total_clicks : 0;
-  metrics.avg_cost_per_conversion = metrics.total_conversions > 0 ? metrics.total_cost / metrics.total_conversions : 0;
-  metrics.roas = metrics.total_cost > 0 ? metrics.total_conversion_value / metrics.total_cost : 0;
-
-  // Convert sets to counts
-  metrics.unique_campaigns = metrics.campaigns.size;
-  metrics.unique_ad_groups = metrics.ad_groups.size;
-
-  return metrics;
-}
-
-function calculatePerformanceChanges(current, previous) {
-  const changes = {};
-  
-  const calculateChange = (currentVal, previousVal) => {
-    if (previousVal === 0) return currentVal > 0 ? 100 : 0;
-    return ((currentVal - previousVal) / previousVal) * 100;
-  };
-
-  changes.ctr_change = calculateChange(current.avg_ctr, previous.avg_ctr);
-  changes.conversion_rate_change = calculateChange(current.avg_conversion_rate, previous.avg_conversion_rate);
-  changes.cpc_change = calculateChange(current.avg_cpc, previous.avg_cpc);
-  changes.cost_per_conversion_change = calculateChange(current.avg_cost_per_conversion, previous.avg_cost_per_conversion);
-  changes.roas_change = calculateChange(current.roas, previous.roas);
-  changes.clicks_change = calculateChange(current.total_clicks, previous.total_clicks);
-  changes.impressions_change = calculateChange(current.total_impressions, previous.total_impressions);
-  changes.conversions_change = calculateChange(current.total_conversions, previous.total_conversions);
-
-  // Determine overall trend
-  const positiveChanges = [
-    changes.ctr_change > 0,
-    changes.conversion_rate_change > 0,
-    changes.roas_change > 0,
-    changes.conversions_change > 0
-  ].filter(Boolean).length;
-
-  changes.overall_trend = positiveChanges >= 3 ? 'improving' : positiveChanges >= 2 ? 'mixed' : 'declining';
-
-  return changes;
-}
-
-function generateDailyTrends(results) {
-  const dailyData = {};
-  
-  results.forEach(result => {
-    const date = result.segments?.date;
-    const metrics = result.metrics;
-    
-    if (date) {
-      if (!dailyData[date]) {
-        dailyData[date] = {
-          date,
-          clicks: 0,
-          impressions: 0,
-          conversions: 0,
-          cost: 0,
-          ctr: 0,
-          conversion_rate: 0
-        };
-      }
-      
-      dailyData[date].clicks += parseInt(metrics.clicks || '0');
-      dailyData[date].impressions += parseInt(metrics.impressions || '0');
-      dailyData[date].conversions += parseFloat(metrics.conversions || '0');
-      dailyData[date].cost += (metrics.costMicros || 0) / 1000000;
-    }
-  });
-
-  // Calculate daily CTR and conversion rates
-  Object.values(dailyData).forEach(day => {
-    day.ctr = day.impressions > 0 ? (day.clicks / day.impressions * 100) : 0;
-    day.conversion_rate = day.clicks > 0 ? (day.conversions / day.clicks * 100) : 0;
-  });
-
-  return Object.values(dailyData).sort((a, b) => a.date.localeCompare(b.date));
-}
-
-function calculateOptimizationImpact(changes) {
-  let impactScore = 0;
-  let impactLevel = 'minimal';
-
-  // Weight different metrics by importance
-  const weights = {
-    ctr_change: 0.25,
-    conversion_rate_change: 0.35,
-    roas_change: 0.30,
-    cost_per_conversion_change: -0.10 // Negative because lower is better
-  };
-
-  Object.entries(weights).forEach(([metric, weight]) => {
-    const change = changes[metric] || 0;
-    impactScore += change * weight;
-  });
-
-  if (impactScore > 20) impactLevel = 'excellent';
-  else if (impactScore > 10) impactLevel = 'good';
-  else if (impactScore > 5) impactLevel = 'moderate';
-  else if (impactScore > 0) impactLevel = 'slight';
-  else impactLevel = 'negative';
+  const totals = data.reduce((acc, row) => {
+    const metrics = row.metrics || {};
+    return {
+      impressions: acc.impressions + (parseInt(metrics.impressions) || 0),
+      clicks: acc.clicks + (parseInt(metrics.clicks) || 0),
+      conversions: acc.conversions + (parseFloat(metrics.conversions) || 0),
+      cost: acc.cost + (parseInt(metrics.cost_micros) || 0),
+      ads: acc.ads + 1
+    };
+  }, { impressions: 0, clicks: 0, conversions: 0, cost: 0, ads: 0 });
 
   return {
-    impact_score: Math.round(impactScore * 100) / 100,
-    impact_level: impactLevel,
-    confidence: Math.min(95, Math.max(60, 75 + Math.abs(impactScore)))
+    total_impressions: totals.impressions,
+    total_clicks: totals.clicks,
+    total_conversions: totals.conversions,
+    total_cost: totals.cost / 1000000, // Convert from micros
+    average_ctr: totals.impressions > 0 ? (totals.clicks / totals.impressions) * 100 : 0,
+    average_cpc: totals.clicks > 0 ? (totals.cost / 1000000) / totals.clicks : 0,
+    conversion_rate: totals.clicks > 0 ? (totals.conversions / totals.clicks) * 100 : 0,
+    ads_count: totals.ads,
+    daily_breakdown: generateDailyBreakdown(data)
   };
 }
 
-function identifyKeyImprovements(changes) {
-  const improvements = [];
+function calculateOptimizationImpact(current: any, historical: any) {
+  if (!historical.total_impressions) {
+    return {
+      ctr_change: null,
+      conversion_rate_change: null,
+      cost_change: null,
+      efficiency_improvement: null,
+      message: 'No historical data available for comparison'
+    };
+  }
+
+  const ctrChange = current.average_ctr - historical.average_ctr;
+  const conversionRateChange = current.conversion_rate - historical.conversion_rate;
+  const costChange = current.average_cpc - historical.average_cpc;
   
-  if (changes.ctr_change > 5) improvements.push('CTR improved significantly');
-  if (changes.conversion_rate_change > 10) improvements.push('Conversion rate increased substantially');
-  if (changes.roas_change > 15) improvements.push('Return on ad spend improved');
-  if (changes.cost_per_conversion_change < -10) improvements.push('Cost per conversion decreased');
-  
-  return improvements.length > 0 ? improvements : ['Performance tracking in progress'];
+  const efficiencyImprovement = historical.average_cpc > 0 
+    ? ((historical.average_cpc - current.average_cpc) / historical.average_cpc) * 100
+    : 0;
+
+  return {
+    ctr_change: {
+      absolute: ctrChange,
+      percentage: historical.average_ctr > 0 ? (ctrChange / historical.average_ctr) * 100 : 0
+    },
+    conversion_rate_change: {
+      absolute: conversionRateChange,
+      percentage: historical.conversion_rate > 0 ? (conversionRateChange / historical.conversion_rate) * 100 : 0
+    },
+    cost_change: {
+      absolute: costChange,
+      percentage: historical.average_cpc > 0 ? (costChange / historical.average_cpc) * 100 : 0
+    },
+    efficiency_improvement,
+    overall_impact: categorizeImpact(ctrChange, conversionRateChange, efficiencyImprovement)
+  };
 }
 
-function identifyAreasForAttention(changes) {
-  const areas = [];
+function generatePerformanceInsights(trackingData: any, impact: any) {
+  const insights = [];
+
+  // CTR insights
+  if (trackingData.average_ctr > 2.0) {
+    insights.push({
+      type: 'success',
+      title: 'Strong CTR Performance',
+      description: `Current CTR of ${trackingData.average_ctr.toFixed(2)}% is above industry average`,
+      recommendation: 'Continue monitoring and consider testing new variations'
+    });
+  } else if (trackingData.average_ctr < 1.0) {
+    insights.push({
+      type: 'warning',
+      title: 'Low CTR Detected',
+      description: `CTR of ${trackingData.average_ctr.toFixed(2)}% indicates creative fatigue`,
+      recommendation: 'Consider refreshing ad copy and testing new themes'
+    });
+  }
+
+  // Conversion rate insights
+  if (trackingData.conversion_rate > 3.0) {
+    insights.push({
+      type: 'success',
+      title: 'Excellent Conversion Rate',
+      description: `${trackingData.conversion_rate.toFixed(2)}% conversion rate shows strong ad relevance`,
+      recommendation: 'Scale successful creatives and replicate winning themes'
+    });
+  }
+
+  // Impact insights
+  if (impact.ctr_change && impact.ctr_change.percentage > 10) {
+    insights.push({
+      type: 'success',
+      title: 'Optimization Success',
+      description: `CTR improved by ${impact.ctr_change.percentage.toFixed(1)}% after optimization`,
+      recommendation: 'Apply similar optimizations to other campaigns'
+    });
+  }
+
+  return insights;
+}
+
+function generateDailyBreakdown(data: any[]) {
+  const dailyData = {};
   
-  if (changes.ctr_change < -5) areas.push('CTR declining - review creative relevance');
-  if (changes.conversion_rate_change < -10) areas.push('Conversion rate dropping - check landing page alignment');
-  if (changes.cost_per_conversion_change > 20) areas.push('Cost per conversion increasing - optimize targeting');
-  if (changes.roas_change < -15) areas.push('ROAS declining - review bid strategy');
+  data.forEach(row => {
+    const date = row.segments?.date || 'unknown';
+    const metrics = row.metrics || {};
+    
+    if (!dailyData[date]) {
+      dailyData[date] = {
+        impressions: 0,
+        clicks: 0,
+        conversions: 0,
+        cost: 0
+      };
+    }
+    
+    dailyData[date].impressions += parseInt(metrics.impressions) || 0;
+    dailyData[date].clicks += parseInt(metrics.clicks) || 0;
+    dailyData[date].conversions += parseFloat(metrics.conversions) || 0;
+    dailyData[date].cost += (parseInt(metrics.cost_micros) || 0) / 1000000;
+  });
+
+  return Object.entries(dailyData).map(([date, metrics]) => ({
+    date,
+    ...metrics,
+    ctr: metrics.impressions > 0 ? (metrics.clicks / metrics.impressions) * 100 : 0
+  }));
+}
+
+function getHistoricalTimeframe(currentTimeframe: string): string {
+  const timeframeMap = {
+    'LAST_7_DAYS': 'LAST_14_DAYS',
+    'LAST_14_DAYS': 'LAST_30_DAYS', 
+    'LAST_30_DAYS': 'LAST_60_DAYS',
+    'LAST_90_DAYS': 'LAST_180_DAYS'
+  };
   
-  return areas.length > 0 ? areas : ['No critical areas identified'];
+  return timeframeMap[currentTimeframe] || 'LAST_30_DAYS';
+}
+
+function categorizeImpact(ctrChange: number, conversionChange: number, efficiencyImprovement: number): string {
+  if (ctrChange > 0.5 && conversionChange > 0.5 && efficiencyImprovement > 5) {
+    return 'EXCELLENT';
+  } else if (ctrChange > 0.2 || conversionChange > 0.2 || efficiencyImprovement > 2) {
+    return 'GOOD';
+  } else if (ctrChange < -0.5 || conversionChange < -0.5 || efficiencyImprovement < -5) {
+    return 'POOR';
+  } else {
+    return 'NEUTRAL';
+  }
 }

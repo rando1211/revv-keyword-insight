@@ -12,346 +12,286 @@ serve(async (req) => {
   }
 
   try {
+    console.log("🚀 Starting creative optimization execution...");
+    
     const { customerId, optimizations, executeMode = 'PREVIEW' } = await req.json();
     
-    if (!customerId || !optimizations || optimizations.length === 0) {
-      return new Response(JSON.stringify({
-        success: false,
-        error: 'Customer ID and optimizations are required'
-      }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
+    if (!customerId || !optimizations || !Array.isArray(optimizations)) {
+      throw new Error('Missing required parameters: customerId and optimizations array');
     }
 
-    console.log(`🎨 Processing ${optimizations.length} creative optimizations for customer: ${customerId}`);
-    console.log(`📋 Execute mode: ${executeMode}`);
+    console.log(`📊 Processing ${optimizations.length} optimizations for customer ${customerId}`);
+    console.log(`🔧 Execute mode: ${executeMode}`);
 
-    // Get environment variables
+    // Get stored credentials
+    const developerToken = Deno.env.get('Developer Token');
+    const refreshToken = Deno.env.get('Refresh token');
     const clientId = Deno.env.get('Client ID');
     const clientSecret = Deno.env.get('Secret');
-    const refreshToken = Deno.env.get('Refresh token');
-    const developerToken = Deno.env.get('Developer Token');
 
-    if (!clientId || !clientSecret || !refreshToken || !developerToken) {
-      throw new Error('Missing required Google Ads API credentials');
+    if (!developerToken || !refreshToken || !clientId || !clientSecret) {
+      throw new Error('Missing Google Ads API credentials');
     }
 
     // Refresh access token
-    console.log('🔑 Refreshing OAuth token...');
+    console.log("🔑 Refreshing OAuth token...");
     const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
+        grant_type: 'refresh_token',
+        refresh_token: refreshToken,
         client_id: clientId,
         client_secret: clientSecret,
-        refresh_token: refreshToken,
-        grant_type: 'refresh_token',
       }),
     });
 
     if (!tokenResponse.ok) {
-      throw new Error(`OAuth token refresh failed: ${tokenResponse.statusText}`);
+      throw new Error(`Token refresh failed: ${await tokenResponse.text()}`);
     }
 
     const tokenData = await tokenResponse.json();
     const accessToken = tokenData.access_token;
-    console.log('✅ Fresh access token obtained');
+    console.log("✅ Fresh access token obtained");
 
-    // Clean customer ID
-    const cleanCustomerId = customerId.replace('customers/', '').replace(/-/g, '');
+    const headers = {
+      'Authorization': `Bearer ${accessToken}`,
+      'developer-token': developerToken,
+      'Content-Type': 'application/json',
+      'login-customer-id': customerId.replace('customers/', ''),
+    };
 
     const results = [];
     let executed = 0;
-    let failed = 0;
+    let skipped = 0;
+    let errors = 0;
 
     for (const optimization of optimizations) {
+      console.log(`⚙️ Processing optimization: ${optimization.type} - ${optimization.title}`);
+      
       try {
-        console.log(`🔧 Processing ${optimization.type} optimization: ${optimization.action}`);
-        
-        let result = { 
-          optimization_id: optimization.id, 
-          type: optimization.type,
-          action: optimization.action,
-          status: 'preview',
-          details: {}
-        };
+        if (executeMode === 'PREVIEW') {
+          results.push({
+            id: optimization.id,
+            type: optimization.type,
+            status: 'PREVIEW',
+            action: 'Would be executed',
+            details: optimization.description
+          });
+          continue;
+        }
 
-        switch (optimization.action) {
+        switch (optimization.type) {
           case 'pause_creative':
-            result = await pauseCreative(cleanCustomerId, optimization, accessToken, developerToken, executeMode);
+            await pauseCreative(headers, customerId, optimization);
+            executed++;
+            results.push({
+              id: optimization.id,
+              type: optimization.type,
+              status: 'EXECUTED',
+              action: 'Paused low-performing creative',
+              details: `Paused creative in ad group ${optimization.adGroupId}`
+            });
             break;
-            
+
           case 'add_new_creative':
-            result = await addNewCreative(cleanCustomerId, optimization, accessToken, developerToken, executeMode);
+            await addNewCreative(headers, customerId, optimization);
+            executed++;
+            results.push({
+              id: optimization.id,
+              type: optimization.type,
+              status: 'EXECUTED',
+              action: 'Added new RSA creative',
+              details: `Added ${optimization.newHeadlines?.length || 0} headlines and ${optimization.newDescriptions?.length || 0} descriptions`
+            });
             break;
-            
-          case 'update_creative_rotation':
-            result = await updateCreativeRotation(cleanCustomerId, optimization, accessToken, developerToken, executeMode);
+
+          case 'adjust_rotation':
+            await adjustCreativeRotation(headers, customerId, optimization);
+            executed++;
+            results.push({
+              id: optimization.id,
+              type: optimization.type,
+              status: 'EXECUTED',
+              action: 'Adjusted creative rotation',
+              details: `Updated rotation settings for ad group ${optimization.adGroupId}`
+            });
             break;
-            
-          case 'replace_asset':
-            result = await replaceAsset(cleanCustomerId, optimization, accessToken, developerToken, executeMode);
-            break;
-            
-          case 'adjust_ad_strength':
-            result = await adjustAdStrength(cleanCustomerId, optimization, accessToken, developerToken, executeMode);
-            break;
-            
+
           default:
-            result.status = 'skipped';
-            result.details.reason = 'Unknown optimization action';
+            console.log(`⚠️ Unknown optimization type: ${optimization.type}`);
+            skipped++;
+            results.push({
+              id: optimization.id,
+              type: optimization.type,
+              status: 'SKIPPED',
+              action: 'Unknown optimization type',
+              details: 'This optimization type is not supported'
+            });
         }
-
-        results.push(result);
-        
-        if (result.status === 'executed') {
-          executed++;
-        } else if (result.status === 'failed') {
-          failed++;
-        }
-
       } catch (error) {
-        console.error(`❌ Failed to process optimization ${optimization.id}:`, error);
+        console.error(`❌ Error executing optimization ${optimization.id}:`, error);
+        errors++;
         results.push({
-          optimization_id: optimization.id,
-          status: 'failed',
-          error: error.message,
-          details: {}
+          id: optimization.id,
+          type: optimization.type,
+          status: 'ERROR',
+          action: 'Failed to execute',
+          details: error.message
         });
-        failed++;
       }
     }
 
     const summary = {
-      total_optimizations: optimizations.length,
-      executed: executed,
-      failed: failed,
-      previewed: results.filter(r => r.status === 'preview').length,
-      execute_mode: executeMode
+      total: optimizations.length,
+      executed,
+      skipped,
+      errors,
+      mode: executeMode
     };
 
-    console.log(`✅ Creative optimization processing complete: ${executed} executed, ${failed} failed`);
+    console.log(`✅ Optimization execution complete:`, summary);
 
     return new Response(JSON.stringify({
       success: true,
-      results: results,
-      summary: summary,
-      timestamp: new Date().toISOString()
+      summary,
+      results,
+      message: executeMode === 'PREVIEW' 
+        ? `Preview: ${optimizations.length} optimizations ready for execution`
+        : `Successfully executed ${executed} optimizations`
     }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
   } catch (error) {
-    console.error('❌ Error executing creative optimizations:', error);
+    console.error('❌ Error in creative optimization execution:', error);
     return new Response(JSON.stringify({
       success: false,
-      error: error.message || 'Failed to execute creative optimizations'
+      error: error.message
     }), {
       status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 });
 
-// Helper functions for different optimization actions
-async function pauseCreative(customerId, optimization, accessToken, developerToken, executeMode) {
-  const result = {
-    optimization_id: optimization.id,
-    type: 'pause_creative',
-    action: 'pause_creative',
-    status: executeMode === 'EXECUTE' ? 'executed' : 'preview',
-    details: {
-      creative_id: optimization.creativeId,
-      reason: optimization.reason || 'Poor performance',
-      impact: 'Reduced wasted spend on underperforming creative'
-    }
-  };
+async function pauseCreative(headers: any, customerId: string, optimization: any) {
+  console.log(`⏸️ Pausing creative ${optimization.creativeId}`);
+  
+  // Update ad status to PAUSED
+  const query = `
+    UPDATE ads SET
+      status = 'PAUSED'
+    WHERE 
+      ads.resource_name = '${customerId}/ads/${optimization.creativeId}'
+  `;
 
-  if (executeMode === 'EXECUTE') {
-    // Build the mutation for pausing ad
-    const mutation = {
-      operations: [{
-        update: {
-          resource_name: `customers/${customerId}/adGroupAds/${optimization.adGroupId}~${optimization.creativeId}`,
-          status: 'PAUSED'
-        },
-        update_mask: {
-          paths: ['status']
+  const mutateResponse = await fetch(`https://googleads.googleapis.com/v16/customers/${customerId.replace('customers/', '')}/googleAds:mutate`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      mutateOperations: [{
+        adOperation: {
+          update: {
+            resourceName: `${customerId}/ads/${optimization.creativeId}`,
+            status: 'PAUSED'
+          },
+          updateMask: 'status'
         }
       }]
-    };
+    })
+  });
 
-    const response = await fetch(`https://googleads.googleapis.com/v18/customers/${customerId}/adGroupAds:mutate`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'developer-token': developerToken,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(mutation),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to pause creative: ${response.statusText}`);
-    }
-
-    const data = await response.json();
-    result.details.google_ads_response = data;
-    console.log(`✅ Paused creative ${optimization.creativeId}`);
+  if (!mutateResponse.ok) {
+    const errorText = await mutateResponse.text();
+    throw new Error(`Failed to pause creative: ${errorText}`);
   }
 
-  return result;
+  console.log(`✅ Creative ${optimization.creativeId} paused successfully`);
 }
 
-async function addNewCreative(customerId, optimization, accessToken, developerToken, executeMode) {
-  const result = {
-    optimization_id: optimization.id,
-    type: 'add_new_creative',
-    action: 'add_new_creative',
-    status: executeMode === 'EXECUTE' ? 'executed' : 'preview',
-    details: {
-      ad_group_id: optimization.adGroupId,
-      new_headlines: optimization.newHeadlines || [],
-      new_descriptions: optimization.newDescriptions || [],
-      predicted_impact: 'Improved CTR and conversion rate'
-    }
-  };
+async function addNewCreative(headers: any, customerId: string, optimization: any) {
+  console.log(`➕ Adding new RSA creative to ad group ${optimization.adGroupId || 'default'}`);
+  
+  // Create new RSA with provided headlines and descriptions
+  const headlines = optimization.newHeadlines || ['New Headline 1', 'New Headline 2', 'New Headline 3'];
+  const descriptions = optimization.newDescriptions || ['New description showcasing benefits', 'Contact us today for more information'];
+  
+  const headlineAssets = headlines.map(text => ({
+    text,
+    pinnedField: 'UNSPECIFIED'
+  }));
+  
+  const descriptionAssets = descriptions.map(text => ({
+    text,
+    pinnedField: 'UNSPECIFIED'
+  }));
 
-  if (executeMode === 'EXECUTE') {
-    // Build responsive search ad
-    const newAd = {
+  const newAd = {
+    adGroupAd: {
+      adGroup: optimization.adGroupId || `${customerId}/adGroups/default`,
       ad: {
-        responsive_search_ad: {
-          headlines: optimization.newHeadlines?.map(h => ({ text: h, pinned_field: 'UNSPECIFIED' })) || [],
-          descriptions: optimization.newDescriptions?.map(d => ({ text: d, pinned_field: 'UNSPECIFIED' })) || []
+        type: 'RESPONSIVE_SEARCH_AD',
+        responsiveSearchAd: {
+          headlines: headlineAssets,
+          descriptions: descriptionAssets,
+          path1: '',
+          path2: ''
         },
-        final_urls: optimization.finalUrls || ['https://example.com']
+        finalUrls: optimization.finalUrls || ['https://example.com']
       },
-      ad_group: `customers/${customerId}/adGroups/${optimization.adGroupId}`,
       status: 'ENABLED'
-    };
-
-    const mutation = {
-      operations: [{
-        create: newAd
-      }]
-    };
-
-    const response = await fetch(`https://googleads.googleapis.com/v18/customers/${customerId}/adGroupAds:mutate`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'developer-token': developerToken,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(mutation),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to create new creative: ${response.statusText}`);
-    }
-
-    const data = await response.json();
-    result.details.google_ads_response = data;
-    console.log(`✅ Created new creative in ad group ${optimization.adGroupId}`);
-  }
-
-  return result;
-}
-
-async function updateCreativeRotation(customerId, optimization, accessToken, developerToken, executeMode) {
-  const result = {
-    optimization_id: optimization.id,
-    type: 'update_creative_rotation',
-    action: 'update_creative_rotation',
-    status: executeMode === 'EXECUTE' ? 'executed' : 'preview',
-    details: {
-      ad_group_id: optimization.adGroupId,
-      rotation_mode: optimization.rotationMode || 'OPTIMIZE',
-      impact: 'Improved ad rotation for better performance'
     }
   };
 
-  if (executeMode === 'EXECUTE') {
-    const mutation = {
-      operations: [{
-        update: {
-          resource_name: `customers/${customerId}/adGroups/${optimization.adGroupId}`,
-          ad_rotation: {
-            ad_rotation_mode: optimization.rotationMode || 'OPTIMIZE'
-          }
-        },
-        update_mask: {
-          paths: ['ad_rotation.ad_rotation_mode']
+  const mutateResponse = await fetch(`https://googleads.googleapis.com/v16/customers/${customerId.replace('customers/', '')}/googleAds:mutate`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      mutateOperations: [{
+        adGroupAdOperation: {
+          create: newAd.adGroupAd
         }
       }]
-    };
+    })
+  });
 
-    const response = await fetch(`https://googleads.googleapis.com/v18/customers/${customerId}/adGroups:mutate`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'developer-token': developerToken,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(mutation),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to update creative rotation: ${response.statusText}`);
-    }
-
-    const data = await response.json();
-    result.details.google_ads_response = data;
-    console.log(`✅ Updated creative rotation for ad group ${optimization.adGroupId}`);
+  if (!mutateResponse.ok) {
+    const errorText = await mutateResponse.text();
+    throw new Error(`Failed to create new creative: ${errorText}`);
   }
 
-  return result;
+  console.log(`✅ New RSA creative added successfully`);
 }
 
-async function replaceAsset(customerId, optimization, accessToken, developerToken, executeMode) {
-  const result = {
-    optimization_id: optimization.id,
-    type: 'replace_asset',
-    action: 'replace_asset',
-    status: executeMode === 'EXECUTE' ? 'executed' : 'preview',
-    details: {
-      asset_type: optimization.assetType,
-      old_text: optimization.oldText,
-      new_text: optimization.newText,
-      impact: 'Improved relevance and performance'
+async function adjustCreativeRotation(headers: any, customerId: string, optimization: any) {
+  console.log(`🔄 Adjusting creative rotation for ad group ${optimization.adGroupId}`);
+  
+  // Update ad group rotation settings
+  const rotationUpdate = {
+    adGroup: {
+      resourceName: optimization.adGroupId,
+      adRotationMode: 'OPTIMIZE' // or 'ROTATE_INDEFINITELY'
     }
   };
 
-  if (executeMode === 'EXECUTE') {
-    // This would require getting the current ad, modifying the specific asset, and updating
-    // For now, we'll simulate the process
-    console.log(`✅ Would replace ${optimization.assetType} asset in creative ${optimization.creativeId}`);
-    result.details.simulation = true;
-    result.details.note = 'Asset replacement requires ad recreation - use add_new_creative with updated assets';
+  const mutateResponse = await fetch(`https://googleads.googleapis.com/v16/customers/${customerId.replace('customers/', '')}/googleAds:mutate`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      mutateOperations: [{
+        adGroupOperation: {
+          update: rotationUpdate.adGroup,
+          updateMask: 'adRotationMode'
+        }
+      }]
+    })
+  });
+
+  if (!mutateResponse.ok) {
+    const errorText = await mutateResponse.text();
+    throw new Error(`Failed to adjust rotation: ${errorText}`);
   }
 
-  return result;
-}
-
-async function adjustAdStrength(customerId, optimization, accessToken, developerToken, executeMode) {
-  const result = {
-    optimization_id: optimization.id,
-    type: 'adjust_ad_strength',
-    action: 'adjust_ad_strength',
-    status: executeMode === 'EXECUTE' ? 'executed' : 'preview',
-    details: {
-      target_strength: optimization.targetStrength || 'EXCELLENT',
-      recommendations: optimization.recommendations || [],
-      impact: 'Improved ad strength and performance potential'
-    }
-  };
-
-  // Ad strength is determined by the number and diversity of assets
-  // This would involve adding more headlines/descriptions to reach target strength
-  console.log(`✅ Ad strength optimization planned for ${optimization.targetStrength} strength`);
-  result.details.note = 'Ad strength improved through asset diversity recommendations';
-
-  return result;
+  console.log(`✅ Creative rotation updated successfully`);
 }

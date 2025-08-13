@@ -269,10 +269,16 @@ export const CreativesAnalysisUI = ({ customerId, campaignIds, onBack }: Creativ
       {/* Header & Controls */}
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-lg font-semibold">Creative Performance Analysis v2.0</h3>
+          <h3 className="text-lg font-semibold">Campaign-Specific Creative Optimization Engine</h3>
           <p className="text-muted-foreground">
-            {campaignIds ? `${campaignIds.length} campaigns selected` : 'Top performing ads only'} • Focused analysis mode
+            {campaignIds ? `${campaignIds.length} campaigns selected • Campaign-focused analysis` : 'Top performing ads • Strategic optimization mode'}
           </p>
+          <div className="flex items-center gap-2 mt-1">
+            <Badge variant="outline" className="text-xs">
+              {campaignIds ? 'Campaign-Specific' : 'Cross-Campaign Analysis'}
+            </Badge>
+            <Badge variant="secondary" className="text-xs">v2.0</Badge>
+          </div>
         </div>
         {onBack && (
           <Button variant="outline" onClick={onBack}>
@@ -286,8 +292,11 @@ export const CreativesAnalysisUI = ({ customerId, campaignIds, onBack }: Creativ
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Brain className="h-5 w-5" />
-            Smart Analysis Configuration v2.0
+            Campaign Creative Intelligence
           </CardTitle>
+          <CardDescription>
+            {campaignIds ? 'Analyzing creative performance for selected campaigns with competitive insights' : 'Cross-campaign creative analysis with strategic recommendations'}
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -346,10 +355,10 @@ export const CreativesAnalysisUI = ({ customerId, campaignIds, onBack }: Creativ
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Lightbulb className="h-5 w-5" />
-                    AI Executive Summary v2.0
+                    Strategic Executive Summary
                   </CardTitle>
                   <CardDescription>
-                    Strategic insights from {creativesData.creatives.length} creative assets (focused analysis mode)
+                    Campaign-level creative intelligence from {creativesData.creatives.length} assets across {creativesData.analysis.campaigns} campaigns • Competitive positioning analysis
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
