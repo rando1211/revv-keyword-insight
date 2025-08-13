@@ -12,26 +12,44 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Declare environment variables at top level for error handling access
+  const DEVELOPER_TOKEN = Deno.env.get("Developer Token");
+  const CLIENT_ID = Deno.env.get("Client ID");
+  const CLIENT_SECRET = Deno.env.get("Secret");
+  const REFRESH_TOKEN = Deno.env.get("Refresh token");
+
   try {
-    const { customerId, campaignIds, timeframe, includeConversions, includeQualityScore } = await req.json();
+    // Parse request body first
+    let requestBody;
+    try {
+      requestBody = await req.json();
+    } catch (e) {
+      throw new Error('Invalid JSON in request body');
+    }
+    
+    const { customerId, campaignIds, timeframe, includeConversions, includeQualityScore } = requestBody;
     
     if (!customerId) {
-      return new Response(JSON.stringify({
-        success: false,
-        error: 'Customer ID is required'
-      }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
+      throw new Error('customerId is required in request body');
+    }
+    
+    // Get user from JWT token
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      throw new Error('No authorization header');
+    }
+
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? ''
+    );
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''));
+    if (authError || !user) {
+      throw new Error('Invalid user token');
     }
 
     console.log(`🎨 Fetching ad creatives for customer: ${customerId}`);
-
-    // Get environment variables - using correct variable names
-    const CLIENT_ID = Deno.env.get('CLIENT_ID');
-    const CLIENT_SECRET = Deno.env.get('CLIENT_SECRET');
-    const REFRESH_TOKEN = Deno.env.get('REFRESH_TOKEN');
-    const DEVELOPER_TOKEN = Deno.env.get('DEVELOPER_TOKEN');
 
     if (!CLIENT_ID || !CLIENT_SECRET || !REFRESH_TOKEN || !DEVELOPER_TOKEN) {
       throw new Error('Missing required Google Ads API credentials');
