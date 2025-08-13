@@ -162,7 +162,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const signUp = async (email: string, password: string) => {
+    // Use current domain for redirect
     const redirectUrl = `${window.location.origin}/dashboard`;
+    console.log('🔧 Sign up redirect URL:', redirectUrl);
     
     const { error } = await supabase.auth.signUp({
       email,
@@ -171,14 +173,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         emailRedirectTo: redirectUrl
       }
     });
+    
+    console.log('🔧 Sign up result:', { error: error?.message });
     return { error };
   };
 
   const signIn = async (email: string, password: string) => {
+    console.log('🔧 Signing in with email:', email);
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
+    
+    console.log('🔧 Sign in result:', { error: error?.message });
     return { error };
   };
 
