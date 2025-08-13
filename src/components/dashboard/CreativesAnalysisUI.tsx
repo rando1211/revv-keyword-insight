@@ -161,14 +161,14 @@ export const CreativesAnalysisUI = ({ customerId, campaignIds, onBack }: Creativ
 **💡 STRATEGIC INSIGHTS & ROOT CAUSE ANALYSIS:**
 
 **Best Performer:** "${bestHeadline?.text?.substring(0, 60) || 'N/A'}..." 
-• CTR: ${(bestHeadline?.ctr * 100 || 0).toFixed(2)}% (${bestHeadline ? ((bestHeadline.ctr/avgCtr)*100-100).toFixed(0) : '0'}% above average)
+• CTR: ${(bestHeadline?.ctr * 100 || 0).toFixed(2)}% (${bestHeadline ? ((bestHeadline.ctr/avgCtr-1)*100).toFixed(0) : '0'}% above average)
 • Why it works: ${bestHeadline?.text?.includes('Get') || bestHeadline?.text?.includes('Start') ? 'Action-oriented language creates urgency and drives immediate response' : 
   bestHeadline?.text?.includes('Free') || bestHeadline?.text?.includes('Save') ? 'Clear value proposition removes friction and highlights benefit' : 
   bestHeadline?.text?.includes('Professional') || bestHeadline?.text?.includes('Expert') ? 'Trust-building language addresses credibility concerns' : 
   'Benefit-focused messaging resonates with user intent'}
 
 **Biggest Budget Drain:** "${worstHeadline?.text?.substring(0, 60) || 'N/A'}..."
-• CTR: ${(worstHeadline?.ctr * 100 || 0).toFixed(2)}% (${worstHeadline ? ((worstHeadline.ctr/avgCtr)*100-100).toFixed(0) : '0'}% below average)
+• CTR: ${(worstHeadline?.ctr * 100 || 0).toFixed(2)}% (${worstHeadline ? ((1-worstHeadline.ctr/avgCtr)*100).toFixed(0) : '0'}% below average)
 • Root Cause: ${worstHeadline?.ctr < 0.005 ? 'Generic messaging lacks specificity and fails to differentiate from competitors' : 
   worstHeadline?.ctr < 0.015 ? 'Weak call-to-action provides no clear next step for users' : 
   worstHeadline?.ctr < 0.025 ? 'Message-market mismatch - headline doesn\'t align with user search intent' : 
