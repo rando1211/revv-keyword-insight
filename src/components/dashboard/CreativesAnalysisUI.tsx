@@ -59,6 +59,9 @@ export const CreativesAnalysisUI = ({ customerId, campaignIds, onBack }: Creativ
 
   const analyzeCreatives = async () => {
     setIsAnalyzing(true);
+    // Clear any cached optimizations to ensure fresh results
+    setPendingOptimizations([]);
+    localStorage.removeItem('creativesOptimizations');
     try {
       toast({
         title: "🎨 Analyzing Creatives",
