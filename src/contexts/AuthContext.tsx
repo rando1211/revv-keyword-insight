@@ -53,22 +53,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     
     try {
+      console.log('🔍 Checking user role for user:', session.user.id);
       const { data, error } = await supabase
         .from('user_roles')
         .select('role')
         .eq('user_id', session.user.id)
-        .single();
+        .maybeSingle(); // Use maybeSingle instead of single to avoid errors when no rows
       
-      if (error && error.code !== 'PGRST116') { // PGRST116 is "no rows returned"
+      if (error) {
         console.error('Error fetching user role:', error);
+        // Set default role on error
+        setUserRole('user');
+        setIsAdmin(false);
         return;
       }
       
       const role = data?.role || 'user';
+      console.log('🔍 User role fetched:', role);
       setUserRole(role);
       setIsAdmin(role === 'admin');
     } catch (error) {
       console.error('Error checking user role:', error);
+      setUserRole('user');
+      setIsAdmin(false);
     }
   };
 
@@ -91,18 +98,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   useEffect(() => {
+    console.log('🔍 AuthContext: Setting up auth state listener...');
+    
     // Set up auth state listener FIRST
     const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
+        console.log('🔍 Auth state change:', event, 'Session exists:', !!session);
+        console.log('🔍 Session details:', {
+          userId: session?.user?.id,
+          hasAccessToken: !!session?.access_token,
+          tokenType: session?.token_type
+        });
+        
         setSession(session);
         setUser(session?.user ?? null);
         
         if (session?.user) {
+          console.log('🔍 User authenticated, checking subscription and role...');
           setTimeout(() => {
             checkSubscription();
             checkUserRole();
           }, 0);
         } else {
+          console.log('🔍 No user session, clearing subscription and role data');
           setSubscription(null);
           setUserRole(null);
           setIsAdmin(false);
@@ -112,18 +130,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     );
 
     // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    console.log('🔍 AuthContext: Checking for existing session...');
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (error) {
+        console.error('🔍 Error getting session:', error);
+        setLoading(false);
+        return;
+      }
+      
+      console.log('🔍 Initial session check:', {
+        hasSession: !!session,
+        userId: session?.user?.id,
+        hasAccessToken: !!session?.access_token
+      });
+      
       setSession(session);
       setUser(session?.user ?? null);
       
       if (session?.user) {
+        console.log('🔍 Initial session found, checking subscription and role...');
         checkSubscription();
         checkUserRole();
       }
       setLoading(false);
     });
 
-    return () => authSubscription.unsubscribe();
+    return () => {
+      console.log('🔍 AuthContext: Cleaning up auth subscription');
+      authSubscription.unsubscribe();
+    };
   }, []);
 
   const signUp = async (email: string, password: string) => {

@@ -8,15 +8,35 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from '@/integrations/supabase/client';
 
 export default function Auth() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const { signIn, signUp, signInWithGoogle, user } = useAuth();
+  const { signIn, signUp, signInWithGoogle, signOut, user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+
+  // Clear any corrupted session on load
+  useEffect(() => {
+    const clearCorruptedSession = async () => {
+      try {
+        // Check if there's a session but it's corrupted
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error || (session && !session.user?.id)) {
+          console.log('🔧 Clearing potentially corrupted session...');
+          await supabase.auth.signOut();
+        }
+      } catch (e) {
+        console.log('🔧 Error checking session, clearing it...');
+        await supabase.auth.signOut();
+      }
+    };
+    
+    clearCorruptedSession();
+  }, []);
 
   // Redirect if already authenticated
   useEffect(() => {
