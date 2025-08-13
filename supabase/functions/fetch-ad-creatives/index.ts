@@ -18,6 +18,13 @@ serve(async (req) => {
   const CLIENT_SECRET = Deno.env.get("Secret");
   const REFRESH_TOKEN = Deno.env.get("Refresh token");
 
+  console.log('🔑 Environment variables check:', {
+    hasDeveloperToken: !!DEVELOPER_TOKEN,
+    hasClientId: !!CLIENT_ID,
+    hasClientSecret: !!CLIENT_SECRET,
+    hasRefreshToken: !!REFRESH_TOKEN
+  });
+
   try {
     // Parse request body first
     let requestBody;
