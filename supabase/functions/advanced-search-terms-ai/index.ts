@@ -35,10 +35,10 @@ serve(async (req) => {
     console.log('🎯 Selected Campaign IDs:', selectedCampaignIds);
 
     // Get Google Ads API credentials from environment
-    const clientId = Deno.env.get('Client ID');
-    const clientSecret = Deno.env.get('Secret');
-    const refreshToken = Deno.env.get('Refresh token');
-    const developerToken = Deno.env.get('Developer Token');
+    const clientId = Deno.env.get('GOOGLE_CLIENT_ID');
+    const clientSecret = Deno.env.get('GOOGLE_CLIENT_SECRET');
+    const refreshToken = Deno.env.get('GOOGLE_REFRESH_TOKEN');
+    const developerToken = Deno.env.get('GOOGLE_DEVELOPER_TOKEN');
     
     if (!clientId || !clientSecret || !refreshToken || !developerToken) {
       throw new Error('Missing Google Ads API credentials');
