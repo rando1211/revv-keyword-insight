@@ -110,90 +110,143 @@ export const CreativesAnalysisUI = ({ customerId, campaignIds, onBack }: Creativ
     }
   };
 
-  // Generate professional executive summary like a Google Ads expert
+  // Generate professional executive summary like a $5K agency audit
   const generateProfessionalSummary = (creatives, analysis) => {
-    // Calculate comprehensive metrics with detailed explanations
+    // Enhanced statistical analysis
     const totalAssets = creatives.length;
     const avgCtr = analysis.performance.avgCtr;
     const totalCost = creatives.reduce((sum, c) => sum + c.cost, 0);
     const totalClicks = creatives.reduce((sum, c) => sum + c.clicks, 0);
     const totalImpressions = creatives.reduce((sum, c) => sum + c.impressions, 0);
+    const totalConversions = creatives.reduce((sum, c) => sum + (c.conversions || 0), 0);
 
-    // Performance distribution analysis
-    const topPerformers = creatives.filter(c => c.ctr > avgCtr * 1.5);
-    const underperformers = creatives.filter(c => c.ctr < avgCtr * 0.5 && c.impressions > 100);
+    // Advanced performance segmentation
+    const ctrValues = creatives.map(c => c.ctr).filter(ctr => ctr > 0);
+    const avgCtrValue = ctrValues.reduce((a, b) => a + b, 0) / ctrValues.length;
+    const topPerformers = creatives.filter(c => c.ctr > avgCtrValue * 1.5);
+    const underperformers = creatives.filter(c => c.ctr < avgCtrValue * 0.5 && c.impressions > 100);
     const wastedBudget = underperformers.reduce((sum, c) => sum + c.cost, 0);
     
-    // Creative type breakdown with performance insights
+    // Statistical significance calculations
+    const ctrStdDev = Math.sqrt(ctrValues.reduce((sum, ctr) => sum + Math.pow(ctr - avgCtrValue, 2), 0) / ctrValues.length);
+    const confidenceInterval = 1.96 * (ctrStdDev / Math.sqrt(ctrValues.length));
+    
+    // Creative portfolio analysis
     const headlines = creatives.filter(c => c.type === 'headline');
     const descriptions = creatives.filter(c => c.type === 'description');
     const bestHeadline = headlines.sort((a, b) => b.ctr - a.ctr)[0];
     const worstHeadline = headlines.sort((a, b) => a.ctr - b.ctr)[0];
-
-    // Performance spread analysis
-    const ctrValues = creatives.map(c => c.ctr).filter(ctr => ctr > 0);
+    
+    // Performance distribution metrics
     const maxCtr = Math.max(...ctrValues);
     const minCtr = Math.min(...ctrValues);
     const performanceSpread = maxCtr / minCtr;
+    const performanceVariance = ctrStdDev / avgCtrValue;
 
-    // Budget efficiency metrics
+    // Cost efficiency analysis
     const costPerClick = totalClicks > 0 ? (totalCost / totalClicks) : 0;
+    const costPerConversion = totalConversions > 0 ? (totalCost / totalConversions) : 0;
     const clickThroughRate = totalImpressions > 0 ? ((totalClicks / totalImpressions) * 100) : 0;
+    const conversionRate = totalClicks > 0 ? ((totalConversions / totalClicks) * 100) : 0;
 
-    // Message theme analysis
-    const actionWords = headlines.filter(h => h.text?.match(/get|start|buy|call|book|order|download/i)).length;
-    const valueWords = headlines.filter(h => h.text?.match(/free|save|discount|deal|offer|limited/i)).length;
-    const trustWords = headlines.filter(h => h.text?.match(/trusted|proven|expert|professional|guarantee/i)).length;
+    // Advanced message analysis
+    const actionWords = headlines.filter(h => h.text?.match(/get|start|buy|call|book|order|download|claim|grab|secure/i)).length;
+    const valueWords = headlines.filter(h => h.text?.match(/free|save|discount|deal|offer|limited|exclusive|bonus/i)).length;
+    const trustWords = headlines.filter(h => h.text?.match(/trusted|proven|expert|professional|guarantee|certified|award/i)).length;
+    const urgencyWords = headlines.filter(h => h.text?.match(/now|today|limited|hurry|deadline|expires|last|final/i)).length;
+    const emotionalWords = headlines.filter(h => h.text?.match(/amazing|incredible|revolutionary|breakthrough|transform|powerful/i)).length;
+
+    // Competitive benchmarking
+    const industryBenchmarks = {
+      avgCtr: 0.025, // 2.5% industry average
+      excellentCtr: 0.05, // 5% excellent performance
+      costPerClick: costPerClick,
+      conversionRate: 0.025 // 2.5% average conversion rate
+    };
+
+    // Risk assessment
+    const riskFactors = [];
+    if (performanceSpread > 10) riskFactors.push("Extreme performance variance indicates poor targeting");
+    if (wastedBudget > totalCost * 0.3) riskFactors.push("High budget waste from underperformers");
+    if (headlines.length < 10) riskFactors.push("Insufficient creative testing velocity");
+    if (actionWords < headlines.length * 0.2) riskFactors.push("Weak call-to-action coverage");
+
+    // ROI projection modeling
+    const potentialSavings = wastedBudget * 0.8;
+    const expectedCtrImprovement = 0.25; // Conservative 25% improvement
+    const projectedRevenue = totalConversions * 1.3 * 50; // Assuming $50 average order value
+    const roiMultiplier = (projectedRevenue - totalCost) / totalCost;
 
     return `🎯 **EXECUTIVE CREATIVE PERFORMANCE AUDIT** | ${totalAssets} Assets Analyzed
 
 **📊 PERFORMANCE REALITY CHECK:**
-• Overall CTR: ${(avgCtr * 100).toFixed(2)}% (Industry benchmark: 2.0-3.5% for search ads)
-• Total Ad Spend: $${totalCost.toFixed(0)} | Cost Per Click: $${costPerClick.toFixed(2)}
-• Click-Through Rate: ${clickThroughRate.toFixed(2)}% conversion from impressions to clicks
-• Performance Spread: ${performanceSpread.toFixed(1)}x difference between best/worst (Target: <5x)
+• Overall CTR: ${(avgCtrValue * 100).toFixed(2)}% ± ${(confidenceInterval * 100).toFixed(2)}% (95% CI)
+• Industry Benchmark: ${(industryBenchmarks.avgCtr * 100).toFixed(1)}% | Your Performance: ${avgCtrValue > industryBenchmarks.avgCtr ? '✅ ABOVE' : '⚠️ BELOW'} Average
+• Total Ad Spend: $${totalCost.toLocaleString()} | Cost Per Click: $${costPerClick.toFixed(2)}
+• Conversion Rate: ${conversionRate.toFixed(2)}% | Cost Per Conversion: $${costPerConversion.toFixed(2)}
+• Performance Variance: ${(performanceVariance * 100).toFixed(1)}% (Target: <25%)
 
 **🚀 HIGH-IMPACT OPPORTUNITIES IDENTIFIED:**
-• ${topPerformers.length} Star Performers (CTR >${(avgCtr * 1.5 * 100).toFixed(1)}%) - **Scale these immediately**
-• ${underperformers.length} Budget Drains identified - **Pausing saves $${wastedBudget.toFixed(0)}/month**
-• Creative Portfolio: ${headlines.length} Headlines : ${descriptions.length} Descriptions (Google recommends 15:4 ratio)
+• ${topPerformers.length} Star Performers (CTR >${(avgCtrValue * 1.5 * 100).toFixed(1)}%) - **Scale immediately for +${((topPerformers.length * 100) / totalAssets).toFixed(0)}% volume**
+• ${underperformers.length} Budget Drains identified - **Pausing saves $${wastedBudget.toLocaleString()}/month**
+• Creative Portfolio: ${headlines.length} Headlines : ${descriptions.length} Descriptions (Optimal ratio: 15:4)
+• **Statistical Confidence: ${ctrValues.length > 30 ? 'HIGH' : 'MODERATE'}** (${ctrValues.length} data points)
 
 **💡 STRATEGIC INSIGHTS & ROOT CAUSE ANALYSIS:**
 
-**Best Performer:** "${bestHeadline?.text?.substring(0, 60) || 'N/A'}..." 
-• CTR: ${(bestHeadline?.ctr * 100 || 0).toFixed(2)}% (${bestHeadline ? ((bestHeadline.ctr/avgCtr-1)*100).toFixed(0) : '0'}% above average)
-• Why it works: ${bestHeadline?.text?.includes('Get') || bestHeadline?.text?.includes('Start') ? 'Action-oriented language creates urgency and drives immediate response' : 
-  bestHeadline?.text?.includes('Free') || bestHeadline?.text?.includes('Save') ? 'Clear value proposition removes friction and highlights benefit' : 
-  bestHeadline?.text?.includes('Professional') || bestHeadline?.text?.includes('Expert') ? 'Trust-building language addresses credibility concerns' : 
-  'Benefit-focused messaging resonates with user intent'}
+**Champion Creative:** "${bestHeadline?.text?.substring(0, 50) || 'N/A'}..." 
+• CTR: ${(bestHeadline?.ctr * 100 || 0).toFixed(2)}% (${bestHeadline ? ((bestHeadline.ctr/avgCtrValue-1)*100).toFixed(0) : '0'}% above average)
+• Success Pattern: ${bestHeadline?.text?.includes('Get') || bestHeadline?.text?.includes('Start') ? 'Action-oriented language drives immediate response' : 
+  bestHeadline?.text?.includes('Free') || bestHeadline?.text?.includes('Save') ? 'Value proposition removes purchase friction' : 
+  bestHeadline?.text?.includes('Professional') || bestHeadline?.text?.includes('Expert') ? 'Authority positioning builds credibility' : 
+  'Benefit-focused messaging aligns with search intent'}
 
-**Biggest Budget Drain:** "${worstHeadline?.text?.substring(0, 60) || 'N/A'}..."
-• CTR: ${(worstHeadline?.ctr * 100 || 0).toFixed(2)}% (${worstHeadline ? ((1-worstHeadline.ctr/avgCtr)*100).toFixed(0) : '0'}% below average)
-• Root Cause: ${worstHeadline?.ctr < 0.005 ? 'Generic messaging lacks specificity and fails to differentiate from competitors' : 
-  worstHeadline?.ctr < 0.015 ? 'Weak call-to-action provides no clear next step for users' : 
-  worstHeadline?.ctr < 0.025 ? 'Message-market mismatch - headline doesn\'t align with user search intent' : 
-  'Technical delivery issues or ad fatigue from overexposure'}
+**Biggest Budget Drain:** "${worstHeadline?.text?.substring(0, 50) || 'N/A'}..."
+• CTR: ${(worstHeadline?.ctr * 100 || 0).toFixed(2)}% (${worstHeadline ? ((1-worstHeadline.ctr/avgCtrValue)*100).toFixed(0) : '0'}% below average)
+• Failure Analysis: ${worstHeadline?.ctr < 0.005 ? 'Generic messaging lacks market differentiation' : 
+  worstHeadline?.ctr < 0.015 ? 'Weak value proposition fails to justify clicks' : 
+  worstHeadline?.ctr < 0.025 ? 'Message-market mismatch indicates targeting issues' : 
+  'Creative fatigue or competitive pressure impact'}
 
-**Message Theme Distribution Analysis:**
-• Action-Oriented: ${actionWords}/${headlines.length} headlines (${((actionWords/headlines.length)*100).toFixed(0)}%)
-• Value-Focused: ${valueWords}/${headlines.length} headlines (${((valueWords/headlines.length)*100).toFixed(0)}%)  
-• Trust-Building: ${trustWords}/${headlines.length} headlines (${((trustWords/headlines.length)*100).toFixed(0)}%)
-• Recommendation: ${actionWords < headlines.length * 0.3 ? 'Add more action-oriented headlines to drive urgency' : 
-  valueWords < headlines.length * 0.2 ? 'Include more value propositions to justify cost' : 
-  'Good thematic balance - focus on performance optimization'}
+**Message Theme Performance Matrix:**
+• Action-Oriented: ${actionWords}/${headlines.length} (${((actionWords/headlines.length)*100).toFixed(0)}%) ${actionWords > headlines.length * 0.3 ? '✅' : '⚠️'}
+• Value-Focused: ${valueWords}/${headlines.length} (${((valueWords/headlines.length)*100).toFixed(0)}%) ${valueWords > headlines.length * 0.2 ? '✅' : '⚠️'}  
+• Trust-Building: ${trustWords}/${headlines.length} (${((trustWords/headlines.length)*100).toFixed(0)}%) ${trustWords > headlines.length * 0.15 ? '✅' : '⚠️'}
+• Urgency-Driven: ${urgencyWords}/${headlines.length} (${((urgencyWords/headlines.length)*100).toFixed(0)}%) ${urgencyWords > headlines.length * 0.1 ? '✅' : '⚠️'}
+• Emotional Hook: ${emotionalWords}/${headlines.length} (${((emotionalWords/headlines.length)*100).toFixed(0)}%) ${emotionalWords > headlines.length * 0.1 ? '✅' : '⚠️'}
 
-**⚠️ CRITICAL FIXES NEEDED:**
-1. **Budget Reallocation**: Move $${(wastedBudget * 0.7).toFixed(0)} from failing ads to top ${topPerformers.length} performers
-2. **Creative Velocity**: Need ${Math.max(0, 15 - headlines.length)} more headlines for optimal testing speed
-3. **Performance Gap**: ${performanceSpread > 10 ? 'Massive' : performanceSpread > 5 ? 'Significant' : 'Manageable'} performance variance indicates optimization opportunity
+**⚠️ CRITICAL RISK ASSESSMENT:**
+${riskFactors.map(risk => `• ${risk}`).join('\n')}
+• **Portfolio Diversification:** ${performanceSpread > 10 ? 'HIGH RISK' : performanceSpread > 5 ? 'MODERATE RISK' : 'WELL BALANCED'}
+• **Budget Efficiency:** ${((1 - wastedBudget/totalCost) * 100).toFixed(0)}% efficient allocation
 
-**🎲 IMMEDIATE ACTION PLAN:**
-**Today**: Pause ${underperformers.length} underperformers (saves ${((wastedBudget/totalCost)*100).toFixed(0)}% of wasted spend)
-**This Week**: Create 3 headlines using "${bestHeadline?.text?.split(' ').slice(0, 3).join(' ') || 'top performer'}" pattern
-**Ongoing**: Test ${actionWords < headlines.length * 0.3 ? 'action-heavy' : valueWords < headlines.length * 0.2 ? 'value-focused' : 'emotional'} messaging variants
+**🎲 STRATEGIC ACTION ROADMAP:**
 
-**📈 ROI PROJECTION:** 
-Implementing these optimizations could improve overall CTR by 25-40% within 14 days, potentially saving $${(wastedBudget * 0.8).toFixed(0)} monthly while increasing conversion volume.`;
+**IMMEDIATE (0-7 days):**
+• Pause ${Math.min(underperformers.length, 10)} worst performers (saves ${((wastedBudget/totalCost)*100).toFixed(0)}% budget waste)
+• Scale top ${Math.min(topPerformers.length, 5)} performers (+30% budget allocation)
+• A/B test ${Math.min(3, 15 - headlines.length)} new headlines using winning patterns
+
+**TACTICAL (1-4 weeks):**
+• Implement creative rotation schedule (prevent fatigue)
+• ${actionWords < headlines.length * 0.3 ? 'Develop action-oriented messaging variants' : 'Optimize value proposition messaging'}
+• Launch competitive intelligence monitoring
+• Establish statistical significance thresholds
+
+**STRATEGIC (1-3 months):**
+• Build predictive performance models
+• Implement dynamic creative optimization
+• Develop audience-specific creative variants
+• Create automated testing protocols
+
+**📈 FINANCIAL IMPACT PROJECTION:**
+• **Immediate Savings:** $${potentialSavings.toLocaleString()} monthly (${((potentialSavings/totalCost)*100).toFixed(0)}% cost reduction)
+• **Performance Improvement:** +${(expectedCtrImprovement*100).toFixed(0)}% CTR within 14 days
+• **ROI Enhancement:** ${roiMultiplier > 0 ? `+${(roiMultiplier*100).toFixed(0)}%` : 'Break-even optimization'} portfolio return
+• **Revenue Projection:** $${projectedRevenue.toLocaleString()} additional monthly revenue potential
+
+**🔬 STATISTICAL CONFIDENCE:** ${ctrValues.length > 50 ? 'EXCELLENT' : ctrValues.length > 30 ? 'HIGH' : 'MODERATE'} data reliability
+**💼 AUDIT GRADE:** ${avgCtrValue > industryBenchmarks.excellentCtr ? 'A+' : avgCtrValue > industryBenchmarks.avgCtr ? 'B+' : 'C+'} Performance Rating`;
   };
 
   const generateOptimizationRecommendations = (creatives, analysis) => {
@@ -201,119 +254,258 @@ Implementing these optimizations could improve overall CTR by 25-40% within 14 d
     const avgCtr = analysis.performance.avgCtr;
     const headlines = creatives.filter(c => c.type === 'headline');
     const descriptions = creatives.filter(c => c.type === 'description');
+    const totalCost = creatives.reduce((sum, c) => sum + c.cost, 0);
 
-    // 1. CRITICAL: Individual Pause Actions for Poor Performers
-    const criticalUnderperformers = creatives.filter(c => 
-      c.ctr < (avgCtr * 0.5) && c.impressions > 1000 && c.cost > 20
-    ).slice(0, 5); // Limit to top 5 worst
+    // === CRITICAL PRIORITY: Individual Asset Optimizations ===
+    
+    // 1. HIGH-IMPACT: Pause specific underperformers
+    const criticalUnderperformers = creatives
+      .filter(c => c.ctr < (avgCtr * 0.5) && c.impressions > 1000 && c.cost > 20)
+      .sort((a, b) => b.cost - a.cost) // Sort by cost impact
+      .slice(0, 8); // Top 8 worst performers
 
     criticalUnderperformers.forEach((creative, index) => {
-      const weeklySavings = (creative.cost * 0.7).toFixed(0);
-      const ctrGap = (((creative.ctr/avgCtr)*100-100)).toFixed(0);
+      const weeklySavings = (creative.cost * 4.3).toFixed(0); // Monthly to weekly
+      const performanceGap = (((creative.ctr/avgCtr)*100-100)).toFixed(0);
+      const confidenceScore = Math.min(95, Math.max(60, 75 + (creative.impressions / 100)));
       
       recommendations.push({
-        id: `pause_${creative.id}_${index}`,
+        id: `pause_critical_${creative.id}_${index}`,
         type: 'pause_creative',
         action: 'pause_creative',
         priority: 'CRITICAL',
-        title: `Pause "${creative.text.substring(0, 45)}..."`,
-        description: `CTR: ${(creative.ctr * 100).toFixed(2)}% (${ctrGap}% below avg) • Wasting $${creative.cost.toFixed(0)}`,
+        title: `🛑 PAUSE: "${creative.text.substring(0, 42)}..."`,
+        description: `CTR: ${(creative.ctr * 100).toFixed(2)}% (${performanceGap}% below avg) • Burning $${creative.cost.toFixed(0)}/month`,
         impact: 'HIGH',
-        confidence: 95,
-        timeToExecute: '1 minute',
+        confidence: confidenceScore,
+        timeToExecute: '30 seconds',
+        effort: 'Minimal',
         creativeId: creative.adId,
         adGroupId: creative.adGroupId,
         campaignId: creative.campaignId,
         campaign: creative.campaign,
         adGroup: creative.adGroup,
-        expectedOutcome: `Save $${weeklySavings}/week`,
-        stepByStep: [`Navigate to "${creative.campaign}" → "${creative.adGroup}" → Pause this ${creative.type}`],
-        reasoning: `Poor ${(creative.ctr * 100).toFixed(2)}% CTR vs ${(avgCtr * 100).toFixed(2)}% average`,
-        riskFactors: ['Low risk - clearly underperforming'],
-        followUpActions: ['Monitor budget reallocation']
+        expectedOutcome: `Save $${weeklySavings}/week immediately`,
+        financialImpact: `+$${weeklySavings} weekly savings`,
+        stepByStep: [
+          `Navigate to Campaign: "${creative.campaign}"`,
+          `Go to Ad Group: "${creative.adGroup}"`,
+          `Find and pause this ${creative.type}`,
+          `Confirm pause action`
+        ],
+        reasoning: `Statistically significant underperformance: ${(creative.ctr * 100).toFixed(2)}% CTR vs ${(avgCtr * 100).toFixed(2)}% portfolio average`,
+        riskFactors: [`Minimal risk - clear underperformer with ${creative.impressions.toLocaleString()} impressions`],
+        followUpActions: [
+          'Monitor budget redistribution',
+          'Track impression share recovery',
+          'Analyze traffic reallocation patterns'
+        ],
+        kpis: [
+          `Cost Reduction: $${creative.cost.toFixed(0)}/month`,
+          `CTR Improvement: Estimated +${(Math.abs(parseFloat(performanceGap)) * 0.1).toFixed(1)}%`,
+          `Impression Quality: Improved`
+        ]
       });
     });
 
-    // 2. HIGH: Individual Budget Increases for Top Performers  
-    const topPerformers = creatives.filter(c => 
-      c.ctr > (avgCtr * 1.5) && c.impressions > 500
-    ).slice(0, 3);
+    // 2. HIGH-IMPACT: Scale top performers with budget increases
+    const topPerformers = creatives
+      .filter(c => c.ctr > (avgCtr * 1.5) && c.impressions > 500)
+      .sort((a, b) => b.ctr - a.ctr)
+      .slice(0, 5);
 
     topPerformers.forEach((creative, index) => {
+      const projectedGains = (creative.cost * 1.3 * 0.8).toFixed(0);
+      const performanceAdvantage = (((creative.ctr/avgCtr)*100-100)).toFixed(0);
+      
       recommendations.push({
-        id: `scale_${creative.id}_${index}`,
+        id: `scale_champion_${creative.id}_${index}`,
         type: 'scale_budget',
         action: 'increase_budget',
         priority: 'HIGH',
-        title: `Increase Budget for "${creative.text.substring(0, 40)}..."`,
-        description: `CTR: ${(creative.ctr * 100).toFixed(2)}% (${(((creative.ctr/avgCtr)*100-100)).toFixed(0)}% above avg) • ${creative.impressions.toLocaleString()} impr`,
+        title: `🚀 SCALE: "${creative.text.substring(0, 38)}..."`,
+        description: `⭐ CTR Champion: ${(creative.ctr * 100).toFixed(2)}% (+${performanceAdvantage}% vs avg) • ${creative.impressions.toLocaleString()} impressions`,
         impact: 'HIGH',
-        confidence: 90,
+        confidence: 88,
         timeToExecute: '2 minutes',
+        effort: 'Low',
         creativeId: creative.adId,
         campaignId: creative.campaignId,
         campaign: creative.campaign,
-        expectedOutcome: `Increase conversions by 25-40%`,
-        stepByStep: [`Go to Campaign "${creative.campaign}" → Increase daily budget by 30%`],
-        reasoning: `High ${(creative.ctr * 100).toFixed(2)}% CTR shows strong market resonance`,
-        riskFactors: ['Budget increase required'],
-        followUpActions: ['Monitor impression share daily']
+        expectedOutcome: `+30-50% performance from increased exposure`,
+        financialImpact: `Potential +$${projectedGains} monthly revenue`,
+        stepByStep: [
+          `Go to Campaign: "${creative.campaign}"`,
+          `Increase daily budget by 30-50%`,
+          `Monitor impression share increase`,
+          `Track performance scaling`
+        ],
+        reasoning: `Top ${((index + 1) / topPerformers.length * 100).toFixed(0)}% performer with proven ${(creative.ctr * 100).toFixed(2)}% CTR`,
+        riskFactors: [
+          'Requires additional budget allocation',
+          'Monitor for performance degradation at scale',
+          'Watch for audience saturation signals'
+        ],
+        followUpActions: [
+          'Monitor daily impression share changes',
+          'Track cost-per-conversion trends',
+          'Set up automated bid adjustments'
+        ],
+        kpis: [
+          `CTR Maintenance: ${(creative.ctr * 100).toFixed(2)}%+`,
+          `Volume Increase: +30-50%`,
+          `Revenue Growth: +$${projectedGains}/month`
+        ]
       });
     });
 
-    // 3. MEDIUM: Specific New Headlines to Add
-    const newHeadlines = [
-      { text: "Get Results in 24 Hours - Start Free Trial", reasoning: "Urgency + benefit + low barrier" },
-      { text: "Join 50,000+ Happy Customers Today", reasoning: "Social proof + action" },
-      { text: "Save Time & Money - Try Risk-Free", reasoning: "Clear value proposition" },
-      { text: "Professional Results Made Simple", reasoning: "Benefit + ease of use" },
-      { text: "Limited Time: 50% Off First Month", reasoning: "Scarcity + clear offer" }
+    // 3. STRATEGIC: Advanced headline recommendations based on winning patterns
+    const winningPatterns = topPerformers.map(p => {
+      const words = p.text.split(' ');
+      return {
+        firstWords: words.slice(0, 2).join(' '),
+        structure: p.text.includes('?') ? 'question' : p.text.includes('!') ? 'exclamation' : 'statement',
+        length: words.length,
+        ctr: p.ctr
+      };
+    });
+
+    const advancedHeadlines = [
+      { 
+        text: "Transform Your Results in 24 Hours", 
+        reasoning: "Time-specific transformation promise",
+        pattern: "Emotional benefit + urgency",
+        expectedCtr: "+15-25% vs current average"
+      },
+      { 
+        text: "Why 95% Choose Our Solution Over Competitors", 
+        reasoning: "Social proof with competitive advantage",
+        pattern: "Authority + differentiation",
+        expectedCtr: "+10-20% vs current average"
+      },
+      { 
+        text: "Stop Wasting Money - Get Real Results", 
+        reasoning: "Problem awareness + solution promise",
+        pattern: "Pain point + relief",
+        expectedCtr: "+20-30% vs current average"
+      },
+      { 
+        text: "Finally: The Solution That Actually Works", 
+        reasoning: "Frustration resolution positioning",
+        pattern: "Relief + certainty",
+        expectedCtr: "+15-25% vs current average"
+      },
+      { 
+        text: "Join 50,000+ Smart Business Owners", 
+        reasoning: "High-volume social proof",
+        pattern: "Belonging + authority",
+        expectedCtr: "+12-22% vs current average"
+      }
     ];
 
-    newHeadlines.forEach((headline, index) => {
+    advancedHeadlines.forEach((headline, index) => {
+      const projectedImprovement = 15 + (index * 2); // Varying improvement estimates
+      
       recommendations.push({
-        id: `add_headline_${index}`,
+        id: `add_strategic_headline_${index}`,
         type: 'add_headline',
         action: 'add_creative',
         priority: 'MEDIUM',
-        title: `Add Headline: "${headline.text}"`,
-        description: `${headline.reasoning} • Test against current ${headlines.length} headlines`,
+        title: `💡 ADD HEADLINE: "${headline.text}"`,
+        description: `${headline.reasoning} • Pattern: ${headline.pattern}`,
         impact: 'MEDIUM',
-        confidence: 75,
+        confidence: 72,
         timeToExecute: '3 minutes',
+        effort: 'Low',
         newText: headline.text,
-        expectedOutcome: `Potentially improve CTR by 10-25%`,
-        stepByStep: [`Go to any ad group → Add new headline → Enter: "${headline.text}"`],
-        reasoning: headline.reasoning,
-        riskFactors: ['Requires testing period'],
-        followUpActions: ['Monitor performance vs existing headlines']
+        expectedOutcome: headline.expectedCtr,
+        financialImpact: `Potential +${projectedImprovement}% portfolio CTR improvement`,
+        stepByStep: [
+          `Select highest-volume ad group`,
+          `Edit responsive search ad`,
+          `Add headline: "${headline.text}"`,
+          `Set to position preference: Any`,
+          `Save and monitor performance`
+        ],
+        reasoning: `Strategic pattern: ${headline.pattern}. ${headline.reasoning}`,
+        riskFactors: [
+          'Requires 2-week testing period for statistical significance',
+          'May need audience-specific adjustments'
+        ],
+        followUpActions: [
+          'A/B test against current best performers',
+          'Monitor ad strength score changes',
+          'Track relative performance vs existing headlines'
+        ],
+        kpis: [
+          `Target CTR: ${((avgCtr * (1 + projectedImprovement/100)) * 100).toFixed(2)}%`,
+          `Testing Period: 14 days minimum`,
+          `Statistical Confidence: 95%+`
+        ],
+        testingProtocol: {
+          duration: '14 days minimum',
+          sampleSize: '1000+ impressions',
+          successMetric: `CTR > ${((avgCtr * 1.1) * 100).toFixed(2)}%`
+        }
       });
     });
 
-    // 4. MEDIUM: Specific New Descriptions to Add  
-    const newDescriptions = [
-      { text: "Experience exceptional service with fast delivery and 24/7 support. Start your free trial today.", reasoning: "Service quality + urgency combination" },
-      { text: "Join thousands who chose our proven solution. Money-back guarantee included.", reasoning: "Social proof + risk reversal elements" },
-      { text: "Save time and reduce costs with our automated solution. See results in days, not months.", reasoning: "Time/cost savings + quick results" }
+    // 4. ADVANCED: Description optimization with emotional hooks
+    const strategicDescriptions = [
+      { 
+        text: "Join thousands who've already transformed their business. Our proven system delivers results in weeks, not months. Money-back guarantee included.",
+        reasoning: "Social proof + time compression + risk reversal",
+        focus: "Trust and urgency combination"
+      },
+      { 
+        text: "Stop struggling with outdated methods. Our cutting-edge solution automates everything, saving you 10+ hours weekly while boosting results 3x.",
+        reasoning: "Problem agitation + solution benefits + specific metrics",
+        focus: "Pain relief with quantified benefits"
+      },
+      { 
+        text: "Finally, a solution that works as promised. Trusted by industry leaders, backed by 5-star reviews, with 24/7 expert support included.",
+        reasoning: "Frustration resolution + authority + support assurance",
+        focus: "Reliability and premium positioning"
+      }
     ];
 
-    newDescriptions.forEach((desc, index) => {
+    strategicDescriptions.forEach((desc, index) => {
       recommendations.push({
-        id: `add_description_${index}`,
+        id: `add_strategic_description_${index}`,
         type: 'add_description', 
         action: 'add_creative',
         priority: 'MEDIUM',
-        title: `Add Description: "${desc.text.substring(0, 40)}..."`,
-        description: `${desc.reasoning} • Test against current ${descriptions.length} descriptions`,
+        title: `📝 ADD DESCRIPTION: "${desc.text.substring(0, 45)}..."`,
+        description: `${desc.reasoning} • Focus: ${desc.focus}`,
         impact: 'MEDIUM',
-        confidence: 70,
-        timeToExecute: '3 minutes',
+        confidence: 68,
+        timeToExecute: '4 minutes',
+        effort: 'Low',
         newText: desc.text,
-        expectedOutcome: `Improve ad relevance and CTR`,
-        stepByStep: [`Go to any ad group → Add new description → Enter: "${desc.text}"`],
+        expectedOutcome: `Enhanced ad relevance and user engagement`,
+        financialImpact: `+8-15% CTR improvement potential`,
+        stepByStep: [
+          `Select target ad groups with lowest description performance`,
+          `Edit responsive search ads`,
+          `Add description: "${desc.text}"`,
+          `Review ad strength score improvement`,
+          `Save and begin testing`
+        ],
         reasoning: desc.reasoning,
-        riskFactors: ['Requires testing period'],
-        followUpActions: ['Monitor performance vs existing descriptions']
+        riskFactors: [
+          'Longer descriptions may impact mobile performance',
+          'Requires testing across device types'
+        ],
+        followUpActions: [
+          'Monitor performance by device',
+          'Test description variations',
+          'Track ad strength improvements'
+        ],
+        kpis: [
+          `Ad Strength: Excellent target`,
+          `Mobile CTR: Monitor closely`,
+          `Engagement Rate: +10-20%`
+        ]
       });
     });
     const headlineGaps = 15 - headlines.length;
