@@ -84,6 +84,7 @@ export const CreativesAnalysisUI = ({ customerId, campaignIds, onBack }: Creativ
 
       // Generate professional executive summary
       const professionalSummary = generateProfessionalSummary(creatives, analysis);
+      console.log('🎯 Generated Executive Summary:', professionalSummary);
       setExecutiveSummary(professionalSummary);
 
       // Generate optimization recommendations
