@@ -265,6 +265,20 @@ export default function Auth() {
                 <p className="text-sm text-muted-foreground text-center">
                   Elite optimization protocols await deployment
                 </p>
+                
+                {/* Temporary bypass for testing */}
+                <div className="mt-4 pt-4 border-t border-muted">
+                  <Button
+                    onClick={() => navigate('/dashboard')}
+                    variant="outline"
+                    className="w-full text-xs"
+                  >
+                    🚀 Skip Auth & View Enhanced Analysis (Testing)
+                  </Button>
+                  <p className="text-xs text-muted-foreground text-center mt-2">
+                    Temporary bypass to see $5K analysis upgrades
+                  </p>
+                </div>
               </form>
             </TabsContent>
           </Tabs>
