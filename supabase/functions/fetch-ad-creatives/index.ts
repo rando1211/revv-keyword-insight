@@ -107,6 +107,9 @@ serve(async (req) => {
     }
 
     // Build the Google Ads API query for responsive search ads
+    // Limit based on campaign selection to avoid overwhelming data
+    const adLimit = campaignIds && campaignIds.length > 0 ? Math.min(campaignIds.length * 10, 30) : 15;
+    
     const adQuery = `
       SELECT 
         ad_group_ad.ad.id,
@@ -133,13 +136,14 @@ serve(async (req) => {
       AND ad_group_ad.status = 'ENABLED'
       AND ad_group.status = 'ENABLED'
       AND campaign.status = 'ENABLED'
+      AND metrics.impressions > 10
       ${dateFilter}
       ${campaignFilter}
       ORDER BY metrics.impressions DESC
-      LIMIT 50
+      LIMIT ${adLimit}
     `;
 
-    console.log(`🔍 Fetching TOP ${campaignIds && campaignIds.length > 0 ? '10 ads per selected campaign' : '5 highest performing ads only'}...`);
+    console.log(`🔍 Fetching TOP ${adLimit} performing ads from ${campaignIds && campaignIds.length > 0 ? campaignIds.length + ' selected campaigns' : 'all campaigns'}...`);
     console.log(`🎯 Applied filters: Campaign IDs: ${campaignIds ? JSON.stringify(campaignIds) : 'none'}, Timeframe: ${selectedTimeframe}`);
 
     // Try to get login customer ID, fall back if it fails
