@@ -227,10 +227,8 @@ serve(async (req) => {
                 cost: (metrics?.costMicros || 0) / 1000000,
                 costPerConversion: parseFloat(metrics?.costPerConversion || '0') / 1000000,
                 averageCpc: (metrics?.averageCpc || 0) / 1000000,
-                device: segments?.device,
-                location: segments?.geoTargetCanton,
-                hour: segments?.hour,
-                dayOfWeek: segments?.dayOfWeek,
+                 device: segments?.device,
+                 dayOfWeek: segments?.dayOfWeek,
                 performanceLabel: headline.assetPerformanceLabel || 'UNKNOWN'
               });
             });
@@ -258,10 +256,8 @@ serve(async (req) => {
                 cost: (metrics?.costMicros || 0) / 1000000,
                 costPerConversion: parseFloat(metrics?.costPerConversion || '0') / 1000000,
                 averageCpc: (metrics?.averageCpc || 0) / 1000000,
-                device: segments?.device,
-                location: segments?.geoTargetCanton,
-                hour: segments?.hour,
-                dayOfWeek: segments?.dayOfWeek,
+                 device: segments?.device,
+                 dayOfWeek: segments?.dayOfWeek,
                 performanceLabel: description.assetPerformanceLabel || 'UNKNOWN'
               });
             });
@@ -309,13 +305,7 @@ serve(async (req) => {
         deviceBreakdown[c.device].impressions += c.impressions;
         deviceBreakdown[c.device].conversions += c.conversions;
       }
-      if (c.hour) {
-        const timeSlot = parseInt(c.hour) >= 9 && parseInt(c.hour) <= 17 ? 'business_hours' : 'off_hours';
-        if (!timeBreakdown[timeSlot]) timeBreakdown[timeSlot] = { clicks: 0, impressions: 0, conversions: 0 };
-        timeBreakdown[timeSlot].clicks += c.clicks;
-        timeBreakdown[timeSlot].impressions += c.impressions;
-        timeBreakdown[timeSlot].conversions += c.conversions;
-      }
+       // Hour-based analysis removed due to API compatibility
     });
     
     // Get unique campaigns and brands
