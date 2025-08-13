@@ -1,14 +1,13 @@
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.53.0';
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
+  if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
@@ -17,13 +16,6 @@ serve(async (req) => {
   const CLIENT_ID = Deno.env.get("Client ID");
   const CLIENT_SECRET = Deno.env.get("Secret");
   const REFRESH_TOKEN = Deno.env.get("Refresh token");
-
-  console.log('🔑 Environment variables check:', {
-    hasDeveloperToken: !!DEVELOPER_TOKEN,
-    hasClientId: !!CLIENT_ID,
-    hasClientSecret: !!CLIENT_SECRET,
-    hasRefreshToken: !!REFRESH_TOKEN
-  });
 
   try {
     // Parse request body first
@@ -56,194 +48,155 @@ serve(async (req) => {
       throw new Error('Invalid user token');
     }
 
-    console.log(`🎨 Fetching ad creatives for customer: ${customerId}`);
-
-    console.log('🔑 Environment variables check:', {
-      hasDeveloperToken: !!DEVELOPER_TOKEN,
-      hasClientId: !!CLIENT_ID,
+    console.log('🎨 Fetching ad creatives for customer:', customerId);
+    console.log('🔍 DEBUG: Available env vars:', {
+      hasDevToken: !!DEVELOPER_TOKEN,
+      hasClientId: !!CLIENT_ID, 
       hasClientSecret: !!CLIENT_SECRET,
       hasRefreshToken: !!REFRESH_TOKEN
     });
 
-    if (!CLIENT_ID || !CLIENT_SECRET || !REFRESH_TOKEN || !DEVELOPER_TOKEN) {
-      console.error('❌ Missing credentials:', {
-        CLIENT_ID: CLIENT_ID ? '✓' : '❌',
-        CLIENT_SECRET: CLIENT_SECRET ? '✓' : '❌', 
-        REFRESH_TOKEN: REFRESH_TOKEN ? '✓' : '❌',
-        DEVELOPER_TOKEN: DEVELOPER_TOKEN ? '✓' : '❌'
-      });
-      throw new Error('Missing required Google Ads API credentials');
+    // Handle different customer ID formats
+    let cleanCustomerId;
+    if (typeof customerId === 'string') {
+      // Remove "customers/" prefix and dashes from customer ID for API call
+      cleanCustomerId = customerId.replace(/^customers\//, '').replace(/-/g, '');
+    } else {
+      throw new Error('Invalid customerId format');
     }
 
-    // Refresh access token
-    console.log('🔑 Refreshing OAuth token...');
-    const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    // Get access token using shared credentials
+    const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({
         client_id: CLIENT_ID,
         client_secret: CLIENT_SECRET,
         refresh_token: REFRESH_TOKEN,
-        grant_type: 'refresh_token',
+        grant_type: "refresh_token",
       }),
     });
 
-    if (!tokenResponse.ok) {
-      throw new Error(`OAuth token refresh failed: ${tokenResponse.statusText}`);
-    }
-
     const tokenData = await tokenResponse.json();
-    const accessToken = tokenData.access_token;
     console.log('✅ Fresh access token obtained');
-
-    // Clean customer ID
-    const cleanCustomerId = customerId.replace('customers/', '').replace(/-/g, '');
-
-    // Get login customer ID using the existing function
-    console.log("🔍 Getting login customer ID using get-login-customer-id function");
     
-    let loginCustomerId = null;
-    
-    try {
-      const supabase = createClient(
-        Deno.env.get('SUPABASE_URL') ?? '',
-        Deno.env.get('SUPABASE_ANON_KEY') ?? ''
-      );
-
-      const loginCustomerResponse = await supabase.functions.invoke('get-login-customer-id', {
-        body: { customerId: cleanCustomerId }
-      });
-      
-      console.log("🔍 Login customer response:", loginCustomerResponse);
-      
-      if (loginCustomerResponse.data && loginCustomerResponse.data.login_customer_id) {
-        loginCustomerId = loginCustomerResponse.data.login_customer_id;
-        console.log("✅ Got login customer ID from function:", loginCustomerId);
-      } else {
-        // Fall back to hardcoded value if function fails
-        console.log("⚠️ Login customer function failed, using fallback");
-        loginCustomerId = "9301596383";
-      }
-    } catch (loginError) {
-      console.error("🔥 Error getting login customer ID:", loginError);
-      console.log("🔄 Using fallback login customer ID");
-      loginCustomerId = "9301596383";
+    if (!tokenResponse.ok) {
+      throw new Error(`OAuth token error: ${JSON.stringify(tokenData)}`);
     }
 
-    // Build dynamic query with enhanced data collection
+    const accessToken = tokenData.access_token;
+
+    // Set up timeframe
     const selectedTimeframe = timeframe || 'LAST_30_DAYS';
-    const campaignFilter = campaignIds && campaignIds.length > 0 
-      ? `AND campaign.id IN (${campaignIds.map(id => `'${id}'`).join(',')})` 
-      : '';
-    
-    const conversionFields = includeConversions ? `
-        metrics.conversions,
-        metrics.conversions_value,
-        metrics.view_through_conversions,
-        metrics.cost_per_conversion,
-        segments.conversion_action_name,
-    ` : 'metrics.conversions,';
-    
-    const qualityFields = includeQualityScore ? `
+    let dateFilter = '';
+    if (selectedTimeframe === 'LAST_7_DAYS') {
+      const endDate = new Date().toISOString().split('T')[0];
+      const startDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      dateFilter = `AND segments.date BETWEEN '${startDate}' AND '${endDate}'`;
+    } else if (selectedTimeframe === 'LAST_30_DAYS') {
+      const endDate = new Date().toISOString().split('T')[0];
+      const startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      dateFilter = `AND segments.date BETWEEN '${startDate}' AND '${endDate}'`;
+    }
+
+    // Campaign filter
+    let campaignFilter = '';
+    if (campaignIds && campaignIds.length > 0) {
+      const campaignIdList = campaignIds.map(id => `'${id}'`).join(',');
+      campaignFilter = `AND campaign.id IN (${campaignIdList})`;
+    }
+
+    // Build the Google Ads API query for responsive search ads
+    const adQuery = `
+      SELECT 
+        ad_group_ad.ad.id,
         ad_group_ad.ad.responsive_search_ad.headlines,
         ad_group_ad.ad.responsive_search_ad.descriptions,
-    ` : '';
-    
-    const adQuery = `
-      SELECT
+        ad_group_ad.ad.final_urls,
         ad_group.id,
         ad_group.name,
         campaign.id,
         campaign.name,
-        ad_group_ad.ad.id,
-        ad_group_ad.ad.responsive_search_ad.headlines,
-        ad_group_ad.ad.responsive_search_ad.descriptions,
-        ad_group_ad.status,
         metrics.clicks,
         metrics.impressions,
         metrics.ctr,
-        ${conversionFields}
         metrics.cost_micros,
+        metrics.conversions,
+        metrics.conversions_value,
+        metrics.view_through_conversions,
+        metrics.cost_per_conversion,
         metrics.average_cpc,
         segments.device,
         segments.day_of_week
-        ${qualityFields}
-      FROM ad_group_ad
-      WHERE campaign.status = 'ENABLED'
-        AND ad_group.status = 'ENABLED'
-        AND ad_group_ad.status = 'ENABLED'
-        AND ad_group_ad.ad.type = 'RESPONSIVE_SEARCH_AD'
-        AND segments.date DURING ${selectedTimeframe}
-        ${campaignFilter}
-        AND metrics.impressions > 10
-      ORDER BY campaign.name, metrics.ctr DESC
-      LIMIT ${campaignIds && campaignIds.length > 0 ? 10 : 5}
+      FROM ad_group_ad 
+      WHERE ad_group_ad.ad.type = 'RESPONSIVE_SEARCH_AD'
+      AND ad_group_ad.status = 'ENABLED'
+      AND ad_group.status = 'ENABLED'
+      AND campaign.status = 'ENABLED'
+      ${dateFilter}
+      ${campaignFilter}
+      ORDER BY metrics.impressions DESC
+      LIMIT 50
     `;
 
     console.log(`🔍 Fetching TOP ${campaignIds && campaignIds.length > 0 ? '10 ads per selected campaign' : '5 highest performing ads only'}...`);
     console.log(`🎯 Applied filters: Campaign IDs: ${campaignIds ? JSON.stringify(campaignIds) : 'none'}, Timeframe: ${selectedTimeframe}`);
-    // Fixed: removed invalid asset_performance_label fields
+
+    // Try to get login customer ID, fall back if it fails
+    let loginCustomerId = '9301596383'; // fallback
+    try {
+      const { data: loginResponse } = await supabase.functions.invoke('get-login-customer-id');
+      if (loginResponse?.loginCustomerId) {
+        loginCustomerId = loginResponse.loginCustomerId;
+      }
+    } catch (error) {
+      console.log('⚠️ Login customer function failed, using fallback');
+    }
+
+    // Build headers
     const headers = {
       'Authorization': `Bearer ${accessToken}`,
       'developer-token': DEVELOPER_TOKEN,
       'Content-Type': 'application/json',
+      'login-customer-id': loginCustomerId
     };
 
-    // Add login-customer-id if we have one
-    if (loginCustomerId) {
-      headers['login-customer-id'] = loginCustomerId;
-      console.log("✅ Added login-customer-id header:", loginCustomerId);
-    }
+    console.log(`✅ Added login-customer-id header: ${loginCustomerId}`);
+    console.log(`📨 Request headers: ${JSON.stringify(headers)}`);
 
-    console.log("📨 Request headers:", headers);
-
-    const apiResponse = await fetch(`https://googleads.googleapis.com/v18/customers/${cleanCustomerId}/googleAds:search`, {
+    // Make the request to Google Ads API
+    const apiUrl = `https://googleads.googleapis.com/v18/customers/${cleanCustomerId}/googleAds:search`;
+    const response = await fetch(apiUrl, {
       method: 'POST',
       headers,
       body: JSON.stringify({ query: adQuery }),
     });
 
-    if (!apiResponse.ok) {
-      const errorText = await apiResponse.text();
-      console.error('❌ Google Ads API Error:', errorText);
-      throw new Error(`Google Ads API Error: ${apiResponse.status} - ${errorText}`);
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.log(`❌ Google Ads API Error: ${errorText}`);
+      throw new Error(`Google Ads API Error: ${response.status} - ${errorText}`);
     }
 
-    const apiData = await apiResponse.json();
-    console.log(`📊 Found ${apiData.results?.length || 0} responsive search ads`);
+    const apiData = await response.json();
+    console.log(`✅ Processed ${apiData.results?.length || 0} ads from Google Ads API`);
 
-    // Process the ad data with enhanced metrics
+    // Process the ad creatives data
     const adCreatives = [];
-    const campaignPerformance = new Map();
-    const devicePerformance = new Map();
-    const timePerformance = new Map();
-    
+    const brandSet = new Set();
+    const campaignSet = new Set();
+
     if (apiData.results) {
       for (const result of apiData.results) {
         const ad = result.adGroupAd?.ad;
-        const rsa = ad?.responsiveSearchAd;
         const metrics = result.metrics;
         const segments = result.segments;
-        
-        // Track campaign performance
-        const campaignId = result.campaign.id;
-        if (!campaignPerformance.has(campaignId)) {
-          campaignPerformance.set(campaignId, {
-            name: result.campaign.name,
-            clicks: 0,
-            impressions: 0,
-            conversions: 0,
-            cost: 0
-          });
-        }
-        const campPerf = campaignPerformance.get(campaignId);
-        campPerf.clicks += parseInt(metrics?.clicks || '0');
-        campPerf.impressions += parseInt(metrics?.impressions || '0');
-        campPerf.conversions += parseFloat(metrics?.conversions || '0');
-        campPerf.cost += (metrics?.costMicros || 0) / 1000000;
-        
-        if (rsa) {
-          // Process headlines with enhanced data
+
+        if (ad?.responsiveSearchAd) {
+          const rsa = ad.responsiveSearchAd;
+          campaignSet.add(result.campaign.name);
+
+          // Process headlines
           if (rsa.headlines) {
             rsa.headlines.forEach((headline, index) => {
               adCreatives.push({
@@ -265,14 +218,14 @@ serve(async (req) => {
                 cost: (metrics?.costMicros || 0) / 1000000,
                 costPerConversion: parseFloat(metrics?.costPerConversion || '0') / 1000000,
                 averageCpc: (metrics?.averageCpc || 0) / 1000000,
-                 device: segments?.device,
-                 dayOfWeek: segments?.dayOfWeek,
+                device: segments?.device,
+                dayOfWeek: segments?.dayOfWeek,
                 performanceLabel: 'PENDING' // Default value since asset_performance_label not available in API
               });
             });
           }
 
-          // Process descriptions with enhanced data
+          // Process descriptions
           if (rsa.descriptions) {
             rsa.descriptions.forEach((description, index) => {
               adCreatives.push({
@@ -294,8 +247,8 @@ serve(async (req) => {
                 cost: (metrics?.costMicros || 0) / 1000000,
                 costPerConversion: parseFloat(metrics?.costPerConversion || '0') / 1000000,
                 averageCpc: (metrics?.averageCpc || 0) / 1000000,
-                 device: segments?.device,
-                 dayOfWeek: segments?.dayOfWeek,
+                device: segments?.device,
+                dayOfWeek: segments?.dayOfWeek,
                 performanceLabel: 'PENDING' // Default value since asset_performance_label not available in API
               });
             });
@@ -306,103 +259,49 @@ serve(async (req) => {
 
     console.log(`✅ Processed ${adCreatives.length} individual ad assets from ${apiData.results?.length || 0} actual ads`);
 
-    // Advanced analytics and insights
-    const headlines = adCreatives.filter(c => c.type === 'headline');
-    const descriptions = adCreatives.filter(c => c.type === 'description');
-    
-    // Calculate comprehensive performance metrics
-    const totalClicks = adCreatives.reduce((sum, c) => sum + c.clicks, 0);
-    const totalImpressions = adCreatives.reduce((sum, c) => sum + c.impressions, 0);
-    const totalConversions = adCreatives.reduce((sum, c) => sum + c.conversions, 0);
-    const totalCost = adCreatives.reduce((sum, c) => sum + c.cost, 0);
-    const avgCTR = totalImpressions > 0 ? totalClicks / totalImpressions : 0;
-    const avgConversionRate = totalClicks > 0 ? totalConversions / totalClicks : 0;
-    const avgCPC = totalClicks > 0 ? totalCost / totalClicks : 0;
-    const roas = adCreatives.reduce((sum, c) => sum + c.conversionsValue, 0) / totalCost;
-    
-    // Performance categorization with enhanced criteria
-    const highPerforming = adCreatives.filter(c => 
-      c.ctr > avgCTR * 1.2 && c.conversions > 0 && c.impressions > 50
-    );
-    const lowPerforming = adCreatives.filter(c => 
-      c.ctr < avgCTR * 0.7 && c.impressions > 100
-    );
-    
-    // Detect creative fatigue (assets with declining performance)
-    const potentialFatigue = adCreatives.filter(c => 
-      c.impressions > 1000 && c.ctr < avgCTR * 0.8
-    );
-    
-    // Device and time performance insights
-    const deviceBreakdown = {};
-    const timeBreakdown = {};
-    adCreatives.forEach(c => {
-      if (c.device) {
-        if (!deviceBreakdown[c.device]) deviceBreakdown[c.device] = { clicks: 0, impressions: 0, conversions: 0 };
-        deviceBreakdown[c.device].clicks += c.clicks;
-        deviceBreakdown[c.device].impressions += c.impressions;
-        deviceBreakdown[c.device].conversions += c.conversions;
-      }
-       // Hour-based analysis removed due to API compatibility
-    });
-    
-    // Get unique campaigns and brands
-    const campaigns = [...new Set(adCreatives.map(c => c.campaign))];
-    const brands = [...new Set(campaigns.map(c => c.replace(/\s*\(PM\)|\s*\(Search\)/, '').trim()))];
-    
-    // Performance labels distribution
-    const performanceLabelDistribution = {};
-    adCreatives.forEach(c => {
-      const label = c.performanceLabel || 'UNKNOWN';
-      performanceLabelDistribution[label] = (performanceLabelDistribution[label] || 0) + 1;
-    });
+    // Calculate performance metrics
+    const totalClicks = adCreatives.reduce((sum, creative) => sum + creative.clicks, 0);
+    const totalImpressions = adCreatives.reduce((sum, creative) => sum + creative.impressions, 0);
+    const totalCost = adCreatives.reduce((sum, creative) => sum + creative.cost, 0);
+    const totalConversions = adCreatives.reduce((sum, creative) => sum + creative.conversions, 0);
+
+    const analysis = {
+      totalAssets: adCreatives.length,
+      totalAds: apiData.results?.length || 0,
+      campaigns: campaignSet.size,
+      brands: Array.from(brandSet),
+      performance: {
+        totalClicks,
+        totalImpressions,
+        avgCtr: totalImpressions > 0 ? (totalClicks / totalImpressions) * 100 : 0,
+        totalCost,
+        totalConversions,
+        conversionRate: totalClicks > 0 ? (totalConversions / totalClicks) * 100 : 0,
+        costPerConversion: totalConversions > 0 ? totalCost / totalConversions : 0
+      },
+      highPerforming: adCreatives.filter(c => c.ctr > 0.05).length,
+      lowPerforming: adCreatives.filter(c => c.ctr < 0.02 && c.impressions > 100).length,
+      potentialFatigue: adCreatives.filter(c => c.impressions > 10000 && c.ctr < 0.03).length
+    };
 
     return new Response(JSON.stringify({
       success: true,
       creatives: adCreatives,
-      analysis: {
-        totalAssets: adCreatives.length,
-        headlines: headlines.length,
-        descriptions: descriptions.length,
-        campaigns: campaigns.length,
-        campaignPerformance: Array.from(campaignPerformance.values()),
-        brands,
-        performance: {
-          avgCTR: (avgCTR * 100).toFixed(3),
-          avgConversionRate: (avgConversionRate * 100).toFixed(2),
-          avgCPC: avgCPC.toFixed(2),
-          roas: roas.toFixed(2),
-          highPerforming: highPerforming.length,
-          lowPerforming: lowPerforming.length,
-          potentialFatigue: potentialFatigue.length,
-          totalClicks,
-          totalImpressions,
-          totalConversions,
-          totalCost: totalCost.toFixed(2)
-        },
-        segmentation: {
-          device: deviceBreakdown,
-          time: timeBreakdown,
-          performanceLabels: performanceLabelDistribution
-        }
-      },
+      analysis,
       timeframe: selectedTimeframe,
-      filters: {
-        campaignSpecific: campaignIds && campaignIds.length > 0,
-        campaignCount: campaignIds ? campaignIds.length : 'all'
-      }
+      timestamp: new Date().toISOString()
     }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
   } catch (error) {
     console.error('❌ Error fetching ad creatives:', error);
     return new Response(JSON.stringify({
       success: false,
-      error: error.message || 'Failed to fetch ad creatives'
+      error: error.message
     }), {
       status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 });
