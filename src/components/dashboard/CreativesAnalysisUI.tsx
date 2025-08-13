@@ -199,88 +199,123 @@ Implementing these optimizations could improve overall CTR by 25-40% within 14 d
   const generateOptimizationRecommendations = (creatives, analysis) => {
     const recommendations = [];
     const avgCtr = analysis.performance.avgCtr;
-    const totalCost = creatives.reduce((sum, c) => sum + c.cost, 0);
     const headlines = creatives.filter(c => c.type === 'headline');
     const descriptions = creatives.filter(c => c.type === 'description');
 
-    // 1. CRITICAL: Pause Budget-Draining Underperformers
+    // 1. CRITICAL: Individual Pause Actions for Poor Performers
     const criticalUnderperformers = creatives.filter(c => 
-      c.ctr < (avgCtr * 0.3) && c.impressions > 1000 && c.cost > 50
-    );
+      c.ctr < (avgCtr * 0.5) && c.impressions > 1000 && c.cost > 20
+    ).slice(0, 5); // Limit to top 5 worst
 
-    criticalUnderperformers.forEach(creative => {
+    criticalUnderperformers.forEach((creative, index) => {
       const weeklySavings = (creative.cost * 0.7).toFixed(0);
-      const ctrGapPercent = ((creative.ctr/avgCtr)*100-100);
-      const ctrGap = ctrGapPercent.toFixed(0);
+      const ctrGap = (((creative.ctr/avgCtr)*100-100)).toFixed(0);
       
       recommendations.push({
-        id: `pause_critical_${creative.id}`,
+        id: `pause_${creative.id}_${index}`,
         type: 'pause_creative',
         action: 'pause_creative',
         priority: 'CRITICAL',
-        title: `🚨 URGENT: Pause Budget Drain "${creative.text.substring(0, 40)}..."`,
-        description: `CTR: ${(creative.ctr * 100).toFixed(2)}% (${ctrGap}% below average) • Cost: $${creative.cost.toFixed(0)} • ${creative.impressions.toLocaleString()} impressions`,
+        title: `Pause "${creative.text.substring(0, 45)}..."`,
+        description: `CTR: ${(creative.ctr * 100).toFixed(2)}% (${ctrGap}% below avg) • Wasting $${creative.cost.toFixed(0)}`,
         impact: 'HIGH',
         confidence: 95,
-        timeToExecute: '2 minutes',
-        effort: 'Low',
+        timeToExecute: '1 minute',
         creativeId: creative.adId,
         adGroupId: creative.adGroupId,
         campaignId: creative.campaignId,
         campaign: creative.campaign,
         adGroup: creative.adGroup,
-        expectedOutcome: `Save $${weeklySavings}/week by stopping wasted spend`,
-        stepByStep: [
-          `1. Navigate to Campaign: "${creative.campaign}"`,
-          `2. Go to Ad Group: "${creative.adGroup}"`,
-          `3. Find ad containing: "${creative.text.substring(0, 30)}..."`,
-          `4. Click "Pause" on this ${creative.type}`,
-          `5. Monitor for 48 hours to confirm cost reduction`
-        ],
-        reasoning: `This ${creative.type} has a CTR ${Math.abs(ctrGapPercent).toFixed(0)}% below your account average, indicating poor audience resonance. With $${creative.cost.toFixed(0)} spent and only ${(creative.ctr * 100).toFixed(2)}% engagement, it's actively draining budget that could be reallocated to better performers.`,
-        riskFactors: ['Minimal risk - performance clearly poor', 'May need replacement creative'],
-        followUpActions: ['Monitor remaining creatives performance', 'Test new variations']
+        expectedOutcome: `Save $${weeklySavings}/week`,
+        stepByStep: [`Navigate to "${creative.campaign}" → "${creative.adGroup}" → Pause this ${creative.type}`],
+        reasoning: `Poor ${(creative.ctr * 100).toFixed(2)}% CTR vs ${(avgCtr * 100).toFixed(2)}% average`,
+        riskFactors: ['Low risk - clearly underperforming'],
+        followUpActions: ['Monitor budget reallocation']
       });
     });
 
-    // 2. HIGH PRIORITY: Scale Top Performers
+    // 2. HIGH: Individual Budget Increases for Top Performers  
     const topPerformers = creatives.filter(c => 
-      c.ctr > (avgCtr * 1.8) && c.impressions > 500
+      c.ctr > (avgCtr * 1.5) && c.impressions > 500
     ).slice(0, 3);
 
-    if (topPerformers.length > 0) {
+    topPerformers.forEach((creative, index) => {
       recommendations.push({
-        id: 'scale_performers',
+        id: `scale_${creative.id}_${index}`,
         type: 'scale_budget',
         action: 'increase_budget',
         priority: 'HIGH',
-        title: `📈 Scale ${topPerformers.length} High-Performing Assets`,
-        description: `Top performers with ${((topPerformers[0]?.ctr || 0) * 100).toFixed(2)}% CTR deserve more budget`,
+        title: `Increase Budget for "${creative.text.substring(0, 40)}..."`,
+        description: `CTR: ${(creative.ctr * 100).toFixed(2)}% (${(((creative.ctr/avgCtr)*100-100)).toFixed(0)}% above avg) • ${creative.impressions.toLocaleString()} impr`,
         impact: 'HIGH',
-        confidence: 88,
-        timeToExecute: '10 minutes',
-        effort: 'Medium',
-        expectedOutcome: `Increase conversions by 20-35% within 2 weeks`,
-        topPerformers: topPerformers.map(p => ({
-          text: p.text.substring(0, 50) + '...',
-          ctr: (p.ctr * 100).toFixed(2) + '%',
-          campaign: p.campaign,
-          cost: '$' + p.cost.toFixed(0)
-        })),
-        stepByStep: [
-          `1. Identify campaigns with top performers: ${[...new Set(topPerformers.map(p => p.campaign))].join(', ')}`,
-          `2. Increase daily budget by 25-50% for these campaigns`,
-          `3. Monitor impression share and position metrics`,
-          `4. Ensure these high-CTR ads get maximum exposure`,
-          `5. Consider duplicating successful patterns to other ad groups`
-        ],
-        reasoning: `These creatives significantly outperform your average (${(avgCtr * 100).toFixed(2)}% CTR), indicating strong market resonance. Scaling their reach can multiply your current success.`,
-        riskFactors: ['Budget increase needed', 'Monitor for audience saturation'],
-        followUpActions: ['Track impression share daily', 'Test variations of winning themes']
+        confidence: 90,
+        timeToExecute: '2 minutes',
+        creativeId: creative.adId,
+        campaignId: creative.campaignId,
+        campaign: creative.campaign,
+        expectedOutcome: `Increase conversions by 25-40%`,
+        stepByStep: [`Go to Campaign "${creative.campaign}" → Increase daily budget by 30%`],
+        reasoning: `High ${(creative.ctr * 100).toFixed(2)}% CTR shows strong market resonance`,
+        riskFactors: ['Budget increase required'],
+        followUpActions: ['Monitor impression share daily']
       });
-    }
+    });
 
-    // 3. MEDIUM: Add Strategic New Headlines
+    // 3. MEDIUM: Specific New Headlines to Add
+    const newHeadlines = [
+      { text: "Get Results in 24 Hours - Start Free Trial", reasoning: "Urgency + benefit + low barrier" },
+      { text: "Join 50,000+ Happy Customers Today", reasoning: "Social proof + action" },
+      { text: "Save Time & Money - Try Risk-Free", reasoning: "Clear value proposition" },
+      { text: "Professional Results Made Simple", reasoning: "Benefit + ease of use" },
+      { text: "Limited Time: 50% Off First Month", reasoning: "Scarcity + clear offer" }
+    ];
+
+    newHeadlines.forEach((headline, index) => {
+      recommendations.push({
+        id: `add_headline_${index}`,
+        type: 'add_headline',
+        action: 'add_creative',
+        priority: 'MEDIUM',
+        title: `Add Headline: "${headline.text}"`,
+        description: `${headline.reasoning} • Test against current ${headlines.length} headlines`,
+        impact: 'MEDIUM',
+        confidence: 75,
+        timeToExecute: '3 minutes',
+        newText: headline.text,
+        expectedOutcome: `Potentially improve CTR by 10-25%`,
+        stepByStep: [`Go to any ad group → Add new headline → Enter: "${headline.text}"`],
+        reasoning: headline.reasoning,
+        riskFactors: ['Requires testing period'],
+        followUpActions: ['Monitor performance vs existing headlines']
+      });
+    });
+
+    // 4. MEDIUM: Specific New Descriptions to Add  
+    const newDescriptions = [
+      { text: "Experience exceptional service with fast delivery and 24/7 support. Start your free trial today.", reasoning: "Service quality + urgency combination" },
+      { text: "Join thousands who chose our proven solution. Money-back guarantee included.", reasoning: "Social proof + risk reversal elements" },
+      { text: "Save time and reduce costs with our automated solution. See results in days, not months.", reasoning: "Time/cost savings + quick results" }
+    ];
+
+    newDescriptions.forEach((desc, index) => {
+      recommendations.push({
+        id: `add_description_${index}`,
+        type: 'add_description', 
+        action: 'add_creative',
+        priority: 'MEDIUM',
+        title: `Add Description: "${desc.text.substring(0, 40)}..."`,
+        description: `${desc.reasoning} • Test against current ${descriptions.length} descriptions`,
+        impact: 'MEDIUM',
+        confidence: 70,
+        timeToExecute: '3 minutes',
+        newText: desc.text,
+        expectedOutcome: `Improve ad relevance and CTR`,
+        stepByStep: [`Go to any ad group → Add new description → Enter: "${desc.text}"`],
+        reasoning: desc.reasoning,
+        riskFactors: ['Requires testing period'],
+        followUpActions: ['Monitor performance vs existing descriptions']
+      });
+    });
     const headlineGaps = 15 - headlines.length;
     if (headlineGaps > 0) {
       const bestHeadline = headlines.sort((a, b) => b.ctr - a.ctr)[0];
