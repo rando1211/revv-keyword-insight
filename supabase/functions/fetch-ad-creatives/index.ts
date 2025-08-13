@@ -27,13 +27,13 @@ serve(async (req) => {
 
     console.log(`🎨 Fetching ad creatives for customer: ${customerId}`);
 
-    // Get environment variables
-    const clientId = Deno.env.get('Client ID');
-    const clientSecret = Deno.env.get('Secret');
-    const refreshToken = Deno.env.get('Refresh token');
-    const developerToken = Deno.env.get('Developer Token');
+    // Get environment variables - using correct variable names
+    const CLIENT_ID = Deno.env.get('CLIENT_ID');
+    const CLIENT_SECRET = Deno.env.get('CLIENT_SECRET');
+    const REFRESH_TOKEN = Deno.env.get('REFRESH_TOKEN');
+    const DEVELOPER_TOKEN = Deno.env.get('DEVELOPER_TOKEN');
 
-    if (!clientId || !clientSecret || !refreshToken || !developerToken) {
+    if (!CLIENT_ID || !CLIENT_SECRET || !REFRESH_TOKEN || !DEVELOPER_TOKEN) {
       throw new Error('Missing required Google Ads API credentials');
     }
 
@@ -43,9 +43,9 @@ serve(async (req) => {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
-        client_id: clientId,
-        client_secret: clientSecret,
-        refresh_token: refreshToken,
+        client_id: CLIENT_ID,
+        client_secret: CLIENT_SECRET,
+        refresh_token: REFRESH_TOKEN,
         grant_type: 'refresh_token',
       }),
     });
@@ -147,7 +147,7 @@ serve(async (req) => {
     // Fixed: removed invalid asset_performance_label fields
     const headers = {
       'Authorization': `Bearer ${accessToken}`,
-      'developer-token': developerToken,
+      'developer-token': DEVELOPER_TOKEN,
       'Content-Type': 'application/json',
     };
 
