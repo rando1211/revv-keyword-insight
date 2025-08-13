@@ -101,8 +101,8 @@ export const CreativesAnalysisUI = ({ customerId, campaignIds, onBack }: Creativ
       generateOptimizationRecommendations(creatives, aiResponse.analysis);
 
       toast({
-        title: "✅ Creative Analysis Complete",
-        description: `Analyzed ${creatives.length} creative assets across ${analysis.campaigns} campaigns`,
+        title: "✅ Creative Analysis Complete v2.0",
+        description: `Analyzed ${creatives.length} creative assets from ${analysis.totalAssets || 'focused'} active ads across ${analysis.campaigns} campaigns`,
       });
 
     } catch (error) {
@@ -269,9 +269,9 @@ export const CreativesAnalysisUI = ({ customerId, campaignIds, onBack }: Creativ
       {/* Header & Controls */}
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-lg font-semibold">Creative Performance Analysis</h3>
+          <h3 className="text-lg font-semibold">Creative Performance Analysis v2.0</h3>
           <p className="text-muted-foreground">
-            {campaignIds ? `${campaignIds.length} campaigns selected` : 'All campaigns'}
+            {campaignIds ? `${campaignIds.length} campaigns selected` : 'Top performing ads only'} • Focused analysis mode
           </p>
         </div>
         {onBack && (
@@ -286,7 +286,7 @@ export const CreativesAnalysisUI = ({ customerId, campaignIds, onBack }: Creativ
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Brain className="h-5 w-5" />
-            Analysis Configuration
+            Smart Analysis Configuration v2.0
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -346,10 +346,10 @@ export const CreativesAnalysisUI = ({ customerId, campaignIds, onBack }: Creativ
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Lightbulb className="h-5 w-5" />
-                    AI Executive Summary
+                    AI Executive Summary v2.0
                   </CardTitle>
                   <CardDescription>
-                    Strategic insights from {creativesData.creatives.length} creative assets
+                    Strategic insights from {creativesData.creatives.length} creative assets (focused analysis mode)
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
