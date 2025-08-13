@@ -603,10 +603,26 @@ export const AIInsightsPanel = () => {
           </TabsContent>
           
           <TabsContent value="creatives" className="space-y-4">
-            <CreativesAnalysisUI
-              customerId={selectedAccountForAnalysis?.customerId || ''}
-              campaignIds={selectedCampaignIds}
-            />
+            {!selectedAccountForAnalysis ? (
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="text-center space-y-4">
+                    <Bot className="h-12 w-12 text-muted-foreground mx-auto" />
+                    <div>
+                      <h3 className="text-lg font-medium">Campaign-Specific Creative Optimization Engine</h3>
+                      <p className="text-muted-foreground">
+                        Select an account to access the comprehensive creative optimization platform with strategic AI insights
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
+              <CreativesAnalysisUI
+                customerId={selectedAccountForAnalysis.customerId}
+                campaignIds={selectedCampaignIds}
+              />
+            )}
           </TabsContent>
           
           <TabsContent value="power-page" className="space-y-4">
