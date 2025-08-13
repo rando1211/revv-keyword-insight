@@ -128,8 +128,6 @@ serve(async (req) => {
         metrics.cost_micros,
         metrics.average_cpc,
         segments.device,
-        segments.geo_target_canton,
-        segments.hour,
         segments.day_of_week
         ${qualityFields}
       FROM ad_group_ad
