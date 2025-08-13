@@ -139,10 +139,10 @@ serve(async (req) => {
         ${campaignFilter}
         AND metrics.impressions > 10
       ORDER BY campaign.name, metrics.ctr DESC
-      LIMIT ${campaignIds && campaignIds.length > 0 ? 100 : 50}
+      LIMIT ${campaignIds && campaignIds.length > 0 ? 10 : 5}
     `;
 
-    console.log(`🔍 Fetching responsive search ads for ${campaignIds && campaignIds.length > 0 ? campaignIds.length + ' selected campaigns' : 'top 50 ads only'}...`);
+    console.log(`🔍 Fetching TOP ${campaignIds && campaignIds.length > 0 ? '10 ads per selected campaign' : '5 highest performing ads only'}...`);
     console.log(`🎯 Applied filters: Campaign IDs: ${campaignIds ? JSON.stringify(campaignIds) : 'none'}, Timeframe: ${selectedTimeframe}`);
 
     // Build headers
@@ -267,7 +267,7 @@ serve(async (req) => {
       }
     }
 
-    console.log(`✅ Processed ${adCreatives.length} individual ad assets`);
+    console.log(`✅ Processed ${adCreatives.length} individual ad assets from ${apiData.results?.length || 0} actual ads`);
 
     // Advanced analytics and insights
     const headlines = adCreatives.filter(c => c.type === 'headline');
