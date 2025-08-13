@@ -8,7 +8,6 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from '@/integrations/supabase/client';
 
 export default function Auth() {
   const [email, setEmail] = useState('');
@@ -19,39 +18,8 @@ export default function Auth() {
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  // Clear any corrupted session on load and add debug info
-  useEffect(() => {
-    const clearCorruptedSession = async () => {
-      try {
-        console.log('🔧 Auth page mounted, checking session...');
-        const { data: { session }, error } = await supabase.auth.getSession();
-        console.log('🔧 Current session check:', { 
-          hasSession: !!session, 
-          hasUser: !!session?.user,
-          userId: session?.user?.id,
-          error: error?.message 
-        });
-        
-        if (error) {
-          console.log('🔧 Session error detected, clearing...', error.message);
-          await supabase.auth.signOut();
-          setError(`Session error: ${error.message}`);
-        } else if (session && !session.user?.id) {
-          console.log('🔧 Corrupted session detected, clearing...');
-          await supabase.auth.signOut();
-          setError('Corrupted session cleared. Please try signing in again.');
-        }
-      } catch (e) {
-        console.log('🔧 Exception checking session:', e);
-        await supabase.auth.signOut();
-        setError('Authentication system reset. Please try signing in.');
-      }
-    };
-    
-    clearCorruptedSession();
-  }, []);
-
   // Redirect if already authenticated
+
   useEffect(() => {
     if (user) {
       navigate('/dashboard');
@@ -63,11 +31,9 @@ export default function Auth() {
     setLoading(true);
     setError('');
 
-    console.log('🔧 Attempting sign in with email:', email);
     const { error } = await signIn(email, password);
     
     if (error) {
-      console.error('🔧 Sign in error:', error);
       setError(error.message);
       toast({
         title: "Sign In Failed",
@@ -75,7 +41,6 @@ export default function Auth() {
         variant: "destructive"
       });
     } else {
-      console.log('🔧 Sign in successful');
       toast({
         title: "Welcome back!",
         description: "You have successfully signed in.",
@@ -91,11 +56,9 @@ export default function Auth() {
     setLoading(true);
     setError('');
 
-    console.log('🔧 Attempting sign up with email:', email);
     const { error } = await signUp(email, password);
     
     if (error) {
-      console.error('🔧 Sign up error:', error);
       if (error.message.includes('already registered')) {
         setError('This email is already registered. Please try signing in instead.');
       } else {
@@ -107,7 +70,6 @@ export default function Auth() {
         variant: "destructive"
       });
     } else {
-      console.log('🔧 Sign up successful');
       toast({
         title: "Welcome to DEXTRUM!",
         description: "Your tactical optimization butler is ready. Check your email to verify your account.",
@@ -119,18 +81,13 @@ export default function Auth() {
   };
 
   const handleGoogleSignIn = async () => {
-    console.log('🔍 Starting Google Sign In...');
     setLoading(true);
     setError('');
 
     try {
-      console.log('🔍 Calling signInWithGoogle...');
       const { error } = await signInWithGoogle();
       
       if (error) {
-        console.error('🔍 Google Sign In Error:', error);
-        console.log('🔍 Error message:', error.message);
-        console.log('🔍 Error code:', error.status);
         setError(error.message);
         toast({
           title: "Google Sign In Failed",
@@ -138,15 +95,11 @@ export default function Auth() {
           variant: "destructive"
         });
         setLoading(false);
-      } else {
-        console.log('🔍 Google Sign In Success');
       }
     } catch (e) {
-      console.error('🔍 Exception during Google Sign In:', e);
       setError('An unexpected error occurred during Google sign in');
       setLoading(false);
     }
-    // Note: Don't set loading to false here as user will be redirected
   };
 
   return (
@@ -162,10 +115,9 @@ export default function Auth() {
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="signin" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="signin">Sign In</TabsTrigger>
               <TabsTrigger value="signup">Sign Up</TabsTrigger>
-              <TabsTrigger value="troubleshoot">Debug</TabsTrigger>
             </TabsList>
             
             <TabsContent value="signin">
@@ -314,52 +266,6 @@ export default function Auth() {
                   Elite optimization protocols await deployment
                 </p>
               </form>
-            </TabsContent>
-            
-            {/* Troubleshooting Tab */}
-            <TabsContent value="troubleshoot">
-              <div className="space-y-4">
-                <Alert>
-                  <AlertDescription>
-                    If you're experiencing authentication issues, this might help:
-                  </AlertDescription>
-                </Alert>
-                
-                <div className="space-y-3 text-sm">
-                  <div>
-                    <strong>Current Domain:</strong> {window.location.origin}
-                  </div>
-                  <div>
-                    <strong>Auth Status:</strong> {user ? 'Authenticated' : 'Not authenticated'}
-                  </div>
-                  {error && (
-                    <div>
-                      <strong>Last Error:</strong> {error}
-                    </div>
-                  )}
-                </div>
-                
-                <Button
-                  variant="outline"
-                  onClick={async () => {
-                    console.log('🔧 Manual session clear requested');
-                    await supabase.auth.signOut();
-                    setError('');
-                    toast({
-                      title: "Session Cleared",
-                      description: "All authentication data has been cleared. Try signing in again.",
-                    });
-                  }}
-                  className="w-full"
-                >
-                  Clear All Authentication Data
-                </Button>
-                
-                <p className="text-xs text-muted-foreground">
-                  If problems persist, the issue may be with Supabase URL configuration. 
-                  Check that Site URL and Redirect URLs are properly set in your Supabase project settings.
-                </p>
-              </div>
             </TabsContent>
           </Tabs>
         </CardContent>
