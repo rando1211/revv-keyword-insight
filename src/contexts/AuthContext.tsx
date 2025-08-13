@@ -98,67 +98,61 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   useEffect(() => {
-    console.log('🔍 AuthContext: Setting up auth state listener...');
-    
-    // Set up auth state listener FIRST
-    const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        console.log('🔍 Auth state change:', event, 'Session exists:', !!session);
-        console.log('🔍 Session details:', {
-          userId: session?.user?.id,
-          hasAccessToken: !!session?.access_token,
-          tokenType: session?.token_type
-        });
-        
+    // Clear any corrupted sessions first
+    const clearCorruptedSession = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (session?.access_token) {
+          // Test if token is valid by making a simple request
+          const { error: testError } = await supabase.auth.getUser();
+          if (testError && testError.message?.includes('invalid')) {
+            console.log('🔧 Clearing corrupted session...');
+            await supabase.auth.signOut();
+            localStorage.clear();
+          }
+        }
+      } catch (e) {
+        console.log('🔧 Clearing corrupted session due to error...');
+        await supabase.auth.signOut();
+        localStorage.clear();
+      }
+    };
+
+    clearCorruptedSession().then(() => {
+      // Set up auth state listener
+      const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange(
+        (event, session) => {
+          setSession(session);
+          setUser(session?.user ?? null);
+          
+          if (session?.user) {
+            setTimeout(() => {
+              checkSubscription();
+              checkUserRole();
+            }, 0);
+          } else {
+            setSubscription(null);
+            setUserRole(null);
+            setIsAdmin(false);
+          }
+          setLoading(false);
+        }
+      );
+
+      // Check for existing session
+      supabase.auth.getSession().then(({ data: { session } }) => {
         setSession(session);
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          console.log('🔍 User authenticated, checking subscription and role...');
-          setTimeout(() => {
-            checkSubscription();
-            checkUserRole();
-          }, 0);
-        } else {
-          console.log('🔍 No user session, clearing subscription and role data');
-          setSubscription(null);
-          setUserRole(null);
-          setIsAdmin(false);
+          checkSubscription();
+          checkUserRole();
         }
         setLoading(false);
-      }
-    );
-
-    // THEN check for existing session
-    console.log('🔍 AuthContext: Checking for existing session...');
-    supabase.auth.getSession().then(({ data: { session }, error }) => {
-      if (error) {
-        console.error('🔍 Error getting session:', error);
-        setLoading(false);
-        return;
-      }
-      
-      console.log('🔍 Initial session check:', {
-        hasSession: !!session,
-        userId: session?.user?.id,
-        hasAccessToken: !!session?.access_token
       });
-      
-      setSession(session);
-      setUser(session?.user ?? null);
-      
-      if (session?.user) {
-        console.log('🔍 Initial session found, checking subscription and role...');
-        checkSubscription();
-        checkUserRole();
-      }
-      setLoading(false);
-    });
 
-    return () => {
-      console.log('🔍 AuthContext: Cleaning up auth subscription');
-      authSubscription.unsubscribe();
-    };
+      return () => authSubscription.unsubscribe();
+    });
   }, []);
 
   const signUp = async (email: string, password: string) => {
