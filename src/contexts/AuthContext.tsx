@@ -53,23 +53,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     
     try {
-      console.log('🔍 Checking user role for user:', session.user.id);
       const { data, error } = await supabase
         .from('user_roles')
         .select('role')
         .eq('user_id', session.user.id)
-        .maybeSingle(); // Use maybeSingle instead of single to avoid errors when no rows
+        .maybeSingle();
       
       if (error) {
         console.error('Error fetching user role:', error);
-        // Set default role on error
         setUserRole('user');
         setIsAdmin(false);
         return;
       }
       
       const role = data?.role || 'user';
-      console.log('🔍 User role fetched:', role);
       setUserRole(role);
       setIsAdmin(role === 'admin');
     } catch (error) {
@@ -98,38 +95,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   useEffect(() => {
-    // Clear any corrupted sessions first
-    const clearCorruptedSession = async () => {
+    let mounted = true;
+
+    const initAuth = async () => {
       try {
-        const { data: { session }, error } = await supabase.auth.getSession();
+        // Clear any corrupted tokens
+        const { data: { session } } = await supabase.auth.getSession();
         if (session?.access_token) {
-          // Test if token is valid by making a simple request
-          const { error: testError } = await supabase.auth.getUser();
-          if (testError && testError.message?.includes('invalid')) {
-            console.log('🔧 Clearing corrupted session...');
+          try {
+            await supabase.auth.getUser();
+          } catch {
             await supabase.auth.signOut();
             localStorage.clear();
           }
         }
-      } catch (e) {
-        console.log('🔧 Clearing corrupted session due to error...');
+      } catch {
         await supabase.auth.signOut();
         localStorage.clear();
       }
-    };
 
-    clearCorruptedSession().then(() => {
-      // Set up auth state listener
-      const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange(
-        (event, session) => {
+      if (!mounted) return;
+
+      // Set up auth listener
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(
+        async (event, session) => {
+          if (!mounted) return;
+          
           setSession(session);
           setUser(session?.user ?? null);
           
           if (session?.user) {
             setTimeout(() => {
-              checkSubscription();
-              checkUserRole();
-            }, 0);
+              if (mounted) {
+                checkSubscription();
+                checkUserRole();
+              }
+            }, 100);
           } else {
             setSubscription(null);
             setUserRole(null);
@@ -139,20 +140,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       );
 
-      // Check for existing session
-      supabase.auth.getSession().then(({ data: { session } }) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        
-        if (session?.user) {
-          checkSubscription();
-          checkUserRole();
+      // Check current session
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (mounted) {
+          setSession(session);
+          setUser(session?.user ?? null);
+          
+          if (session?.user) {
+            checkSubscription();
+            checkUserRole();
+          }
+          setLoading(false);
         }
-        setLoading(false);
-      });
+      } catch {
+        if (mounted) setLoading(false);
+      }
 
-      return () => authSubscription.unsubscribe();
-    });
+      return () => subscription.unsubscribe();
+    };
+
+    const cleanup = initAuth();
+    
+    return () => {
+      mounted = false;
+      cleanup.then(unsub => unsub?.());
+    };
   }, []);
 
   const signUp = async (email: string, password: string) => {
@@ -173,40 +186,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signIn = async (email: string, password: string) => {
-    console.log('🔧 Signing in with email:', email);
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
     
-    console.log('🔧 Sign in result:', { error: error?.message });
     return { error };
   };
 
   const signInWithGoogle = async () => {
-    console.log('🔍 Starting Google OAuth flow...');
     try {
-      // Use the current domain for redirect to avoid URL mismatch issues
-      const currentDomain = window.location.origin;
-      console.log('🔍 Current domain for redirect:', currentDomain);
-      
-      const { data, error } = await supabase.auth.signInWithOAuth({
+      const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${currentDomain}/dashboard`,
+          redirectTo: `${window.location.origin}/dashboard`,
           scopes: 'openid profile email https://www.googleapis.com/auth/adwords'
         }
       });
       
-      console.log('🔍 Google OAuth response:', { data, error });
-      
-      if (error) {
-        console.error('🔍 Google OAuth error:', error);
-      }
-      
       return { error };
     } catch (e) {
-      console.error('🔍 Exception in Google OAuth:', e);
       return { error: e as any };
     }
   };
