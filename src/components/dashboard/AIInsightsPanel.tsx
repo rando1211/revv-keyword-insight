@@ -15,6 +15,7 @@ import { Progress } from "@/components/ui/progress";
 import { OptimizationReview } from "./OptimizationReview";
 import { SearchTermsAnalysisUI } from "./SearchTermsAnalysisUI";
 import { PowerAuditPanel } from "./PowerAuditPanel";
+import { PerformanceTracker } from "./PerformanceTracker";
 
 export const AIInsightsPanel = () => {
   const { toast } = useToast();
@@ -501,7 +502,7 @@ export const AIInsightsPanel = () => {
   };
 
   // Advanced Search Terms Analysis function
-  const handleAdvancedAnalysis = async () => {
+  const handleAdvancedAnalysis = async (dateRange?: string, searchTermLimit?: number) => {
     if (!selectedAccountForAnalysis || !selectedCampaignIds || selectedCampaignIds.length === 0) {
       toast({
         title: "No Campaigns Selected",
@@ -570,8 +571,9 @@ export const AIInsightsPanel = () => {
 
   // Listen for trigger events from SearchTermsAnalysisUI
   useEffect(() => {
-    const handleTriggerAnalysis = () => {
-      handleAdvancedAnalysis();
+    const handleTriggerAnalysis = (event: any) => {
+      const { dateRange, searchTermLimit } = event.detail || {};
+      handleAdvancedAnalysis(dateRange, searchTermLimit);
     };
 
     window.addEventListener('triggerAdvancedAnalysis', handleTriggerAnalysis);
@@ -1174,7 +1176,7 @@ export const AIInsightsPanel = () => {
               <h3 className="text-lg font-semibold">🔥 Search Terms AI Analysis</h3>
               <div className="flex gap-2">
                 <Button
-                  onClick={handleAdvancedAnalysis}
+                  onClick={() => handleAdvancedAnalysis()}
                   disabled={isAdvancedAnalyzing || !selectedAccountForAnalysis || !selectedCampaignIds?.length}
                 >
                   {isAdvancedAnalyzing ? (
@@ -1192,13 +1194,20 @@ export const AIInsightsPanel = () => {
               </div>
             </div>
 
-            {advancedAnalysisResults ? (
-              <SearchTermsAnalysisUI
+            <div className="space-y-6">
+              {/* Performance Tracker */}
+              <PerformanceTracker 
                 selectedAccount={selectedAccountForAnalysis}
-                analysisData={advancedAnalysisResults}
-                onUpdateAnalysisData={setAdvancedAnalysisResults}
+                optimizationId="search-terms-analysis"
               />
-            ) : (
+              
+              {advancedAnalysisResults ? (
+                <SearchTermsAnalysisUI
+                  selectedAccount={selectedAccountForAnalysis}
+                  analysisData={advancedAnalysisResults}
+                  onUpdateAnalysisData={setAdvancedAnalysisResults}
+                />
+              ) : (
               <Card>
                 <CardContent className="text-center py-12">
                   <Activity className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
@@ -1214,7 +1223,8 @@ export const AIInsightsPanel = () => {
                   )}
                 </CardContent>
               </Card>
-            )}
+              )}
+            </div>
           </TabsContent>
         </Tabs>
       </CardContent>

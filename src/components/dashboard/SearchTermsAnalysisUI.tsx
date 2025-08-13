@@ -37,6 +37,10 @@ export const SearchTermsAnalysisUI = ({ analysisData, onUpdateAnalysisData, sele
   const [showResults, setShowResults] = useState(false);
   const [autoExecuteEnabled, setAutoExecuteEnabled] = useState(false);
   const [autoExecuteFrequency, setAutoExecuteFrequency] = useState<'hourly' | 'daily' | 'weekly'>('daily');
+  const [dateRange, setDateRange] = useState<'LAST_7_DAYS' | 'LAST_30_DAYS' | 'LAST_90_DAYS'>('LAST_30_DAYS');
+  const [searchTermLimit, setSearchTermLimit] = useState(200);
+  const [performanceHistory, setPerformanceHistory] = useState<any[]>([]);
+  const [realTimeImpact, setRealTimeImpact] = useState<any>(null);
 
   // Clear state when account changes
   useEffect(() => {
@@ -198,6 +202,26 @@ export const SearchTermsAnalysisUI = ({ analysisData, onUpdateAnalysisData, sele
       setExecutionResults(data);
       setShowResults(true);
       
+      // Track real-time impact
+      const beforeMetrics = performanceMetrics;
+      setRealTimeImpact({
+        executionTime: new Date().toISOString(),
+        actionsApplied: data.summary.successCount,
+        beforeMetrics,
+        estimatedSavings: data.summary.successCount * 25 // $25 per action estimate
+      });
+      
+      // Add to performance history
+      setPerformanceHistory(prev => [
+        ...prev.slice(-9), // Keep last 10 entries
+        {
+          date: new Date().toISOString(),
+          actionsApplied: data.summary.successCount,
+          estimatedSavings: data.summary.successCount * 25,
+          type: 'optimization'
+        }
+      ]);
+      
       // Remove executed terms from analysis data and save to localStorage
       const executedSearchTerms = data.results
         .filter((result: any) => result.success)
@@ -264,17 +288,50 @@ export const SearchTermsAnalysisUI = ({ analysisData, onUpdateAnalysisData, sele
               </div>
             ) : (
               <div className="text-center py-8">
-                <Button 
-                  onClick={() => {
-                    // Trigger analysis from parent component
-                    window.dispatchEvent(new CustomEvent('triggerAdvancedAnalysis'));
-                  }}
-                  size="lg"
-                  className="bg-blue-600 hover:bg-blue-700"
-                >
-                  <Activity className="h-4 w-4 mr-2" />
-                  Start AI Search Terms Analysis
-                </Button>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Date Range</label>
+                      <Select value={dateRange} onValueChange={(value: 'LAST_7_DAYS' | 'LAST_30_DAYS' | 'LAST_90_DAYS') => setDateRange(value)}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="LAST_7_DAYS">Last 7 Days</SelectItem>
+                          <SelectItem value="LAST_30_DAYS">Last 30 Days</SelectItem>
+                          <SelectItem value="LAST_90_DAYS">Last 90 Days</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Search Term Limit</label>
+                      <Select value={searchTermLimit.toString()} onValueChange={(value) => setSearchTermLimit(parseInt(value))}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="100">100 Terms</SelectItem>
+                          <SelectItem value="200">200 Terms</SelectItem>
+                          <SelectItem value="500">500 Terms</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  
+                  <Button 
+                    onClick={() => {
+                      // Trigger analysis with current settings
+                      window.dispatchEvent(new CustomEvent('triggerAdvancedAnalysis', {
+                        detail: { dateRange, searchTermLimit }
+                      }));
+                    }}
+                    size="lg"
+                    className="w-full bg-blue-600 hover:bg-blue-700"
+                  >
+                    <Activity className="h-4 w-4 mr-2" />
+                    Start Enhanced AI Analysis ({searchTermLimit} terms, {dateRange.replace('LAST_', '').replace('_', ' ').toLowerCase()})
+                  </Button>
+                </div>
                 <p className="text-sm text-muted-foreground mt-2">
                   Analyze search terms with AI to identify waste and optimization opportunities
                 </p>

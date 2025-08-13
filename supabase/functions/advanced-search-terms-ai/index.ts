@@ -15,7 +15,15 @@ serve(async (req) => {
   }
 
   try {
-    const { customerId, campaignGoal = "Generate more leads", campaignContext, selectedCampaignIds } = await req.json();
+    const { 
+      customerId, 
+      campaignGoal = "Generate more leads", 
+      campaignContext, 
+      selectedCampaignIds,
+      dateRange = "LAST_30_DAYS",
+      searchTermLimit = 200,
+      includeConversionValue = true 
+    } = await req.json();
     
     if (!customerId) {
       throw new Error('Customer ID is required');
@@ -77,19 +85,27 @@ serve(async (req) => {
         campaign.name,
         ad_group.id,
         ad_group.name,
+        segments.device,
+        segments.geo_target_region,
+        segments.hour,
         metrics.clicks,
         metrics.impressions,
         metrics.ctr,
         metrics.conversions,
-        metrics.cost_micros
+        metrics.cost_micros,
+        ${includeConversionValue ? 'metrics.conversions_value,' : ''}
+        metrics.view_through_conversions,
+        metrics.bounce_rate,
+        metrics.average_cpc,
+        metrics.cost_per_conversion
       FROM search_term_view
-      WHERE segments.date DURING LAST_30_DAYS
+      WHERE segments.date DURING ${dateRange}
         AND campaign.status = 'ENABLED'
         AND ad_group.status = 'ENABLED'
         AND metrics.clicks > 0
         ${campaignFilter}
       ORDER BY metrics.clicks DESC
-      LIMIT 50
+      LIMIT ${searchTermLimit}
     `;
 
     console.log('📊 Fetching search terms data...');
@@ -130,6 +146,15 @@ serve(async (req) => {
         
         console.log(`🔍 Term: "${searchTerm}" -> Clicks: ${clicks}, Conversions: ${conversions}, Campaign: "${campaignName}" -> Ad Group: "${adGroupName}"`);
         
+        const device = term.segments?.device || 'UNKNOWN';
+        const region = term.segments?.geoTargetRegion || 'Unknown';
+        const hourOfDay = term.segments?.hour || 0;
+        const conversionValue = includeConversionValue ? parseFloat(term.metrics?.conversionsValue || '0') : 0;
+        const viewThroughConversions = parseFloat(term.metrics?.viewThroughConversions || '0');
+        const bounceRate = parseFloat(term.metrics?.bounceRate || '0');
+        const avgCpc = parseFloat(term.metrics?.averageCpc || '0') / 1000000;
+        const costPerConversion = parseFloat(term.metrics?.costPerConversion || '0') / 1000000;
+
         return {
           searchTerm,
           campaignId,
@@ -140,8 +165,17 @@ serve(async (req) => {
           ctr: parseFloat(term.metrics?.ctr || '0'),
           conversions,
           costMicros,
-          cost: costMicros / 1000000, // Convert to dollars
-          conversionRate: clicks > 0 ? (conversions / clicks) * 100 : 0
+          cost: costMicros / 1000000,
+          conversionRate: clicks > 0 ? (conversions / clicks) * 100 : 0,
+          device,
+          region,
+          hourOfDay,
+          conversionValue,
+          viewThroughConversions,
+          bounceRate,
+          avgCpc,
+          costPerConversion,
+          roas: conversionValue > 0 ? (conversionValue / (costMicros / 1000000)) : 0
         };
       })
     };

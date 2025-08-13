@@ -156,16 +156,90 @@ serve(async (req) => {
           }
 
         } else if (action.type === 'exact_match' || action.type === 'phrase_match') {
-          // Add positive keyword (would need ad group context in real implementation)
-          console.log(`⚠️ Positive keyword addition (${action.type}) requires ad group selection - simulating success`);
-          
-          results.push({
-            action,
-            success: true,
-            result: 'Simulated positive keyword addition',
-            message: `Would add "${action.searchTerm}" as ${action.type.replace('_', ' ')} keyword (requires ad group selection)`
+          // Add positive keyword with bid adjustment
+          const targetCampaign = campaigns[0];
+          if (!targetCampaign) {
+            throw new Error('No campaigns found to add positive keyword');
+          }
+
+          // Fetch ad groups for the campaign
+          const adGroupsQuery = `
+            SELECT
+              ad_group.id,
+              ad_group.name,
+              ad_group.status
+            FROM ad_group
+            WHERE campaign.id = ${targetCampaign.campaign.id}
+              AND ad_group.status = 'ENABLED'
+            LIMIT 5
+          `;
+
+          const adGroupsResponse = await fetch(campaignsApiUrl, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${access_token}`,
+              'developer-token': developerToken,
+              'login-customer-id': '9301596383',
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ query: adGroupsQuery })
           });
-          successCount++;
+
+          let targetAdGroup = null;
+          if (adGroupsResponse.ok) {
+            const adGroupsData = await adGroupsResponse.json();
+            const adGroups = adGroupsData.results || [];
+            targetAdGroup = adGroups[0];
+          }
+
+          if (targetAdGroup) {
+            // Add keyword to the ad group
+            const keywordApiUrl = `https://googleads.googleapis.com/v18/customers/${cleanCustomerId}/adGroupCriteria:mutate`;
+            
+            const matchType = action.type === 'exact_match' ? 'EXACT' : 'PHRASE';
+            const keywordPayload = {
+              operations: [
+                {
+                  create: {
+                    adGroup: `customers/${cleanCustomerId}/adGroups/${targetAdGroup.adGroup.id}`,
+                    keyword: {
+                      text: action.searchTerm,
+                      matchType: matchType
+                    },
+                    cpcBidMicros: 1500000 // $1.50 starting bid
+                  }
+                }
+              ]
+            };
+
+            const keywordResponse = await fetch(keywordApiUrl, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${access_token}`,
+                'developer-token': developerToken,
+                'login-customer-id': '9301596383',
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify(keywordPayload)
+            });
+
+            if (keywordResponse.ok) {
+              const result = await keywordResponse.json();
+              results.push({
+                action,
+                success: true,
+                result: result.results?.[0]?.resourceName || 'Keyword added',
+                message: `Successfully added "${action.searchTerm}" as ${matchType} keyword with $1.50 bid`
+              });
+              successCount++;
+              console.log(`✅ Successfully added ${matchType} keyword: ${action.searchTerm}`);
+            } else {
+              const errorText = await keywordResponse.text();
+              throw new Error(`Keyword API error: ${keywordResponse.status} - ${errorText}`);
+            }
+          } else {
+            throw new Error('No enabled ad groups found for keyword addition');
+          }
         }
 
       } catch (actionError) {
