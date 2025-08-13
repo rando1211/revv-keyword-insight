@@ -16,6 +16,7 @@ import { OptimizationReview } from "./OptimizationReview";
 import { SearchTermsAnalysisUI } from "./SearchTermsAnalysisUI";
 import { PowerAuditPanel } from "./PowerAuditPanel";
 import { PerformanceTracker } from "./PerformanceTracker";
+import { CreativesAnalysisUI } from "./CreativesAnalysisUI";
 
 export const AIInsightsPanel = () => {
   const { toast } = useToast();

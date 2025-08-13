@@ -13,7 +13,7 @@ serve(async (req) => {
   }
 
   try {
-    const { customerId } = await req.json();
+    const { customerId, campaignIds, timeframe, includeConversions, includeQualityScore } = await req.json();
     
     if (!customerId) {
       return new Response(JSON.stringify({
@@ -92,7 +92,25 @@ serve(async (req) => {
       loginCustomerId = "9301596383";
     }
 
-    // Fetch responsive search ads data - get a diverse sample
+    // Build dynamic query with enhanced data collection
+    const selectedTimeframe = timeframe || 'LAST_30_DAYS';
+    const campaignFilter = campaignIds && campaignIds.length > 0 
+      ? `AND campaign.id IN (${campaignIds.map(id => `'${id}'`).join(',')})` 
+      : '';
+    
+    const conversionFields = includeConversions ? `
+        metrics.conversions,
+        metrics.conversions_value,
+        metrics.view_through_conversions,
+        metrics.cost_per_conversion,
+        segments.conversion_action_name,
+    ` : 'metrics.conversions,';
+    
+    const qualityFields = includeQualityScore ? `
+        ad_group_ad.ad.responsive_search_ad.headlines.asset_performance_label,
+        ad_group_ad.ad.responsive_search_ad.descriptions.asset_performance_label,
+    ` : '';
+    
     const adQuery = `
       SELECT
         ad_group.id,
@@ -106,17 +124,24 @@ serve(async (req) => {
         metrics.clicks,
         metrics.impressions,
         metrics.ctr,
-        metrics.conversions,
-        metrics.cost_micros
+        ${conversionFields}
+        metrics.cost_micros,
+        metrics.average_cpc,
+        segments.device,
+        segments.geo_target_canton,
+        segments.hour,
+        segments.day_of_week
+        ${qualityFields}
       FROM ad_group_ad
       WHERE campaign.status = 'ENABLED'
         AND ad_group.status = 'ENABLED'
         AND ad_group_ad.status = 'ENABLED'
         AND ad_group_ad.ad.type = 'RESPONSIVE_SEARCH_AD'
-        AND segments.date DURING LAST_30_DAYS
-        AND metrics.impressions > 50
+        AND segments.date DURING ${selectedTimeframe}
+        ${campaignFilter}
+        AND metrics.impressions > 10
       ORDER BY campaign.name, metrics.ctr DESC
-      LIMIT 100
+      LIMIT 200
     `;
 
     console.log(`🔍 Fetching responsive search ads...`);
@@ -151,22 +176,45 @@ serve(async (req) => {
     const apiData = await apiResponse.json();
     console.log(`📊 Found ${apiData.results?.length || 0} responsive search ads`);
 
-    // Process the ad data
+    // Process the ad data with enhanced metrics
     const adCreatives = [];
+    const campaignPerformance = new Map();
+    const devicePerformance = new Map();
+    const timePerformance = new Map();
     
     if (apiData.results) {
       for (const result of apiData.results) {
         const ad = result.adGroupAd?.ad;
         const rsa = ad?.responsiveSearchAd;
         const metrics = result.metrics;
+        const segments = result.segments;
+        
+        // Track campaign performance
+        const campaignId = result.campaign.id;
+        if (!campaignPerformance.has(campaignId)) {
+          campaignPerformance.set(campaignId, {
+            name: result.campaign.name,
+            clicks: 0,
+            impressions: 0,
+            conversions: 0,
+            cost: 0
+          });
+        }
+        const campPerf = campaignPerformance.get(campaignId);
+        campPerf.clicks += parseInt(metrics?.clicks || '0');
+        campPerf.impressions += parseInt(metrics?.impressions || '0');
+        campPerf.conversions += parseFloat(metrics?.conversions || '0');
+        campPerf.cost += (metrics?.costMicros || 0) / 1000000;
         
         if (rsa) {
-          // Process headlines
+          // Process headlines with enhanced data
           if (rsa.headlines) {
             rsa.headlines.forEach((headline, index) => {
               adCreatives.push({
                 id: `${ad.id}_headline_${index}`,
                 adId: ad.id,
+                campaignId: result.campaign.id,
+                adGroupId: result.adGroup.id,
                 type: 'headline',
                 text: headline.text,
                 pinnedField: headline.pinnedField,
@@ -175,18 +223,29 @@ serve(async (req) => {
                 clicks: parseInt(metrics?.clicks || '0'),
                 impressions: parseInt(metrics?.impressions || '0'),
                 ctr: metrics?.ctr || 0,
-                conversions: metrics?.conversions || 0,
-                cost: (metrics?.costMicros || 0) / 1000000
+                conversions: parseFloat(metrics?.conversions || '0'),
+                conversionsValue: parseFloat(metrics?.conversionsValue || '0'),
+                viewThroughConversions: parseFloat(metrics?.viewThroughConversions || '0'),
+                cost: (metrics?.costMicros || 0) / 1000000,
+                costPerConversion: parseFloat(metrics?.costPerConversion || '0') / 1000000,
+                averageCpc: (metrics?.averageCpc || 0) / 1000000,
+                device: segments?.device,
+                location: segments?.geoTargetCanton,
+                hour: segments?.hour,
+                dayOfWeek: segments?.dayOfWeek,
+                performanceLabel: headline.assetPerformanceLabel || 'UNKNOWN'
               });
             });
           }
 
-          // Process descriptions
+          // Process descriptions with enhanced data
           if (rsa.descriptions) {
             rsa.descriptions.forEach((description, index) => {
               adCreatives.push({
                 id: `${ad.id}_description_${index}`,
                 adId: ad.id,
+                campaignId: result.campaign.id,
+                adGroupId: result.adGroup.id,
                 type: 'description',
                 text: description.text,
                 pinnedField: description.pinnedField,
@@ -195,8 +254,17 @@ serve(async (req) => {
                 clicks: parseInt(metrics?.clicks || '0'),
                 impressions: parseInt(metrics?.impressions || '0'),
                 ctr: metrics?.ctr || 0,
-                conversions: metrics?.conversions || 0,
-                cost: (metrics?.costMicros || 0) / 1000000
+                conversions: parseFloat(metrics?.conversions || '0'),
+                conversionsValue: parseFloat(metrics?.conversionsValue || '0'),
+                viewThroughConversions: parseFloat(metrics?.viewThroughConversions || '0'),
+                cost: (metrics?.costMicros || 0) / 1000000,
+                costPerConversion: parseFloat(metrics?.costPerConversion || '0') / 1000000,
+                averageCpc: (metrics?.averageCpc || 0) / 1000000,
+                device: segments?.device,
+                location: segments?.geoTargetCanton,
+                hour: segments?.hour,
+                dayOfWeek: segments?.dayOfWeek,
+                performanceLabel: description.assetPerformanceLabel || 'UNKNOWN'
               });
             });
           }
@@ -206,22 +274,62 @@ serve(async (req) => {
 
     console.log(`✅ Processed ${adCreatives.length} individual ad assets`);
 
-    // Analyze the creatives
+    // Advanced analytics and insights
     const headlines = adCreatives.filter(c => c.type === 'headline');
     const descriptions = adCreatives.filter(c => c.type === 'description');
     
-    // Calculate performance metrics
+    // Calculate comprehensive performance metrics
     const totalClicks = adCreatives.reduce((sum, c) => sum + c.clicks, 0);
     const totalImpressions = adCreatives.reduce((sum, c) => sum + c.impressions, 0);
+    const totalConversions = adCreatives.reduce((sum, c) => sum + c.conversions, 0);
+    const totalCost = adCreatives.reduce((sum, c) => sum + c.cost, 0);
     const avgCTR = totalImpressions > 0 ? totalClicks / totalImpressions : 0;
+    const avgConversionRate = totalClicks > 0 ? totalConversions / totalClicks : 0;
+    const avgCPC = totalClicks > 0 ? totalCost / totalClicks : 0;
+    const roas = adCreatives.reduce((sum, c) => sum + c.conversionsValue, 0) / totalCost;
     
-    // Group by performance
-    const highPerforming = adCreatives.filter(c => c.ctr > avgCTR * 1.5);
-    const lowPerforming = adCreatives.filter(c => c.ctr < avgCTR * 0.5 && c.impressions > 100);
+    // Performance categorization with enhanced criteria
+    const highPerforming = adCreatives.filter(c => 
+      c.ctr > avgCTR * 1.2 && c.conversions > 0 && c.impressions > 50
+    );
+    const lowPerforming = adCreatives.filter(c => 
+      c.ctr < avgCTR * 0.7 && c.impressions > 100
+    );
+    
+    // Detect creative fatigue (assets with declining performance)
+    const potentialFatigue = adCreatives.filter(c => 
+      c.impressions > 1000 && c.ctr < avgCTR * 0.8
+    );
+    
+    // Device and time performance insights
+    const deviceBreakdown = {};
+    const timeBreakdown = {};
+    adCreatives.forEach(c => {
+      if (c.device) {
+        if (!deviceBreakdown[c.device]) deviceBreakdown[c.device] = { clicks: 0, impressions: 0, conversions: 0 };
+        deviceBreakdown[c.device].clicks += c.clicks;
+        deviceBreakdown[c.device].impressions += c.impressions;
+        deviceBreakdown[c.device].conversions += c.conversions;
+      }
+      if (c.hour) {
+        const timeSlot = parseInt(c.hour) >= 9 && parseInt(c.hour) <= 17 ? 'business_hours' : 'off_hours';
+        if (!timeBreakdown[timeSlot]) timeBreakdown[timeSlot] = { clicks: 0, impressions: 0, conversions: 0 };
+        timeBreakdown[timeSlot].clicks += c.clicks;
+        timeBreakdown[timeSlot].impressions += c.impressions;
+        timeBreakdown[timeSlot].conversions += c.conversions;
+      }
+    });
     
     // Get unique campaigns and brands
     const campaigns = [...new Set(adCreatives.map(c => c.campaign))];
     const brands = [...new Set(campaigns.map(c => c.replace(/\s*\(PM\)|\s*\(Search\)/, '').trim()))];
+    
+    // Performance labels distribution
+    const performanceLabelDistribution = {};
+    adCreatives.forEach(c => {
+      const label = c.performanceLabel || 'UNKNOWN';
+      performanceLabelDistribution[label] = (performanceLabelDistribution[label] || 0) + 1;
+    });
 
     return new Response(JSON.stringify({
       success: true,
@@ -231,16 +339,32 @@ serve(async (req) => {
         headlines: headlines.length,
         descriptions: descriptions.length,
         campaigns: campaigns.length,
+        campaignPerformance: Array.from(campaignPerformance.values()),
         brands,
         performance: {
-          avgCTR: (avgCTR * 100).toFixed(2),
+          avgCTR: (avgCTR * 100).toFixed(3),
+          avgConversionRate: (avgConversionRate * 100).toFixed(2),
+          avgCPC: avgCPC.toFixed(2),
+          roas: roas.toFixed(2),
           highPerforming: highPerforming.length,
           lowPerforming: lowPerforming.length,
+          potentialFatigue: potentialFatigue.length,
           totalClicks,
-          totalImpressions
+          totalImpressions,
+          totalConversions,
+          totalCost: totalCost.toFixed(2)
+        },
+        segmentation: {
+          device: deviceBreakdown,
+          time: timeBreakdown,
+          performanceLabels: performanceLabelDistribution
         }
       },
-      timeframe: 'Last 30 days'
+      timeframe: selectedTimeframe,
+      filters: {
+        campaignSpecific: campaignIds && campaignIds.length > 0,
+        campaignCount: campaignIds ? campaignIds.length : 'all'
+      }
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
