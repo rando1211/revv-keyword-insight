@@ -196,66 +196,193 @@ Implementing these optimizations could improve overall CTR by 25-40% within 14 d
   const generateOptimizationRecommendations = (creatives, analysis) => {
     const recommendations = [];
     const avgCtr = analysis.performance.avgCtr;
+    const totalCost = creatives.reduce((sum, c) => sum + c.cost, 0);
+    const headlines = creatives.filter(c => c.type === 'headline');
+    const descriptions = creatives.filter(c => c.type === 'description');
 
-    // 1. Pause underperforming assets (simple logic)
-    const underperformers = creatives.filter(c => 
-      c.ctr < (avgCtr * 0.3) && c.impressions > 1000
+    // 1. CRITICAL: Pause Budget-Draining Underperformers
+    const criticalUnderperformers = creatives.filter(c => 
+      c.ctr < (avgCtr * 0.3) && c.impressions > 1000 && c.cost > 50
     );
 
-    underperformers.forEach(creative => {
+    criticalUnderperformers.forEach(creative => {
+      const weeklySavings = (creative.cost * 0.7).toFixed(0);
+      const ctrGapPercent = ((creative.ctr/avgCtr)*100-100);
+      const ctrGap = ctrGapPercent.toFixed(0);
+      
       recommendations.push({
-        id: `pause_${creative.id}`,
+        id: `pause_critical_${creative.id}`,
         type: 'pause_creative',
         action: 'pause_creative',
-        title: `🚫 Pause Underperforming ${creative.type.charAt(0).toUpperCase() + creative.type.slice(1)}`,
-        description: `"${creative.text.substring(0, 50)}..." - CTR: ${(creative.ctr * 100).toFixed(2)}% (${((creative.ctr/avgCtr)*100-100).toFixed(0)}% below average)`,
+        priority: 'CRITICAL',
+        title: `🚨 URGENT: Pause Budget Drain "${creative.text.substring(0, 40)}..."`,
+        description: `CTR: ${(creative.ctr * 100).toFixed(2)}% (${ctrGap}% below average) • Cost: $${creative.cost.toFixed(0)} • ${creative.impressions.toLocaleString()} impressions`,
         impact: 'HIGH',
-        confidence: 90,
+        confidence: 95,
+        timeToExecute: '2 minutes',
+        effort: 'Low',
         creativeId: creative.adId,
         adGroupId: creative.adGroupId,
         campaignId: creative.campaignId,
-        reason: `Low CTR of ${(creative.ctr * 100).toFixed(2)}% is draining budget. Pausing will save ~$${(creative.cost * 0.7).toFixed(0)}/week.`
+        campaign: creative.campaign,
+        adGroup: creative.adGroup,
+        expectedOutcome: `Save $${weeklySavings}/week by stopping wasted spend`,
+        stepByStep: [
+          `1. Navigate to Campaign: "${creative.campaign}"`,
+          `2. Go to Ad Group: "${creative.adGroup}"`,
+          `3. Find ad containing: "${creative.text.substring(0, 30)}..."`,
+          `4. Click "Pause" on this ${creative.type}`,
+          `5. Monitor for 48 hours to confirm cost reduction`
+        ],
+        reasoning: `This ${creative.type} has a CTR ${Math.abs(ctrGapPercent).toFixed(0)}% below your account average, indicating poor audience resonance. With $${creative.cost.toFixed(0)} spent and only ${(creative.ctr * 100).toFixed(2)}% engagement, it's actively draining budget that could be reallocated to better performers.`,
+        riskFactors: ['Minimal risk - performance clearly poor', 'May need replacement creative'],
+        followUpActions: ['Monitor remaining creatives performance', 'Test new variations']
       });
     });
 
-    // 2. Create new headlines based on gaps
-    const headlines = creatives.filter(c => c.type === 'headline');
-    const topHeadlines = headlines.sort((a, b) => b.ctr - a.ctr).slice(0, 3);
-    
-    if (topHeadlines.length > 0) {
+    // 2. HIGH PRIORITY: Scale Top Performers
+    const topPerformers = creatives.filter(c => 
+      c.ctr > (avgCtr * 1.8) && c.impressions > 500
+    ).slice(0, 3);
+
+    if (topPerformers.length > 0) {
       recommendations.push({
-        id: 'add_headlines',
-        type: 'add_new_creative',
-        action: 'add_new_creative',
-        title: '✨ Add High-Impact Headlines',
-        description: 'Create 3 new headlines based on your top performers',
-        impact: 'MEDIUM',
-        confidence: 75,
-        newHeadlines: [
-          `${topHeadlines[0]?.text.includes('Get') ? 'Start' : 'Get'} ${analysis.campaigns > 1 ? 'Premium' : 'Professional'} Results Today`,
-          `Trusted by ${Math.floor(Math.random() * 5000 + 1000)}+ Happy Customers`,
-          `Limited Time: Save ${Math.floor(Math.random() * 30 + 20)}% This Month`
+        id: 'scale_performers',
+        type: 'scale_budget',
+        action: 'increase_budget',
+        priority: 'HIGH',
+        title: `📈 Scale ${topPerformers.length} High-Performing Assets`,
+        description: `Top performers with ${((topPerformers[0]?.ctr || 0) * 100).toFixed(2)}% CTR deserve more budget`,
+        impact: 'HIGH',
+        confidence: 88,
+        timeToExecute: '10 minutes',
+        effort: 'Medium',
+        expectedOutcome: `Increase conversions by 20-35% within 2 weeks`,
+        topPerformers: topPerformers.map(p => ({
+          text: p.text.substring(0, 50) + '...',
+          ctr: (p.ctr * 100).toFixed(2) + '%',
+          campaign: p.campaign,
+          cost: '$' + p.cost.toFixed(0)
+        })),
+        stepByStep: [
+          `1. Identify campaigns with top performers: ${[...new Set(topPerformers.map(p => p.campaign))].join(', ')}`,
+          `2. Increase daily budget by 25-50% for these campaigns`,
+          `3. Monitor impression share and position metrics`,
+          `4. Ensure these high-CTR ads get maximum exposure`,
+          `5. Consider duplicating successful patterns to other ad groups`
         ],
-        reason: 'Expand successful themes while testing new messaging angles'
+        reasoning: `These creatives significantly outperform your average (${(avgCtr * 100).toFixed(2)}% CTR), indicating strong market resonance. Scaling their reach can multiply your current success.`,
+        riskFactors: ['Budget increase needed', 'Monitor for audience saturation'],
+        followUpActions: ['Track impression share daily', 'Test variations of winning themes']
       });
     }
 
-    // 3. Improve descriptions
-    const descriptions = creatives.filter(c => c.type === 'description');
-    if (descriptions.length < headlines.length * 0.7) {
+    // 3. MEDIUM: Add Strategic New Headlines
+    const headlineGaps = 15 - headlines.length;
+    if (headlineGaps > 0) {
+      const bestHeadline = headlines.sort((a, b) => b.ctr - a.ctr)[0];
+      const commonThemes = headlines.map(h => h.text.split(' ').slice(0, 2).join(' ')).filter((v, i, a) => a.indexOf(v) === i);
+
       recommendations.push({
-        id: 'add_descriptions',
-        type: 'add_new_creative', 
-        action: 'add_new_creative',
-        title: '📝 Add Compelling Descriptions',
-        description: 'Create benefit-focused descriptions to improve ad strength',
+        id: 'add_strategic_headlines',
+        type: 'add_new_creative',
+        action: 'create_headlines',
+        priority: 'MEDIUM',
+        title: `✨ Add ${Math.min(headlineGaps, 5)} Strategic Headlines`,
+        description: `Based on winning patterns from your ${(bestHeadline?.ctr * 100 || 0).toFixed(2)}% CTR top performer`,
+        impact: 'MEDIUM',
+        confidence: 75,
+        timeToExecute: '15 minutes',
+        effort: 'Medium',
+        expectedOutcome: `Improve ad strength scores and increase CTR by 10-15%`,
+        suggestedHeadlines: [
+          {
+            text: `${bestHeadline?.text.includes('Get') ? 'Start Your' : 'Get Expert'} ${analysis.campaigns > 1 ? 'Premium' : 'Professional'} Results`,
+            rationale: 'Action-oriented language based on your top performer'
+          },
+          {
+            text: `Trusted by ${Math.floor(Math.random() * 5000 + 1000)}+ Satisfied Customers`,
+            rationale: 'Social proof element missing from current lineup'
+          },
+          {
+            text: `Limited Time: Save ${Math.floor(Math.random() * 30 + 20)}% This Month`,
+            rationale: 'Urgency + value proposition combination'
+          }
+        ],
+        stepByStep: [
+          `1. Navigate to your lowest-performing ad groups`,
+          `2. Edit responsive search ads to add headlines`,
+          `3. Use suggested headlines based on your winning patterns`,
+          `4. Set new headlines to "Pinned to Position 1" for testing`,
+          `5. Monitor ad strength score improvements`
+        ],
+        reasoning: `You're missing ${headlineGaps} headlines for optimal testing velocity. Your best headline pattern "${bestHeadline?.text.substring(0, 30) || 'N/A'}..." can be evolved into new variations.`,
+        currentGaps: [`Need ${headlineGaps} more headlines for full 15-headline coverage`, `Missing urgency elements in ${commonThemes.length > 1 ? 'most' : 'some'} themes`],
+        followUpActions: ['A/B test new headlines against current ones', 'Expand winning themes to other campaigns']
+      });
+    }
+
+    // 4. MEDIUM: Improve Description Coverage
+    const descriptionGap = headlines.length * 0.3 - descriptions.length;
+    if (descriptionGap > 1) {
+      recommendations.push({
+        id: 'improve_descriptions',
+        type: 'add_new_creative',
+        action: 'create_descriptions',
+        priority: 'MEDIUM',
+        title: `📝 Add ${Math.ceil(descriptionGap)} Benefit-Focused Descriptions`,
+        description: `Improve ad strength and provide more context for your headlines`,
         impact: 'MEDIUM',
         confidence: 70,
-        newDescriptions: [
-          'Experience exceptional service with fast delivery and 24/7 support. Start your free trial today.',
-          'Join thousands who chose our proven solution. Money-back guarantee included.'
+        timeToExecute: '12 minutes',
+        effort: 'Low',
+        expectedOutcome: `Increase ad strength scores and improve conversion context`,
+        suggestedDescriptions: [
+          {
+            text: 'Experience exceptional service with fast delivery and 24/7 support. Start your free trial today.',
+            rationale: 'Service quality + urgency combination'
+          },
+          {
+            text: 'Join thousands who chose our proven solution. Money-back guarantee included.',
+            rationale: 'Social proof + risk reversal elements'
+          }
         ],
-        reason: 'Insufficient description variety limiting ad strength score'
+        stepByStep: [
+          `1. Identify ads with low ad strength scores`,
+          `2. Add benefit-focused descriptions that complement headlines`,
+          `3. Include calls-to-action in each description`,
+          `4. Test emotional vs. rational messaging approaches`,
+          `5. Monitor quality score improvements`
+        ],
+        reasoning: `You have ${descriptions.length} descriptions for ${headlines.length} headlines. Google recommends 4 descriptions per ad for optimal performance.`,
+        followUpActions: ['Test description variations', 'Monitor quality score changes']
+      });
+    }
+
+    // 5. LOW: Long-term Creative Refresh
+    const oldCreatives = creatives.filter(c => c.impressions > 10000);
+    if (oldCreatives.length > 0) {
+      recommendations.push({
+        id: 'refresh_high_exposure',
+        type: 'creative_refresh',
+        action: 'refresh_creatives',
+        priority: 'LOW',
+        title: `🔄 Refresh ${oldCreatives.length} High-Exposure Creatives`,
+        description: `Prevent ad fatigue on assets with 10K+ impressions`,
+        impact: 'LOW',
+        confidence: 60,
+        timeToExecute: '30 minutes',
+        effort: 'High',
+        expectedOutcome: `Prevent CTR decline from ad fatigue`,
+        stepByStep: [
+          `1. Create variations of high-exposure creatives`,
+          `2. Test different emotional angles and value props`,
+          `3. Gradually replace older versions`,
+          `4. Monitor for CTR improvements`,
+          `5. Scale successful refreshes to other campaigns`
+        ],
+        reasoning: `Creatives with high impression volume may experience fatigue. Proactive refresh maintains performance.`,
+        followUpActions: ['Schedule monthly creative reviews', 'Build creative testing calendar']
       });
     }
 
@@ -557,40 +684,203 @@ Implementing these optimizations could improve overall CTR by 25-40% within 14 d
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
+                <div className="space-y-6">
                   {pendingOptimizations.map((optimization) => (
                     <div 
                       key={optimization.id} 
-                      className={`border rounded-lg p-4 ${getImpactColor(optimization.impact)}`}
+                      className={`border rounded-lg p-6 ${getImpactColor(optimization.impact)}`}
                     >
-                      <div className="flex items-start justify-between gap-4">
+                      {/* Header */}
+                      <div className="flex items-start justify-between gap-4 mb-4">
                         <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <Badge variant="outline">{optimization.type.replace('_', ' ')}</Badge>
-                            <Badge variant={optimization.impact === 'HIGH' ? 'destructive' : 'secondary'}>
+                          <div className="flex items-center gap-3 mb-3">
+                            <Badge variant="outline" className="text-xs font-medium">
+                              {optimization.priority} PRIORITY
+                            </Badge>
+                            <Badge variant={optimization.impact === 'HIGH' ? 'destructive' : optimization.impact === 'MEDIUM' ? 'default' : 'secondary'}>
                               {optimization.impact} Impact
                             </Badge>
-                            <span className="text-sm text-muted-foreground">
+                            <Badge variant="outline" className="text-xs">
                               {optimization.confidence}% confidence
-                            </span>
+                            </Badge>
+                            {optimization.timeToExecute && (
+                              <Badge variant="secondary" className="text-xs">
+                                ⏱️ {optimization.timeToExecute}
+                              </Badge>
+                            )}
                           </div>
-                          <h4 className="font-medium mb-1">{optimization.title}</h4>
-                          <p className="text-sm text-muted-foreground">{optimization.description}</p>
+                          <h4 className="text-lg font-semibold mb-2">{optimization.title}</h4>
+                          <p className="text-sm text-muted-foreground mb-4">{optimization.description}</p>
+                          
+                          {/* Expected Outcome */}
+                          {optimization.expectedOutcome && (
+                            <div className="bg-primary/10 border border-primary/20 rounded-lg p-3 mb-4">
+                              <div className="flex items-center gap-2 mb-1">
+                                <Target className="h-4 w-4 text-primary" />
+                                <span className="font-medium text-sm">Expected Outcome</span>
+                              </div>
+                              <p className="text-sm">{optimization.expectedOutcome}</p>
+                            </div>
+                          )}
                         </div>
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={() => removePendingOptimization(optimization.id)}
+                          className="shrink-0"
                         >
                           Remove
                         </Button>
                       </div>
+
+                      {/* Detailed Information Grid */}
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        
+                        {/* Step-by-Step Instructions */}
+                        {optimization.stepByStep && (
+                          <div className="space-y-2">
+                            <h5 className="font-medium text-sm flex items-center gap-2">
+                              <CheckCircle className="h-4 w-4" />
+                              Step-by-Step Instructions
+                            </h5>
+                            <div className="bg-muted/50 rounded-lg p-3">
+                              <ol className="space-y-2 text-sm">
+                                {optimization.stepByStep.map((step, index) => (
+                                  <li key={index} className="flex items-start gap-2">
+                                    <span className="bg-primary text-primary-foreground text-xs rounded-full w-5 h-5 flex items-center justify-center shrink-0 mt-0.5">
+                                      {index + 1}
+                                    </span>
+                                    <span>{step}</span>
+                                  </li>
+                                ))}
+                              </ol>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Reasoning & Context */}
+                        {optimization.reasoning && (
+                          <div className="space-y-2">
+                            <h5 className="font-medium text-sm flex items-center gap-2">
+                              <Brain className="h-4 w-4" />
+                              Why This Matters
+                            </h5>
+                            <div className="bg-muted/50 rounded-lg p-3">
+                              <p className="text-sm">{optimization.reasoning}</p>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Suggested Content (for creative additions) */}
+                        {optimization.suggestedHeadlines && (
+                          <div className="space-y-2">
+                            <h5 className="font-medium text-sm">Suggested Headlines</h5>
+                            <div className="space-y-2">
+                              {optimization.suggestedHeadlines.map((headline, index) => (
+                                <div key={index} className="bg-muted/50 rounded-lg p-3">
+                                  <p className="font-medium text-sm">"{headline.text}"</p>
+                                  <p className="text-xs text-muted-foreground mt-1">{headline.rationale}</p>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {optimization.suggestedDescriptions && (
+                          <div className="space-y-2">
+                            <h5 className="font-medium text-sm">Suggested Descriptions</h5>
+                            <div className="space-y-2">
+                              {optimization.suggestedDescriptions.map((desc, index) => (
+                                <div key={index} className="bg-muted/50 rounded-lg p-3">
+                                  <p className="font-medium text-sm">"{desc.text}"</p>
+                                  <p className="text-xs text-muted-foreground mt-1">{desc.rationale}</p>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Top Performers Data */}
+                        {optimization.topPerformers && (
+                          <div className="space-y-2">
+                            <h5 className="font-medium text-sm">Top Performers to Scale</h5>
+                            <div className="space-y-2">
+                              {optimization.topPerformers.map((performer, index) => (
+                                <div key={index} className="bg-success/10 rounded-lg p-3">
+                                  <p className="font-medium text-sm">"{performer.text}"</p>
+                                  <div className="flex items-center gap-4 mt-1 text-xs">
+                                    <span>CTR: {performer.ctr}</span>
+                                    <span>Cost: {performer.cost}</span>
+                                    <span className="text-muted-foreground">{performer.campaign}</span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Risk Factors */}
+                        {optimization.riskFactors && (
+                          <div className="space-y-2">
+                            <h5 className="font-medium text-sm flex items-center gap-2">
+                              <AlertTriangle className="h-4 w-4 text-warning" />
+                              Risk Factors
+                            </h5>
+                            <div className="bg-warning/10 rounded-lg p-3">
+                              <ul className="text-sm space-y-1">
+                                {optimization.riskFactors.map((risk, index) => (
+                                  <li key={index} className="flex items-start gap-2">
+                                    <span className="text-warning">•</span>
+                                    <span>{risk}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Follow-up Actions */}
+                        {optimization.followUpActions && (
+                          <div className="space-y-2">
+                            <h5 className="font-medium text-sm flex items-center gap-2">
+                              <TrendingUp className="h-4 w-4" />
+                              Follow-up Actions
+                            </h5>
+                            <div className="bg-muted/50 rounded-lg p-3">
+                              <ul className="text-sm space-y-1">
+                                {optimization.followUpActions.map((action, index) => (
+                                  <li key={index} className="flex items-start gap-2">
+                                    <span className="text-primary">•</span>
+                                    <span>{action}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Campaign/Ad Group Context */}
+                      {(optimization.campaign || optimization.adGroup) && (
+                        <div className="mt-4 pt-4 border-t">
+                          <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                            {optimization.campaign && (
+                              <span>📊 Campaign: <span className="font-medium">{optimization.campaign}</span></span>
+                            )}
+                            {optimization.adGroup && (
+                              <span>📁 Ad Group: <span className="font-medium">{optimization.adGroup}</span></span>
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ))}
                   
                   {pendingOptimizations.length === 0 && (
-                    <div className="text-center py-8 text-muted-foreground">
-                      No optimizations pending. Run analysis to generate recommendations.
+                    <div className="text-center py-12 text-muted-foreground">
+                      <Zap className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                      <h3 className="text-lg font-medium mb-2">No optimizations pending</h3>
+                      <p>Run creative analysis to generate detailed, actionable recommendations</p>
                     </div>
                   )}
                 </div>
