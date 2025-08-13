@@ -139,10 +139,11 @@ serve(async (req) => {
         ${campaignFilter}
         AND metrics.impressions > 10
       ORDER BY campaign.name, metrics.ctr DESC
-      LIMIT 200
+      LIMIT ${campaignIds && campaignIds.length > 0 ? 100 : 50}
     `;
 
-    console.log(`🔍 Fetching responsive search ads...`);
+    console.log(`🔍 Fetching responsive search ads for ${campaignIds && campaignIds.length > 0 ? campaignIds.length + ' selected campaigns' : 'top 50 ads only'}...`);
+    console.log(`🎯 Applied filters: Campaign IDs: ${campaignIds ? JSON.stringify(campaignIds) : 'none'}, Timeframe: ${selectedTimeframe}`);
 
     // Build headers
     const headers = {
