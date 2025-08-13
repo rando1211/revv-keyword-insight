@@ -229,7 +229,7 @@ serve(async (req) => {
                 averageCpc: (metrics?.averageCpc || 0) / 1000000,
                  device: segments?.device,
                  dayOfWeek: segments?.dayOfWeek,
-                performanceLabel: headline.assetPerformanceLabel || 'UNKNOWN'
+                performanceLabel: 'PENDING' // Default value since asset_performance_label not available in API
               });
             });
           }
@@ -258,7 +258,7 @@ serve(async (req) => {
                 averageCpc: (metrics?.averageCpc || 0) / 1000000,
                  device: segments?.device,
                  dayOfWeek: segments?.dayOfWeek,
-                performanceLabel: description.assetPerformanceLabel || 'UNKNOWN'
+                performanceLabel: 'PENDING' // Default value since asset_performance_label not available in API
               });
             });
           }
