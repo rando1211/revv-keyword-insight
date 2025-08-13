@@ -144,8 +144,7 @@ serve(async (req) => {
 
     console.log(`🔍 Fetching TOP ${campaignIds && campaignIds.length > 0 ? '10 ads per selected campaign' : '5 highest performing ads only'}...`);
     console.log(`🎯 Applied filters: Campaign IDs: ${campaignIds ? JSON.stringify(campaignIds) : 'none'}, Timeframe: ${selectedTimeframe}`);
-
-    // Build headers
+    // Fixed: removed invalid asset_performance_label fields
     const headers = {
       'Authorization': `Bearer ${accessToken}`,
       'developer-token': developerToken,
