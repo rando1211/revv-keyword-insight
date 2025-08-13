@@ -58,7 +58,20 @@ serve(async (req) => {
 
     console.log(`🎨 Fetching ad creatives for customer: ${customerId}`);
 
+    console.log('🔑 Environment variables check:', {
+      hasDeveloperToken: !!DEVELOPER_TOKEN,
+      hasClientId: !!CLIENT_ID,
+      hasClientSecret: !!CLIENT_SECRET,
+      hasRefreshToken: !!REFRESH_TOKEN
+    });
+
     if (!CLIENT_ID || !CLIENT_SECRET || !REFRESH_TOKEN || !DEVELOPER_TOKEN) {
+      console.error('❌ Missing credentials:', {
+        CLIENT_ID: CLIENT_ID ? '✓' : '❌',
+        CLIENT_SECRET: CLIENT_SECRET ? '✓' : '❌', 
+        REFRESH_TOKEN: REFRESH_TOKEN ? '✓' : '❌',
+        DEVELOPER_TOKEN: DEVELOPER_TOKEN ? '✓' : '❌'
+      });
       throw new Error('Missing required Google Ads API credentials');
     }
 
