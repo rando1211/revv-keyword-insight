@@ -446,6 +446,40 @@ Implementing these optimizations could improve overall CTR by 25-40% within 14 d
     }
   };
 
+  const executeIndividualOptimization = async (optimization) => {
+    setIsExecuting(true);
+    try {
+      const { data: execResponse, error: execError } = await supabase.functions.invoke('execute-creative-optimizations', {
+        body: {
+          customerId,
+          optimizations: [optimization], // Execute just this one
+          executeMode: 'EXECUTE'
+        }
+      });
+
+      if (execError) throw execError;
+      if (!execResponse.success) throw new Error(execResponse.error);
+
+      toast({
+        title: "✅ Optimization Executed",
+        description: `"${optimization.title}" has been implemented successfully`,
+      });
+
+      // Remove this optimization from the list
+      setPendingOptimizations(prev => prev.filter(opt => opt.id !== optimization.id));
+      
+    } catch (error) {
+      console.error("Individual optimization execution failed:", error);
+      toast({
+        title: "Execution Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsExecuting(false);
+    }
+  };
+
   const trackPerformanceImpact = async () => {
     setIsTrackingPerformance(true);
     try {
@@ -666,22 +700,13 @@ Implementing these optimizations could improve overall CTR by 25-40% within 14 d
               <CardHeader>
                 <CardTitle className="flex items-center justify-between">
                   Optimization Recommendations
-                  {pendingOptimizations.length > 0 && (
-                    <Button onClick={executeOptimizations} disabled={isExecuting}>
-                      {isExecuting ? (
-                        <>
-                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          Executing...
-                        </>
-                      ) : (
-                        <>
-                          <Play className="h-4 w-4 mr-2" />
-                          Execute All ({pendingOptimizations.length})
-                        </>
-                      )}
-                    </Button>
-                  )}
+                  <Badge variant="secondary" className="text-sm">
+                    {pendingOptimizations.length} Action{pendingOptimizations.length !== 1 ? 's' : ''} Available
+                  </Badge>
                 </CardTitle>
+                <CardDescription>
+                  Click "Execute" on any recommendation to implement it. Each action is independent.
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-6">
@@ -723,14 +748,33 @@ Implementing these optimizations could improve overall CTR by 25-40% within 14 d
                             </div>
                           )}
                         </div>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => removePendingOptimization(optimization.id)}
-                          className="shrink-0"
-                        >
-                          Remove
-                        </Button>
+                        <div className="flex gap-2">
+                          <Button 
+                            onClick={() => executeIndividualOptimization(optimization)}
+                            disabled={isExecuting}
+                            className="bg-primary hover:bg-primary/90"
+                          >
+                            {isExecuting ? (
+                              <>
+                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                Executing...
+                              </>
+                            ) : (
+                              <>
+                                <Play className="h-4 w-4 mr-2" />
+                                Execute Now
+                              </>
+                            )}
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => removePendingOptimization(optimization.id)}
+                            className="shrink-0"
+                          >
+                            Skip
+                          </Button>
+                        </div>
                       </div>
 
                       {/* Detailed Information Grid */}
