@@ -107,8 +107,8 @@ serve(async (req) => {
     ` : 'metrics.conversions,';
     
     const qualityFields = includeQualityScore ? `
-        ad_group_ad.ad.responsive_search_ad.headlines.asset_performance_label,
-        ad_group_ad.ad.responsive_search_ad.descriptions.asset_performance_label,
+        ad_group_ad.ad.responsive_search_ad.headlines,
+        ad_group_ad.ad.responsive_search_ad.descriptions,
     ` : '';
     
     const adQuery = `
