@@ -389,6 +389,7 @@ Implementing these optimizations could improve overall CTR by 25-40% within 14 d
       });
     }
 
+    console.log('🔍 DEBUG: Generated recommendations:', recommendations.length, recommendations);
     setPendingOptimizations(recommendations);
   };
 
