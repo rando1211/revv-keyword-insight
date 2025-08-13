@@ -95,10 +95,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   useEffect(() => {
-    console.log('🔐 Setting up auth state listener...');
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        console.log('🔐 Auth state changed:', { event, userEmail: session?.user?.email });
         setSession(session);
         setUser(session?.user ?? null);
         
@@ -116,9 +114,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     );
 
-    console.log('🔐 Checking for existing session...');
-    supabase.auth.getSession().then(({ data: { session }, error }) => {
-      console.log('🔐 Initial session check:', { userEmail: session?.user?.email, error: error?.message });
+    supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
       
@@ -152,13 +148,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signIn = async (email: string, password: string) => {
-    console.log('🔐 Attempting sign in...');
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
     
-    console.log('🔐 Sign in result:', { user: data?.user?.email, error: error?.message });
     return { error };
   };
 
