@@ -106,12 +106,23 @@ Return ONLY a valid JSON response:
     
     console.log('✅ Received audit from OpenAI');
     
-    // Parse the JSON response
+    // Parse the JSON response, handling markdown code blocks
     let parsedResult;
     try {
-      parsedResult = JSON.parse(auditResult);
+      let jsonContent = auditResult.trim();
+      
+      // Remove markdown code block formatting if present
+      if (jsonContent.startsWith('```json')) {
+        jsonContent = jsonContent.replace(/^```json\n/, '').replace(/\n```$/, '');
+      } else if (jsonContent.startsWith('```')) {
+        jsonContent = jsonContent.replace(/^```\n/, '').replace(/\n```$/, '');
+      }
+      
+      parsedResult = JSON.parse(jsonContent);
+      console.log('✅ Successfully parsed AI audit response');
     } catch (e) {
       console.error('❌ Failed to parse OpenAI response:', auditResult);
+      console.error('❌ Parse error:', e.message);
       throw new Error('Invalid JSON response from AI auditor');
     }
 
