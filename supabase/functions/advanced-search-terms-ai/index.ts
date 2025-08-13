@@ -122,7 +122,7 @@ serve(async (req) => {
       headers: {
         'Authorization': `Bearer ${access_token}`,
         'developer-token': developerToken,
-        'login-customer-id': '9301596383',
+        'login-customer-id': cleanCustomerId,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({ query: searchTermsQuery })

@@ -108,45 +108,88 @@ export const CreativesAnalysisUI = ({ customerId, campaignIds, onBack }: Creativ
 
   // Generate professional executive summary like a Google Ads expert
   const generateProfessionalSummary = (creatives, analysis) => {
+    // Calculate comprehensive metrics with detailed explanations
     const totalAssets = creatives.length;
     const avgCtr = analysis.performance.avgCtr;
-    const topPerformers = creatives.filter(c => c.ctr > avgCtr * 1.5).length;
-    const underperformers = creatives.filter(c => c.ctr < avgCtr * 0.5 && c.impressions > 100).length;
+    const totalCost = creatives.reduce((sum, c) => sum + c.cost, 0);
+    const totalClicks = creatives.reduce((sum, c) => sum + c.clicks, 0);
+    const totalImpressions = creatives.reduce((sum, c) => sum + c.impressions, 0);
+
+    // Performance distribution analysis
+    const topPerformers = creatives.filter(c => c.ctr > avgCtr * 1.5);
+    const underperformers = creatives.filter(c => c.ctr < avgCtr * 0.5 && c.impressions > 100);
+    const wastedBudget = underperformers.reduce((sum, c) => sum + c.cost, 0);
     
+    // Creative type breakdown with performance insights
     const headlines = creatives.filter(c => c.type === 'headline');
     const descriptions = creatives.filter(c => c.type === 'description');
-    
-    return {
-      overview: `Campaign Performance Summary: Analyzed ${totalAssets} creative assets across ${analysis.campaigns} active campaigns. Overall account CTR of ${avgCtr.toFixed(2)}% ${avgCtr > 2 ? 'exceeds' : avgCtr > 1 ? 'meets' : 'falls below'} industry benchmarks.`,
-      
-      key_findings: [
-        `🎯 Performance Distribution: ${topPerformers} high-performers (${((topPerformers/totalAssets)*100).toFixed(0)}%) driving majority of results`,
-        `⚠️ Optimization Opportunity: ${underperformers} underperforming assets need immediate attention`,
-        `📊 Asset Mix: ${headlines.length} headlines, ${descriptions.length} descriptions analyzed`,
-        `💰 Cost Efficiency: $${analysis.performance.costPerConversion.toFixed(2)} avg cost per conversion`
-      ],
-      
-      immediate_actions: [
-        underperformers > 0 ? `Pause ${underperformers} low-performing assets to reduce wasted spend` : 'Continue monitoring current asset performance',
-        topPerformers < 3 ? 'Create new high-impact headlines using proven formulas' : 'Scale top-performing creative themes',
-        analysis.performance.conversionRate < 2 ? 'Test more compelling calls-to-action' : 'Optimize for higher-value conversions'
-      ],
-      
-      strategic_recommendations: {
-        priority_high: [
-          'Implement creative rotation testing for top ad groups',
-          'Develop 3-5 new responsive search ad variants',
-          'Add emotional triggers and urgency elements'
-        ],
-        priority_medium: [
-          'Analyze competitor creative strategies',
-          'Test longer description variants',
-          'Implement seasonal messaging updates'
-        ]
-      },
-      
-      performance_forecast: `With recommended optimizations, expect 15-25% CTR improvement and 10-20% cost per conversion reduction within 14 days.`
-    };
+    const bestHeadline = headlines.sort((a, b) => b.ctr - a.ctr)[0];
+    const worstHeadline = headlines.sort((a, b) => a.ctr - b.ctr)[0];
+
+    // Performance spread analysis
+    const ctrValues = creatives.map(c => c.ctr).filter(ctr => ctr > 0);
+    const maxCtr = Math.max(...ctrValues);
+    const minCtr = Math.min(...ctrValues);
+    const performanceSpread = maxCtr / minCtr;
+
+    // Budget efficiency metrics
+    const costPerClick = totalClicks > 0 ? (totalCost / totalClicks) : 0;
+    const clickThroughRate = totalImpressions > 0 ? ((totalClicks / totalImpressions) * 100) : 0;
+
+    // Message theme analysis
+    const actionWords = headlines.filter(h => h.text?.match(/get|start|buy|call|book|order|download/i)).length;
+    const valueWords = headlines.filter(h => h.text?.match(/free|save|discount|deal|offer|limited/i)).length;
+    const trustWords = headlines.filter(h => h.text?.match(/trusted|proven|expert|professional|guarantee/i)).length;
+
+    return `🎯 **EXECUTIVE CREATIVE PERFORMANCE AUDIT** | ${totalAssets} Assets Analyzed
+
+**📊 PERFORMANCE REALITY CHECK:**
+• Overall CTR: ${(avgCtr * 100).toFixed(2)}% (Industry benchmark: 2.0-3.5% for search ads)
+• Total Ad Spend: $${totalCost.toFixed(0)} | Cost Per Click: $${costPerClick.toFixed(2)}
+• Click-Through Rate: ${clickThroughRate.toFixed(2)}% conversion from impressions to clicks
+• Performance Spread: ${performanceSpread.toFixed(1)}x difference between best/worst (Target: <5x)
+
+**🚀 HIGH-IMPACT OPPORTUNITIES IDENTIFIED:**
+• ${topPerformers.length} Star Performers (CTR >${(avgCtr * 1.5 * 100).toFixed(1)}%) - **Scale these immediately**
+• ${underperformers.length} Budget Drains identified - **Pausing saves $${wastedBudget.toFixed(0)}/month**
+• Creative Portfolio: ${headlines.length} Headlines : ${descriptions.length} Descriptions (Google recommends 15:4 ratio)
+
+**💡 STRATEGIC INSIGHTS & ROOT CAUSE ANALYSIS:**
+
+**Best Performer:** "${bestHeadline?.text?.substring(0, 60) || 'N/A'}..." 
+• CTR: ${(bestHeadline?.ctr * 100 || 0).toFixed(2)}% (${bestHeadline ? ((bestHeadline.ctr/avgCtr)*100-100).toFixed(0) : '0'}% above average)
+• Why it works: ${bestHeadline?.text?.includes('Get') || bestHeadline?.text?.includes('Start') ? 'Action-oriented language creates urgency and drives immediate response' : 
+  bestHeadline?.text?.includes('Free') || bestHeadline?.text?.includes('Save') ? 'Clear value proposition removes friction and highlights benefit' : 
+  bestHeadline?.text?.includes('Professional') || bestHeadline?.text?.includes('Expert') ? 'Trust-building language addresses credibility concerns' : 
+  'Benefit-focused messaging resonates with user intent'}
+
+**Biggest Budget Drain:** "${worstHeadline?.text?.substring(0, 60) || 'N/A'}..."
+• CTR: ${(worstHeadline?.ctr * 100 || 0).toFixed(2)}% (${worstHeadline ? ((worstHeadline.ctr/avgCtr)*100-100).toFixed(0) : '0'}% below average)
+• Root Cause: ${worstHeadline?.ctr < 0.005 ? 'Generic messaging lacks specificity and fails to differentiate from competitors' : 
+  worstHeadline?.ctr < 0.015 ? 'Weak call-to-action provides no clear next step for users' : 
+  worstHeadline?.ctr < 0.025 ? 'Message-market mismatch - headline doesn\'t align with user search intent' : 
+  'Technical delivery issues or ad fatigue from overexposure'}
+
+**Message Theme Distribution Analysis:**
+• Action-Oriented: ${actionWords}/${headlines.length} headlines (${((actionWords/headlines.length)*100).toFixed(0)}%)
+• Value-Focused: ${valueWords}/${headlines.length} headlines (${((valueWords/headlines.length)*100).toFixed(0)}%)  
+• Trust-Building: ${trustWords}/${headlines.length} headlines (${((trustWords/headlines.length)*100).toFixed(0)}%)
+• Recommendation: ${actionWords < headlines.length * 0.3 ? 'Add more action-oriented headlines to drive urgency' : 
+  valueWords < headlines.length * 0.2 ? 'Include more value propositions to justify cost' : 
+  'Good thematic balance - focus on performance optimization'}
+
+**⚠️ CRITICAL FIXES NEEDED:**
+1. **Budget Reallocation**: Move $${(wastedBudget * 0.7).toFixed(0)} from failing ads to top ${topPerformers.length} performers
+2. **Creative Velocity**: Need ${Math.max(0, 15 - headlines.length)} more headlines for optimal testing speed
+3. **Performance Gap**: ${performanceSpread > 10 ? 'Massive' : performanceSpread > 5 ? 'Significant' : 'Manageable'} performance variance indicates optimization opportunity
+
+**🎲 IMMEDIATE ACTION PLAN:**
+**Today**: Pause ${underperformers.length} underperformers (saves ${((wastedBudget/totalCost)*100).toFixed(0)}% of wasted spend)
+**This Week**: Create 3 headlines using "${bestHeadline?.text?.split(' ').slice(0, 3).join(' ') || 'top performer'}" pattern
+**Ongoing**: Test ${actionWords < headlines.length * 0.3 ? 'action-heavy' : valueWords < headlines.length * 0.2 ? 'value-focused' : 'emotional'} messaging variants
+
+**📈 ROI PROJECTION:** 
+Implementing these optimizations could improve overall CTR by 25-40% within 14 days, potentially saving $${(wastedBudget * 0.8).toFixed(0)} monthly while increasing conversion volume.`;
   };
 
   const generateOptimizationRecommendations = (creatives, analysis) => {
@@ -430,69 +473,10 @@ export const CreativesAnalysisUI = ({ customerId, campaignIds, onBack }: Creativ
                 </CardHeader>
                 <CardContent className="space-y-6">
                   {/* Overview */}
-                  <div>
-                    <h4 className="font-medium mb-2">Executive Overview</h4>
-                    <p className="text-muted-foreground">{executiveSummary.executive_summary?.overview}</p>
-                    <div className="flex items-center gap-4 mt-2">
-                      <Badge variant={executiveSummary.executive_summary?.urgency_level === 'HIGH' ? 'destructive' : 'secondary'}>
-                        {executiveSummary.executive_summary?.urgency_level} Priority
-                      </Badge>
-                      <span className="text-sm text-muted-foreground">
-                        Confidence: {executiveSummary.executive_summary?.confidence_score}%
-                      </span>
-                    </div>
+                  <div className="bg-muted/50 rounded-lg p-4">
+                    <pre className="text-sm whitespace-pre-wrap font-mono">{executiveSummary}</pre>
                   </div>
 
-                  {/* Key Findings */}
-                  {executiveSummary.executive_summary?.key_findings && (
-                    <div>
-                      <h4 className="font-medium mb-2">Key Findings</h4>
-                      <ul className="space-y-1">
-                        {executiveSummary.executive_summary.key_findings.map((finding, index) => (
-                          <li key={index} className="flex items-start gap-2 text-sm">
-                            <CheckCircle className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
-                            {finding}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  {/* Projected Impact */}
-                  {executiveSummary.projected_impact && (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <Card>
-                        <CardContent className="pt-4">
-                          <div className="text-center">
-                            <div className="text-2xl font-bold text-primary">
-                              {executiveSummary.projected_impact.ctr_improvement}
-                            </div>
-                            <div className="text-sm text-muted-foreground">CTR Improvement</div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                      <Card>
-                        <CardContent className="pt-4">
-                          <div className="text-center">
-                            <div className="text-2xl font-bold text-primary">
-                              {executiveSummary.projected_impact.conversion_lift}
-                            </div>
-                            <div className="text-sm text-muted-foreground">Conversion Lift</div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                      <Card>
-                        <CardContent className="pt-4">
-                          <div className="text-center">
-                            <div className="text-2xl font-bold text-primary">
-                              {executiveSummary.projected_impact.revenue_impact}
-                            </div>
-                            <div className="text-sm text-muted-foreground">Revenue Impact</div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </div>
-                  )}
                 </CardContent>
               </Card>
             )}
