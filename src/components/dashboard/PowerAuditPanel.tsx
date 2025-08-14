@@ -1,54 +1,28 @@
-import { useState, useEffect } from "react";
+import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { 
-  Shield, 
-  TrendingUp, 
-  TrendingDown, 
-  AlertTriangle, 
-  CheckCircle, 
-  XCircle,
-  BarChart3,
-  Link,
-  Settings,
-  Target,
-  DollarSign,
-  Activity,
-  RefreshCw,
-  Brain
-} from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import { CheckCircle, AlertTriangle, XCircle, TrendingUp, TrendingDown, Activity, Target, DollarSign, BarChart3, Users, Zap } from 'lucide-react';
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { GoogleAdsAccount } from '@/lib/google-ads-service';
+import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import { BudgetAnalysisTab, AIInsightsTab } from './PowerAuditPanelExtended';
 
 interface PowerAuditPanelProps {
-  selectedAccount: any;
-}
-
-interface AuditResults {
-  account_summary: {
-    headline: string;
-    windows: any;
-    key_metrics: any;
-    stat_tests: any;
-  };
-  campaigns: any[];
-  url_health: any[];
-  asset_analysis: any;
-  ai_insights: string | null;
-  recommendations: any[];
+  selectedAccount: GoogleAdsAccount | null;
 }
 
 export const PowerAuditPanel = ({ selectedAccount }: PowerAuditPanelProps) => {
-  const { toast } = useToast();
-  const [auditResults, setAuditResults] = useState<AuditResults | null>(null);
+  const [auditResults, setAuditResults] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState('health');
+  const { toast } = useToast();
 
-  const runEnterpriseAudit = async () => {
+  const runAudit = async () => {
     if (!selectedAccount?.customerId) {
       toast({
         title: "No Account Selected",
@@ -60,23 +34,16 @@ export const PowerAuditPanel = ({ selectedAccount }: PowerAuditPanelProps) => {
 
     setIsLoading(true);
     try {
-      console.log('🔍 Starting Enterprise Audit...');
-      
       const { data, error } = await supabase.functions.invoke('enterprise-audit', {
-        body: {
-          customerId: selectedAccount.customerId
-        }
+        body: { customerId: selectedAccount.customerId }
       });
 
       if (error) throw error;
 
-      setAuditResults(data.data);
-      console.log('✅ Enterprise audit completed:', data.data);
-      
+      setAuditResults(data);
       toast({
         title: "Enterprise Audit Complete",
-        description: "Comprehensive analysis generated with AI insights",
-        duration: 5000,
+        description: "Advanced analysis generated with health scoring and AI insights",
       });
     } catch (error) {
       console.error('Enterprise audit error:', error);
@@ -90,40 +57,236 @@ export const PowerAuditPanel = ({ selectedAccount }: PowerAuditPanelProps) => {
     }
   };
 
-  if (!selectedAccount) {
-    return (
-      <Card>
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight">🔍 Enterprise Power Audit</h2>
+          <p className="text-muted-foreground">
+            Advanced analytics, health scoring, and AI-powered insights
+          </p>
+        </div>
+        <Button 
+          onClick={runAudit} 
+          disabled={isLoading || !selectedAccount}
+          className="relative"
+        >
+          {isLoading ? (
+            <>
+              <Activity className="mr-2 h-4 w-4 animate-spin" />
+              Running Advanced Audit...
+            </>
+          ) : (
+            <>
+              <Activity className="mr-2 h-4 w-4" />
+              Run Enterprise Audit
+            </>
+          )}
+        </Button>
+      </div>
+
+      {!selectedAccount && (
+        <Alert>
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription>
+            Please select a Google Ads account to run the enterprise audit.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {auditResults && (
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-6">
+            <TabsTrigger value="health">Health Score</TabsTrigger>
+            <TabsTrigger value="performance">Performance Map</TabsTrigger>
+            <TabsTrigger value="campaigns">Campaigns</TabsTrigger>
+            <TabsTrigger value="budget">Budget & Pacing</TabsTrigger>
+            <TabsTrigger value="issues">Issues</TabsTrigger>
+            <TabsTrigger value="insights">AI Insights</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="health" className="space-y-4">
+            <HealthScoreTab results={auditResults} />
+          </TabsContent>
+
+          <TabsContent value="performance" className="space-y-4">
+            <PerformanceMapTab performanceMap={auditResults.performance_map} />
+          </TabsContent>
+
+          <TabsContent value="campaigns" className="space-y-4">
+            <CampaignsTab campaigns={auditResults.campaigns} />
+          </TabsContent>
+
+          <TabsContent value="budget" className="space-y-4">
+            <BudgetAnalysisTab budgetAnalysis={auditResults.budget_analysis} campaigns={auditResults.campaigns} />
+          </TabsContent>
+
+          <TabsContent value="issues" className="space-y-4">
+            <IssuesTab issues={auditResults.issues} />
+          </TabsContent>
+
+          <TabsContent value="insights" className="space-y-4">
+            <AIInsightsTab insights={auditResults.ai_insights} />
+          </TabsContent>
+        </Tabs>
+      )}
+    </div>
+  );
+};
+
+// Health Score Tab Component
+const HealthScoreTab = ({ results }: { results: any }) => {
+  const healthScore = results.account_health?.score || 0;
+  const opportunityValue = results.account_health?.opportunity_value || 0;
+  const atAGlance = results.account_health?.at_a_glance || {};
+
+  return (
+    <div className="space-y-6">
+      {/* Health Score Hero */}
+      <Card className="border-2">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Shield className="h-5 w-5 text-blue-600" />
-            Enterprise Google Ads Audit
+          <CardTitle className="flex items-center space-x-2">
+            <Target className="h-5 w-5 text-primary" />
+            <span>Account Health Score</span>
           </CardTitle>
-          <CardDescription>
-            Comprehensive performance analysis with statistical significance testing
-          </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="text-center py-8 text-muted-foreground">
-            Select a Google Ads account to run enterprise audit
+          <div className="grid md:grid-cols-2 gap-6">
+            <div className="text-center">
+              <div className="text-6xl font-bold text-primary mb-2">{healthScore}</div>
+              <div className="text-lg text-muted-foreground mb-4">/ 100</div>
+              <Progress value={healthScore} className="w-full" />
+              <p className="text-sm text-muted-foreground mt-2">
+                {healthScore >= 80 ? 'Excellent' : healthScore >= 60 ? 'Good' : healthScore >= 40 ? 'Fair' : 'Needs Attention'}
+              </p>
+            </div>
+            <div>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">Opportunity Value</span>
+                  <div className="flex items-center space-x-1">
+                    <DollarSign className="h-4 w-4 text-green-600" />
+                    <span className="text-lg font-bold text-green-600">
+                      ${opportunityValue.toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  Estimated revenue increase if all high-priority optimizations are implemented
+                </div>
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>
-    );
-  }
 
-  const renderTrendIcon = (delta: number) => {
-    if (delta > 0) return <TrendingUp className="h-4 w-4 text-green-600" />;
-    if (delta < 0) return <TrendingDown className="h-4 w-4 text-red-600" />;
-    return <Activity className="h-4 w-4 text-gray-400" />;
-  };
+      {/* At a Glance Cards */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Campaigns Improving</CardTitle>
+            <TrendingUp className="h-4 w-4 text-green-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">
+              {atAGlance.campaigns_improving || 0}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              vs {atAGlance.campaigns_declining || 0} declining
+            </p>
+          </CardContent>
+        </Card>
 
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'Critical': return 'bg-red-500';
-      case 'High': return 'bg-orange-500';
-      case 'Medium': return 'bg-yellow-500';
-      case 'Low': return 'bg-green-500';
-      default: return 'bg-gray-500';
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Budget on Winners</CardTitle>
+            <DollarSign className="h-4 w-4 text-primary" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {Math.round(atAGlance.budget_on_improving || 0)}%
+            </div>
+            <p className="text-xs text-muted-foreground">
+              of budget on improving campaigns
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Budget Constrained</CardTitle>
+            <AlertTriangle className="h-4 w-4 text-orange-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-orange-500">
+              {Math.round(atAGlance.budget_limited_pct || 0)}%
+            </div>
+            <p className="text-xs text-muted-foreground">
+              of campaigns budget limited
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Campaigns</CardTitle>
+            <BarChart3 className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {results.campaigns?.length || 0}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              active campaigns analyzed
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Account Summary */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Account Summary</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-2">
+            {results.account_summary?.highlights?.map((highlight: string, index: number) => (
+              <p key={index} className="text-sm">{highlight}</p>
+            ))}
+          </div>
+          
+          <div className="mt-4 space-y-2">
+            <h4 className="font-medium">Key Performance Deltas (Last 30 vs Previous 30 Days)</h4>
+            {results.account_summary?.key_deltas?.map((delta: any, index: number) => (
+              <div key={index} className="flex items-center justify-between p-2 bg-muted rounded">
+                <span className="text-sm font-medium capitalize">{delta.metric}</span>
+                <div className="flex items-center space-x-2">
+                  <span className="text-sm">
+                    {delta.current.toLocaleString()} → {delta.baseline.toLocaleString()}
+                  </span>
+                  <Badge variant={delta.delta_pct > 0 ? "default" : "destructive"}>
+                    {delta.delta_pct > 0 ? '+' : ''}{delta.delta_pct.toFixed(1)}%
+                  </Badge>
+                  {delta.significant && <Badge variant="outline">Significant</Badge>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
+
+// Performance Map Tab Component
+const PerformanceMapTab = ({ performanceMap }: { performanceMap: any[] }) => {
+  const getQuadrantColor = (quadrant: string) => {
+    switch (quadrant) {
+      case 'up_efficient': return '#10b981'; // green
+      case 'up_expensive': return '#f59e0b'; // amber
+      case 'down_cheap': return '#6366f1'; // indigo
+      case 'down_expensive': return '#ef4444'; // red
+      default: return '#6b7280'; // gray
     }
   };
 
@@ -131,384 +294,247 @@ export const PowerAuditPanel = ({ selectedAccount }: PowerAuditPanelProps) => {
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                <Shield className="h-5 w-5 text-blue-600" />
-                Enterprise Google Ads Audit
-              </CardTitle>
-              <CardDescription>
-                30-day vs 30-day performance analysis with AI insights, broken URL detection, and statistical significance testing
-              </CardDescription>
-            </div>
-            <Button
-              onClick={runEnterpriseAudit}
-              disabled={isLoading}
-              className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
-            >
-              {isLoading ? (
-                <>
-                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                  Running Audit...
-                </>
-              ) : (
-                <>
-                  <Shield className="h-4 w-4 mr-2" />
-                  Run Enterprise Audit
-                </>
-              )}
-            </Button>
-          </div>
+          <CardTitle className="flex items-center space-x-2">
+            <BarChart3 className="h-5 w-5" />
+            <span>Campaign Performance Map</span>
+          </CardTitle>
+          <CardDescription>
+            Visualize conversion changes vs efficiency changes. Bubble size = spend.
+          </CardDescription>
         </CardHeader>
-
-        {isLoading && (
-          <CardContent>
-            <div className="space-y-4">
-              <div className="text-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                <h3 className="font-semibold mb-2">Running Enterprise Audit</h3>
-                <p className="text-sm text-muted-foreground">Analyzing campaigns, assets, URLs, and generating AI insights...</p>
-              </div>
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 text-sm">
-                  <div className="w-2 h-2 bg-blue-600 rounded-full animate-pulse"></div>
-                  Fetching 30-day performance data
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <div className="w-2 h-2 bg-blue-600 rounded-full animate-pulse"></div>
-                  Comparing with baseline period
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <div className="w-2 h-2 bg-blue-600 rounded-full animate-pulse"></div>
-                  Checking URL health
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <div className="w-2 h-2 bg-blue-600 rounded-full animate-pulse"></div>
-                  Analyzing asset completeness
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <div className="w-2 h-2 bg-blue-600 rounded-full animate-pulse"></div>
-                  Generating AI insights
-                </div>
-              </div>
+        <CardContent>
+          <div className="h-96">
+            <ResponsiveContainer width="100%" height="100%">
+              <ScatterChart data={performanceMap}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis 
+                  type="number" 
+                  dataKey="conversion_change_pct" 
+                  name="Conversion Change %" 
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <YAxis 
+                  type="number" 
+                  dataKey="cpa_change_pct" 
+                  name="CPA Change %" 
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <Tooltip 
+                  cursor={{ strokeDasharray: '3 3' }}
+                  content={({ active, payload }) => {
+                    if (active && payload && payload[0]) {
+                      const data = payload[0].payload;
+                      return (
+                        <div className="bg-background border rounded p-2 shadow">
+                          <p className="font-medium">{data.name}</p>
+                          <p className="text-sm">Conversions: {data.conversion_change_pct > 0 ? '+' : ''}{data.conversion_change_pct.toFixed(1)}%</p>
+                          <p className="text-sm">CPA: {data.cpa_change_pct > 0 ? '+' : ''}{data.cpa_change_pct.toFixed(1)}%</p>
+                          <p className="text-sm">Spend: ${data.spend.toLocaleString()}</p>
+                          <p className="text-sm">Channel: {data.channel}</p>
+                        </div>
+                      );
+                    }
+                    return null;
+                  }}
+                />
+                <Scatter dataKey="spend" fill="#8884d8">
+                  {performanceMap.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={getQuadrantColor(entry.efficiency_quadrant)} />
+                  ))}
+                </Scatter>
+              </ScatterChart>
+            </ResponsiveContainer>
+          </div>
+          
+          {/* Legend */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-4">
+            <div className="flex items-center space-x-2">
+              <div className="w-3 h-3 rounded-full bg-green-500"></div>
+              <span className="text-sm">Up & Efficient</span>
             </div>
-          </CardContent>
-        )}
-
-        {auditResults && (
-          <CardContent>
-            <Tabs defaultValue="overview" className="w-full">
-              <TabsList className="grid w-full grid-cols-5">
-                <TabsTrigger value="overview">Overview</TabsTrigger>
-                <TabsTrigger value="campaigns">Campaigns</TabsTrigger>
-                <TabsTrigger value="issues">Issues</TabsTrigger>
-                <TabsTrigger value="recommendations">Actions</TabsTrigger>
-                <TabsTrigger value="ai-insights">AI Insights</TabsTrigger>
-              </TabsList>
-
-              {/* Overview Tab */}
-              <TabsContent value="overview" className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <Card>
-                    <CardContent className="pt-6">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm font-medium text-muted-foreground">Impressions</p>
-                          <p className="text-2xl font-bold">
-                            {auditResults.account_summary.key_metrics.current.impressions.toLocaleString()}
-                          </p>
-                          <div className="flex items-center gap-1 text-sm">
-                            {renderTrendIcon(auditResults.account_summary.key_metrics.deltas.impressions.pct)}
-                            <span className={auditResults.account_summary.key_metrics.deltas.impressions.pct >= 0 ? 'text-green-600' : 'text-red-600'}>
-                              {auditResults.account_summary.key_metrics.deltas.impressions.pct >= 0 ? '+' : ''}
-                              {auditResults.account_summary.key_metrics.deltas.impressions.pct.toFixed(1)}%
-                            </span>
-                          </div>
-                        </div>
-                        <BarChart3 className="h-8 w-8 text-blue-600" />
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardContent className="pt-6">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm font-medium text-muted-foreground">Clicks</p>
-                          <p className="text-2xl font-bold">
-                            {auditResults.account_summary.key_metrics.current.clicks.toLocaleString()}
-                          </p>
-                          <div className="flex items-center gap-1 text-sm">
-                            {renderTrendIcon(auditResults.account_summary.key_metrics.deltas.clicks.pct)}
-                            <span className={auditResults.account_summary.key_metrics.deltas.clicks.pct >= 0 ? 'text-green-600' : 'text-red-600'}>
-                              {auditResults.account_summary.key_metrics.deltas.clicks.pct >= 0 ? '+' : ''}
-                              {auditResults.account_summary.key_metrics.deltas.clicks.pct.toFixed(1)}%
-                            </span>
-                          </div>
-                        </div>
-                        <Target className="h-8 w-8 text-green-600" />
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardContent className="pt-6">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm font-medium text-muted-foreground">Cost</p>
-                          <p className="text-2xl font-bold">
-                            ${auditResults.account_summary.key_metrics.current.cost.toLocaleString()}
-                          </p>
-                          <div className="flex items-center gap-1 text-sm">
-                            {renderTrendIcon(auditResults.account_summary.key_metrics.deltas.cost.pct)}
-                            <span className={auditResults.account_summary.key_metrics.deltas.cost.pct >= 0 ? 'text-red-600' : 'text-green-600'}>
-                              {auditResults.account_summary.key_metrics.deltas.cost.pct >= 0 ? '+' : ''}
-                              {auditResults.account_summary.key_metrics.deltas.cost.pct.toFixed(1)}%
-                            </span>
-                          </div>
-                        </div>
-                        <DollarSign className="h-8 w-8 text-yellow-600" />
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardContent className="pt-6">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm font-medium text-muted-foreground">Conversions</p>
-                          <p className="text-2xl font-bold">
-                            {auditResults.account_summary.key_metrics.current.conversions.toFixed(1)}
-                          </p>
-                          <div className="flex items-center gap-1 text-sm">
-                            {renderTrendIcon(auditResults.account_summary.key_metrics.deltas.conversions.pct)}
-                            <span className={auditResults.account_summary.key_metrics.deltas.conversions.pct >= 0 ? 'text-green-600' : 'text-red-600'}>
-                              {auditResults.account_summary.key_metrics.deltas.conversions.pct >= 0 ? '+' : ''}
-                              {auditResults.account_summary.key_metrics.deltas.conversions.pct.toFixed(1)}%
-                            </span>
-                          </div>
-                        </div>
-                        <CheckCircle className="h-8 w-8 text-purple-600" />
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Time Period Analysis</CardTitle>
-                    <CardDescription>
-                      Current: {auditResults.account_summary.windows.current.start} to {auditResults.account_summary.windows.current.end}
-                      <br />
-                      Baseline: {auditResults.account_summary.windows.baseline.start} to {auditResults.account_summary.windows.baseline.end}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div className="text-center">
-                        <p className="text-sm text-muted-foreground">Statistical Significance</p>
-                        <Badge variant={auditResults.account_summary.stat_tests.ctr_sig ? "default" : "secondary"}>
-                          {auditResults.account_summary.stat_tests.ctr_sig ? "High Confidence" : "Low Volume"}
-                        </Badge>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-sm text-muted-foreground">Campaigns Analyzed</p>
-                        <p className="text-lg font-semibold">{auditResults.campaigns.length}</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-sm text-muted-foreground">URLs Checked</p>
-                        <p className="text-lg font-semibold">{auditResults.url_health.length}</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-              {/* Campaigns Tab */}
-              <TabsContent value="campaigns" className="space-y-4">
-                {auditResults.campaigns.map((campaign, index) => (
-                  <Card key={index}>
-                    <CardHeader>
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <CardTitle className="text-lg">{campaign.name}</CardTitle>
-                          <CardDescription>{campaign.type}</CardDescription>
-                        </div>
-                        <Badge variant="outline">{campaign.id}</Badge>
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        <div>
-                          <p className="text-sm text-muted-foreground">Clicks</p>
-                          <p className="font-semibold">{campaign.metrics.clicks.toLocaleString()}</p>
-                          <div className="flex items-center gap-1 text-xs">
-                            {renderTrendIcon(campaign.deltas.clicks.pct)}
-                            <span>{campaign.deltas.clicks.pct >= 0 ? '+' : ''}{campaign.deltas.clicks.pct.toFixed(1)}%</span>
-                          </div>
-                        </div>
-                        <div>
-                          <p className="text-sm text-muted-foreground">Cost</p>
-                          <p className="font-semibold">${campaign.metrics.cost.toLocaleString()}</p>
-                          <div className="flex items-center gap-1 text-xs">
-                            {renderTrendIcon(campaign.deltas.cost.pct)}
-                            <span>{campaign.deltas.cost.pct >= 0 ? '+' : ''}{campaign.deltas.cost.pct.toFixed(1)}%</span>
-                          </div>
-                        </div>
-                        <div>
-                          <p className="text-sm text-muted-foreground">CTR</p>
-                          <p className="font-semibold">{campaign.metrics.ctr.toFixed(2)}%</p>
-                          <div className="flex items-center gap-1 text-xs">
-                            {renderTrendIcon(campaign.deltas.ctr.pct)}
-                            <span>{campaign.deltas.ctr.pct >= 0 ? '+' : ''}{campaign.deltas.ctr.pct.toFixed(1)}%</span>
-                          </div>
-                        </div>
-                        <div>
-                          <p className="text-sm text-muted-foreground">Conversions</p>
-                          <p className="font-semibold">{campaign.metrics.conversions.toFixed(1)}</p>
-                          <div className="flex items-center gap-1 text-xs">
-                            {renderTrendIcon(campaign.deltas.conversions.pct)}
-                            <span>{campaign.deltas.conversions.pct >= 0 ? '+' : ''}{campaign.deltas.conversions.pct.toFixed(1)}%</span>
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </TabsContent>
-
-              {/* Issues Tab */}
-              <TabsContent value="issues" className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <Link className="h-5 w-5" />
-                        URL Health Check
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-2">
-                        {auditResults.url_health.length === 0 ? (
-                          <p className="text-sm text-muted-foreground">No URLs found to check</p>
-                        ) : (
-                          auditResults.url_health.map((check, index) => (
-                            <div key={index} className="flex items-center justify-between p-2 border rounded">
-                              <div className="flex items-center gap-2">
-                                {check.ok ? (
-                                  <CheckCircle className="h-4 w-4 text-green-600" />
-                                ) : (
-                                  <XCircle className="h-4 w-4 text-red-600" />
-                                )}
-                                <span className="text-sm font-mono">{check.url.substring(0, 40)}...</span>
-                              </div>
-                              <Badge variant={check.ok ? "default" : "destructive"}>
-                                {check.status || "Error"}
-                              </Badge>
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <Settings className="h-5 w-5" />
-                        Asset Analysis
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-3">
-                        {auditResults.asset_analysis.ad_analysis.map((ad, index) => (
-                          <div key={index} className="p-3 border rounded">
-                            <div className="flex items-center justify-between mb-2">
-                              <span className="text-sm font-medium">Ad {ad.ad_id}</span>
-                              <div className="flex gap-2">
-                                <Badge variant="outline">{ad.headlines}H</Badge>
-                                <Badge variant="outline">{ad.descriptions}D</Badge>
-                              </div>
-                            </div>
-                            {ad.issues.length > 0 && (
-                              <div className="space-y-1">
-                                {ad.issues.map((issue, i) => (
-                                  <div key={i} className="flex items-center gap-2 text-sm text-orange-600">
-                                    <AlertTriangle className="h-3 w-3" />
-                                    {issue}
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-              </TabsContent>
-
-              {/* Recommendations Tab */}
-              <TabsContent value="recommendations" className="space-y-4">
-                {auditResults.recommendations.map((rec, index) => (
-                  <Card key={index}>
-                    <CardContent className="pt-6">
-                      <div className="flex items-start gap-4">
-                        <div className={`w-3 h-3 rounded-full ${getPriorityColor(rec.priority)} flex-shrink-0 mt-2`}></div>
-                        <div className="flex-1">
-                          <div className="flex items-center justify-between mb-2">
-                            <Badge variant="outline">{rec.category}</Badge>
-                            <Badge variant={rec.priority === 'Critical' ? 'destructive' : 'default'}>
-                              {rec.priority}
-                            </Badge>
-                          </div>
-                          <h4 className="font-semibold mb-1">{rec.issue}</h4>
-                          <p className="text-sm text-muted-foreground mb-2">{rec.action}</p>
-                          <div className="flex items-center gap-4 text-sm">
-                            <span className="text-green-600">Impact: {rec.expected_impact}</span>
-                            <span className="text-blue-600">Confidence: {rec.confidence}</span>
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </TabsContent>
-
-              {/* AI Insights Tab */}
-              <TabsContent value="ai-insights" className="space-y-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Brain className="h-5 w-5 text-purple-600" />
-                      AI-Powered Analysis
-                    </CardTitle>
-                    <CardDescription>
-                      Advanced insights generated by analyzing your account data patterns
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    {auditResults.ai_insights ? (
-                      <div className="prose prose-sm max-w-none">
-                        <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed">
-                          {auditResults.ai_insights}
-                        </pre>
-                      </div>
-                    ) : (
-                      <Alert>
-                        <AlertTriangle className="h-4 w-4" />
-                        <AlertDescription>
-                          AI insights not available. Please ensure OpenAI API key is configured in edge function secrets.
-                        </AlertDescription>
-                      </Alert>
-                    )}
-                  </CardContent>
-                </Card>
-              </TabsContent>
-            </Tabs>
-          </CardContent>
-        )}
+            <div className="flex items-center space-x-2">
+              <div className="w-3 h-3 rounded-full bg-amber-500"></div>
+              <span className="text-sm">Up but Expensive</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <div className="w-3 h-3 rounded-full bg-indigo-500"></div>
+              <span className="text-sm">Down but Cheap</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <div className="w-3 h-3 rounded-full bg-red-500"></div>
+              <span className="text-sm">Down & Expensive</span>
+            </div>
+          </div>
+        </CardContent>
       </Card>
     </div>
   );
 };
+
+// Campaigns Tab Component
+const CampaignsTab = ({ campaigns }: { campaigns: any[] }) => (
+  <div className="space-y-4">
+    {campaigns?.map((campaign: any, index: number) => (
+      <Card key={index}>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-lg">{campaign.name}</CardTitle>
+              <CardDescription>
+                {campaign.type} • {campaign.bidding_strategy}
+              </CardDescription>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Badge variant={campaign.performance_trend === 'improving' ? 'default' : 
+                           campaign.performance_trend === 'declining' ? 'destructive' : 'secondary'}>
+                {campaign.performance_trend}
+              </Badge>
+              {campaign.budget_limited && (
+                <Badge variant="outline" className="text-orange-600">
+                  Budget Limited
+                </Badge>
+              )}
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            <div>
+              <p className="text-sm text-muted-foreground">Spend</p>
+              <p className="font-semibold">${campaign.current_spend.toLocaleString()}</p>
+              <div className="flex items-center gap-1 text-xs">
+                <span className={campaign.deltas.cost.pct >= 0 ? 'text-red-600' : 'text-green-600'}>
+                  {campaign.deltas.cost.pct >= 0 ? '+' : ''}{campaign.deltas.cost.pct.toFixed(1)}%
+                </span>
+              </div>
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Clicks</p>
+              <p className="font-semibold">{campaign.metrics.clicks.toLocaleString()}</p>
+              <div className="flex items-center gap-1 text-xs">
+                <span className={campaign.deltas.clicks.pct >= 0 ? 'text-green-600' : 'text-red-600'}>
+                  {campaign.deltas.clicks.pct >= 0 ? '+' : ''}{campaign.deltas.clicks.pct.toFixed(1)}%
+                </span>
+              </div>
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">CTR</p>
+              <p className="font-semibold">{campaign.metrics.ctr.toFixed(2)}%</p>
+              <div className="flex items-center gap-1 text-xs">
+                <span className={campaign.deltas.ctr.pct >= 0 ? 'text-green-600' : 'text-red-600'}>
+                  {campaign.deltas.ctr.pct >= 0 ? '+' : ''}{campaign.deltas.ctr.pct.toFixed(1)}%
+                </span>
+              </div>
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Conversions</p>
+              <p className="font-semibold">{campaign.metrics.conversions.toFixed(1)}</p>
+              <div className="flex items-center gap-1 text-xs">
+                <span className={campaign.deltas.conversions.pct >= 0 ? 'text-green-600' : 'text-red-600'}>
+                  {campaign.deltas.conversions.pct >= 0 ? '+' : ''}{campaign.deltas.conversions.pct.toFixed(1)}%
+                </span>
+              </div>
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">CPA</p>
+              <p className="font-semibold">${campaign.metrics.cpa.toFixed(2)}</p>
+              <div className="flex items-center gap-1 text-xs">
+                <span className={campaign.deltas.cpa.pct <= 0 ? 'text-green-600' : 'text-red-600'}>
+                  {campaign.deltas.cpa.pct >= 0 ? '+' : ''}{campaign.deltas.cpa.pct.toFixed(1)}%
+                </span>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    ))}
+  </div>
+);
+
+// Issues Tab Component
+const IssuesTab = ({ issues }: { issues: any }) => (
+  <div className="space-y-6">
+    {/* Broken URLs */}
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center space-x-2">
+          <XCircle className="h-5 w-5 text-red-500" />
+          <span>Broken URLs</span>
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {issues.broken_urls?.length > 0 ? (
+          <div className="space-y-2">
+            {issues.broken_urls.map((url: any, index: number) => (
+              <div key={index} className="flex items-center justify-between p-2 bg-red-50 rounded">
+                <span className="text-sm font-mono truncate">{url.url}</span>
+                <Badge variant="destructive">{url.status || 'Failed'}</Badge>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">No broken URLs detected</p>
+        )}
+      </CardContent>
+    </Card>
+
+    {/* Asset Issues */}
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center space-x-2">
+          <AlertTriangle className="h-5 w-5 text-orange-500" />
+          <span>Asset Completeness</span>
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {issues.asset_completeness?.length > 0 ? (
+          <div className="space-y-2">
+            {issues.asset_completeness.map((issue: any, index: number) => (
+              <div key={index} className="p-2 bg-orange-50 rounded">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">{issue.campaign}</span>
+                  <Badge variant="outline">{issue.severity}</Badge>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {issue.issue}: {issue.current_count}/{issue.recommended_min}
+                </p>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">All campaigns have adequate assets</p>
+        )}
+      </CardContent>
+    </Card>
+
+    {/* Budget Constraints */}
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center space-x-2">
+          <DollarSign className="h-5 w-5 text-yellow-500" />
+          <span>Budget Constraints</span>
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {issues.budget_constraints?.length > 0 ? (
+          <div className="space-y-2">
+            {issues.budget_constraints.map((constraint: any, index: number) => (
+              <div key={index} className="p-2 bg-yellow-50 rounded">
+                <div className="text-sm font-medium">{constraint.name}</div>
+                <p className="text-xs text-muted-foreground">
+                  Budget Lost IS: {constraint.budget_lost_impression_share}%
+                </p>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">No significant budget constraints detected</p>
+        )}
+      </CardContent>
+    </Card>
+  </div>
+);
+
+export default PowerAuditPanel;
