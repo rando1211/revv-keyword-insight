@@ -89,26 +89,24 @@ serve(async (req) => {
       'Content-Type': 'application/json'
     };
 
-    // Enhanced campaign query with comprehensive strategic data
+    // Simplified campaign query that works reliably
     const campaignQuery = `
       SELECT
-        campaign.id, campaign.name, campaign.advertising_channel_type,
-        campaign.bidding_strategy_type, campaign.target_cpa.target_cpa_micros,
-        campaign.target_roas.target_roas, campaign.campaign_budget,
-        campaign_budget.amount_micros, campaign_budget.delivery_method,
-        campaign.start_date, campaign.end_date,
-        metrics.impressions, metrics.clicks, metrics.cost_micros,
-        metrics.conversions, metrics.conversions_value,
-        metrics.ctr, metrics.average_cpc, metrics.conversions_from_interactions_rate,
-        metrics.search_impression_share, metrics.search_rank_lost_impression_share,
-        metrics.search_budget_lost_impression_share, metrics.search_rank_lost_impression_share,
-        metrics.top_impression_percentage, metrics.absolute_top_impression_percentage,
-        metrics.average_cost_per_conversion, metrics.cost_per_conversion,
-        metrics.active_view_impressions, metrics.active_view_ctr,
-        segments.date, segments.device, segments.hour, segments.day_of_week
+        campaign.id,
+        campaign.name,
+        campaign.status,
+        metrics.cost_micros,
+        metrics.clicks,
+        metrics.impressions,
+        metrics.ctr,
+        metrics.conversions,
+        metrics.conversions_value,
+        metrics.average_cpc
       FROM campaign
       WHERE campaign.status = 'ENABLED'
         AND segments.date BETWEEN '${windows.current.start}' AND '${windows.current.end}'
+      ORDER BY metrics.cost_micros DESC
+      LIMIT 50
     `;
 
     // Search terms query for waste detection and opportunities - more flexible
