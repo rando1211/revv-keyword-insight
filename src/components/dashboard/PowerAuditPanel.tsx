@@ -1,648 +1,514 @@
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { 
-  Search, 
-  DollarSign, 
-  Target, 
-  FileText, 
-  BarChart3, 
-  MousePointer, 
+  Shield, 
+  TrendingUp, 
+  TrendingDown, 
+  AlertTriangle, 
+  CheckCircle, 
+  XCircle,
+  BarChart3,
+  Link,
+  Settings,
+  Target,
+  DollarSign,
   Activity,
-  CheckCircle,
-  AlertTriangle,
-  Clock,
-  TrendingUp,
-  Zap,
-  Eye,
-  Loader2
+  RefreshCw,
+  Brain
 } from "lucide-react";
-import { useState } from "react";
-import { useToast } from "@/hooks/use-toast";
-import { useAccount } from "@/contexts/AccountContext";
 import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
-interface AuditScore {
-  score: number;
-  grade: string;
-  color: string;
+interface PowerAuditPanelProps {
+  selectedAccount: any;
 }
 
-interface AuditInsight {
-  id: string;
-  category: string;
-  title: string;
-  description: string;
-  impact: "High" | "Medium" | "Low";
-  urgency: "Critical" | "Important" | "Low";
-  recommendation: string;
-  actionable: boolean;
-}
-
-interface PowerAuditResults {
-  overallScore: number;
-  categoryScores: {
-    structure: AuditScore;
-    budgetBidding: AuditScore;
-    keywords: AuditScore;
-    adCopy: AuditScore;
-    qualityScore: AuditScore;
-    landingPages: AuditScore;
-    conversionTracking: AuditScore;
+interface AuditResults {
+  account_summary: {
+    headline: string;
+    windows: any;
+    key_metrics: any;
+    stat_tests: any;
   };
-  insights: AuditInsight[];
-  actionPlan: AuditInsight[];
+  campaigns: any[];
+  url_health: any[];
+  asset_analysis: any;
+  ai_insights: string | null;
+  recommendations: any[];
 }
 
-export const PowerAuditPanel = () => {
+export const PowerAuditPanel = ({ selectedAccount }: PowerAuditPanelProps) => {
   const { toast } = useToast();
-  const { selectedAccountForAnalysis } = useAccount();
-  const [isAuditing, setIsAuditing] = useState(false);
-  const [auditResults, setAuditResults] = useState<PowerAuditResults | null>(null);
-  const [isExecutingFix, setIsExecutingFix] = useState<string | null>(null);
+  const [auditResults, setAuditResults] = useState<AuditResults | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handlePowerAudit = async () => {
-    if (!selectedAccountForAnalysis) {
+  const runEnterpriseAudit = async () => {
+    if (!selectedAccount?.customerId) {
       toast({
         title: "No Account Selected",
-        description: "Please select an account to run power audit",
+        description: "Please select a Google Ads account first",
         variant: "destructive",
       });
       return;
     }
 
-    setIsAuditing(true);
-    
-    // Clear any previous audit results to ensure fresh data
-    setAuditResults(null);
-    
+    setIsLoading(true);
     try {
-      console.log('🔍 Starting Power Audit for account:', selectedAccountForAnalysis);
+      console.log('🔍 Starting Enterprise Audit...');
       
-      toast({
-        title: "🔍 Starting Power Audit",
-        description: `Analyzing ${selectedAccountForAnalysis.name} campaigns...`,
-      });
-
-      // Fetch real campaign data with logging
-      console.log('📡 Fetching campaigns for customerId:', selectedAccountForAnalysis.customerId);
-      const { data: campaignResponse, error: campaignError } = await supabase.functions.invoke('fetch-google-ads-campaigns', {
-        body: { customerId: selectedAccountForAnalysis.customerId, limit: 50 }
-      });
-
-      if (campaignError) throw campaignError;
-
-      const campaigns = campaignResponse.campaigns || [];
-      
-      if (campaigns.length === 0) {
-        toast({
-          title: "No Campaigns Found",
-          description: "No active campaigns found for analysis",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      // Analyze real campaign data
-      const insights: AuditInsight[] = [];
-      let overallScore = 85; // Start with a good baseline
-
-      // Analyze campaign performance issues
-      const poorPerformingCampaigns = campaigns.filter(c => 
-        c.ctr < 0.02 && c.cost > 1000 // CTR < 2% and spend > $1000
-      );
-
-      const highSpendCampaigns = campaigns.filter(c => c.cost > 5000);
-      const lowCTRCampaigns = campaigns.filter(c => c.ctr < 0.01);
-
-      // Generate insights based on real data
-      if (poorPerformingCampaigns.length > 0) {
-        overallScore -= 15;
-        insights.push({
-          id: "perf_1",
-          category: "Budget & Bidding",
-          title: "High Spend, Low Performance Campaigns",
-          description: `${poorPerformingCampaigns.length} campaigns (${poorPerformingCampaigns.map(c => c.name).join(", ")}) have high spend but CTR below 2%`,
-          impact: "High",
-          urgency: "Critical",
-          recommendation: `Review and optimize ${poorPerformingCampaigns.length} underperforming campaigns: ${poorPerformingCampaigns.slice(0, 3).map(c => c.name).join(", ")}`,
-          actionable: true
-        });
-      }
-
-      if (lowCTRCampaigns.length > 0) {
-        overallScore -= 10;
-        insights.push({
-          id: "ctr_1",
-          category: "Ad Copy",
-          title: "Low Click-Through Rates",
-          description: `${lowCTRCampaigns.length} campaigns have CTR below 1%: ${lowCTRCampaigns.slice(0, 3).map(c => `${c.name} (${(c.ctr * 100).toFixed(2)}%)`).join(", ")}`,
-          impact: "High",
-          urgency: "Important",
-          recommendation: "Refresh ad copy and test new headlines for low CTR campaigns",
-          actionable: true
-        });
-      }
-
-      // Performance Max vs Search analysis
-      const pmCampaigns = campaigns.filter(c => c.name.includes("(PM)"));
-      const searchCampaigns = campaigns.filter(c => c.name.includes("(Search)"));
-
-      if (pmCampaigns.length > 0 && searchCampaigns.length > 0) {
-        const avgPMCTR = pmCampaigns.reduce((sum, c) => sum + c.ctr, 0) / pmCampaigns.length;
-        const avgSearchCTR = searchCampaigns.reduce((sum, c) => sum + c.ctr, 0) / searchCampaigns.length;
-
-        if (avgPMCTR < avgSearchCTR * 0.3) { // PM CTR significantly lower
-          insights.push({
-            id: "pm_1",
-            category: "Structure",
-            title: "Performance Max Underperforming",
-            description: `Performance Max campaigns (${(avgPMCTR * 100).toFixed(2)}% CTR) significantly underperform Search campaigns (${(avgSearchCTR * 100).toFixed(2)}% CTR)`,
-            impact: "Medium",
-            urgency: "Important",
-            recommendation: "Review PM asset quality, audience signals, and budget allocation",
-            actionable: true
-          });
+      const { data, error } = await supabase.functions.invoke('enterprise-audit', {
+        body: {
+          customerId: selectedAccount.customerId
         }
-      }
-
-      // Budget distribution analysis
-      const totalSpend = campaigns.reduce((sum, c) => sum + c.cost, 0);
-      const topSpendingCampaign = campaigns.reduce((prev, curr) => 
-        curr.cost > prev.cost ? curr : prev
-      );
-
-      if (topSpendingCampaign.cost > totalSpend * 0.4) {
-        overallScore -= 8;
-        insights.push({
-          id: "budget_1",
-          category: "Budget & Bidding",
-          title: "Budget Concentration Risk",
-          description: `${topSpendingCampaign.name} consumes ${((topSpendingCampaign.cost / totalSpend) * 100).toFixed(1)}% of total budget ($${topSpendingCampaign.cost.toLocaleString()})`,
-          impact: "Medium",
-          urgency: "Important",
-          recommendation: "Diversify budget allocation across more campaigns to reduce risk",
-          actionable: true
-        });
-      }
-
-      // Add some general optimization insights
-      insights.push({
-        id: "conv_1",
-        category: "Conversion Tracking",
-        title: "Enhanced Conversions Setup",
-        description: "Verify Enhanced Conversions is enabled for better attribution in iOS 14+ environment",
-        impact: "High",
-        urgency: "Important",
-        recommendation: "Enable Enhanced Conversions for Web to capture more conversion data",
-        actionable: true
       });
 
-      const categoryScores = {
-        structure: { 
-          score: pmCampaigns.length > 0 && searchCampaigns.length > 0 ? 75 : 65, 
-          grade: pmCampaigns.length > 0 && searchCampaigns.length > 0 ? "B" : "C+", 
-          color: "text-blue-600" 
-        },
-        budgetBidding: { 
-          score: poorPerformingCampaigns.length === 0 ? 80 : 60, 
-          grade: poorPerformingCampaigns.length === 0 ? "A-" : "C", 
-          color: poorPerformingCampaigns.length === 0 ? "text-emerald-600" : "text-orange-600" 
-        },
-        keywords: { score: 70, grade: "B-", color: "text-blue-600" },
-        adCopy: { 
-          score: lowCTRCampaigns.length === 0 ? 85 : 65, 
-          grade: lowCTRCampaigns.length === 0 ? "A" : "C+", 
-          color: lowCTRCampaigns.length === 0 ? "text-emerald-600" : "text-yellow-600" 
-        },
-        qualityScore: { score: 75, grade: "B", color: "text-blue-600" },
-        landingPages: { score: 78, grade: "B+", color: "text-emerald-600" },
-        conversionTracking: { score: 82, grade: "A-", color: "text-emerald-600" }
-      };
+      if (error) throw error;
 
-      const auditResults: PowerAuditResults = {
-        overallScore: Math.max(40, overallScore),
-        categoryScores,
-        insights,
-        actionPlan: insights
-          .filter(insight => insight.actionable)
-          .sort((a, b) => {
-            const urgencyWeight = { Critical: 3, Important: 2, Low: 1 };
-            const impactWeight = { High: 3, Medium: 2, Low: 1 };
-            
-            const aScore = urgencyWeight[a.urgency] + impactWeight[a.impact];
-            const bScore = urgencyWeight[b.urgency] + impactWeight[b.impact];
-            
-            return bScore - aScore;
-          })
-      };
-
-      setAuditResults(auditResults);
+      setAuditResults(data.data);
+      console.log('✅ Enterprise audit completed:', data.data);
       
       toast({
-        title: "🔍 Power Audit Complete",
-        description: `${selectedAccountForAnalysis.name} scored ${auditResults.overallScore}/100 with ${auditResults.actionPlan.length} actionable optimizations`,
+        title: "Enterprise Audit Complete",
+        description: "Comprehensive analysis generated with AI insights",
+        duration: 5000,
       });
     } catch (error) {
-      console.error("Power audit failed:", error);
+      console.error('Enterprise audit error:', error);
       toast({
         title: "Audit Failed",
-        description: "Unable to complete power audit",
+        description: error.message || "Could not complete enterprise audit",
         variant: "destructive",
       });
     } finally {
-      setIsAuditing(false);
+      setIsLoading(false);
     }
   };
 
-  const handleExecuteFix = async (insightId: string) => {
-    setIsExecutingFix(insightId);
-    try {
-      // Mock execution - in real implementation, you'd call specific optimization functions
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      const insight = auditResults?.insights.find(i => i.id === insightId);
-      toast({
-        title: "Fix Applied",
-        description: `${insight?.title} optimization has been executed successfully`,
-      });
+  if (!selectedAccount) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Shield className="h-5 w-5 text-blue-600" />
+            Enterprise Google Ads Audit
+          </CardTitle>
+          <CardDescription>
+            Comprehensive performance analysis with statistical significance testing
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center py-8 text-muted-foreground">
+            Select a Google Ads account to run enterprise audit
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
-      // Update audit results to reflect the fix
-      if (auditResults && insight) {
-        const updatedInsights = auditResults.insights.filter(i => i.id !== insightId);
-        const updatedActionPlan = auditResults.actionPlan.filter(i => i.id !== insightId);
-        
-        setAuditResults({
-          ...auditResults,
-          insights: updatedInsights,
-          actionPlan: updatedActionPlan,
-          overallScore: Math.min(100, auditResults.overallScore + 5)
-        });
-      }
-    } catch (error) {
-      console.error("Fix execution failed:", error);
-      toast({
-        title: "Fix Failed",
-        description: "Unable to execute optimization",
-        variant: "destructive",
-      });
-    } finally {
-      setIsExecutingFix(null);
-    }
+  const renderTrendIcon = (delta: number) => {
+    if (delta > 0) return <TrendingUp className="h-4 w-4 text-green-600" />;
+    if (delta < 0) return <TrendingDown className="h-4 w-4 text-red-600" />;
+    return <Activity className="h-4 w-4 text-gray-400" />;
   };
 
-  const getImpactColor = (impact: string) => {
-    switch (impact) {
-      case "High": return "text-red-600";
-      case "Medium": return "text-orange-600";
-      case "Low": return "text-yellow-600";
-      default: return "text-gray-600";
-    }
-  };
-
-  const getUrgencyColor = (urgency: string) => {
-    switch (urgency) {
-      case "Critical": return "bg-red-100 text-red-800";
-      case "Important": return "bg-orange-100 text-orange-800";
-      case "Low": return "bg-gray-100 text-gray-800";
-      default: return "bg-gray-100 text-gray-800";
-    }
-  };
-
-  const getCategoryIcon = (category: string) => {
-    switch (category) {
-      case "Structure": return <Search className="h-4 w-4" />;
-      case "Budget & Bidding": return <DollarSign className="h-4 w-4" />;
-      case "Keywords": return <Target className="h-4 w-4" />;
-      case "Ad Copy": return <FileText className="h-4 w-4" />;
-      case "Quality Score": return <BarChart3 className="h-4 w-4" />;
-      case "Landing Pages": return <MousePointer className="h-4 w-4" />;
-      case "Conversion Tracking": return <Activity className="h-4 w-4" />;
-      default: return <Eye className="h-4 w-4" />;
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case 'Critical': return 'bg-red-500';
+      case 'High': return 'bg-orange-500';
+      case 'Medium': return 'bg-yellow-500';
+      case 'Low': return 'bg-green-500';
+      default: return 'bg-gray-500';
     }
   };
 
   return (
     <div className="space-y-6">
-      {/* Power Audit Header */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Zap className="h-5 w-5 text-primary" />
-            Google Ads Power Audit
-          </CardTitle>
-          <CardDescription>
-            Comprehensive AI-powered account analysis with actionable optimization recommendations
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex gap-4">
-            <Button 
-              onClick={handlePowerAudit}
-              disabled={isAuditing || !selectedAccountForAnalysis}
-              className="flex items-center gap-2"
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Shield className="h-5 w-5 text-blue-600" />
+                Enterprise Google Ads Audit
+              </CardTitle>
+              <CardDescription>
+                30-day vs 30-day performance analysis with AI insights, broken URL detection, and statistical significance testing
+              </CardDescription>
+            </div>
+            <Button
+              onClick={runEnterpriseAudit}
+              disabled={isLoading}
+              className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
             >
-              {isAuditing ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+              {isLoading ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  Running Audit...
+                </>
               ) : (
-                <Zap className="h-4 w-4" />
+                <>
+                  <Shield className="h-4 w-4 mr-2" />
+                  Run Enterprise Audit
+                </>
               )}
-              {isAuditing ? "Analyzing Account..." : "Run Power Audit"}
             </Button>
-            
-            {selectedAccountForAnalysis && (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Eye className="h-4 w-4" />
-                {selectedAccountForAnalysis.name}
-              </div>
-            )}
           </div>
-        </CardContent>
-      </Card>
+        </CardHeader>
 
-      {/* Audit Results */}
-      {auditResults && (
-        <Tabs defaultValue="overview" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="overview">Audit Overview</TabsTrigger>
-            <TabsTrigger value="detailed">Detailed Insights</TabsTrigger>
-            <TabsTrigger value="action-plan">Action Plan</TabsTrigger>
-          </TabsList>
-
-          {/* Overview Tab */}
-          <TabsContent value="overview" className="space-y-4">
-            {/* Overall Score */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between">
-                  Overall Account Health Score
-                  <Badge variant="outline" className="text-lg font-bold">
-                    {auditResults.overallScore}/100
-                  </Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Progress value={auditResults.overallScore} className="h-4" />
-                <p className="text-sm text-muted-foreground mt-2">
-                  {auditResults.overallScore >= 80 ? "Excellent account health" :
-                   auditResults.overallScore >= 60 ? "Good account health with room for improvement" :
-                   "Account needs optimization attention"}
-                </p>
-              </CardContent>
-            </Card>
-
-            {/* Category Scores Grid */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              {Object.entries(auditResults.categoryScores).map(([key, score]) => (
-                <Card key={key}>
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      {getCategoryIcon(key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()))}
-                      <span className="text-sm font-medium capitalize">
-                        {key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className={`text-2xl font-bold ${score.color}`}>
-                        {score.grade}
-                      </span>
-                      <span className="text-sm text-muted-foreground">
-                        {score.score}/100
-                      </span>
-                    </div>
-                    <Progress value={score.score} className="h-2 mt-2" />
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </TabsContent>
-
-          {/* Detailed Insights Tab */}
-          <TabsContent value="detailed" className="space-y-4">
-            <div className="grid gap-4">
-              {auditResults.insights.map((insight) => (
-                <Card key={insight.id} className="relative overflow-hidden">
-                  <CardContent className="p-0">
-                    <div className="flex">
-                      {/* Left color indicator */}
-                      <div className={`w-1 ${
-                        insight.urgency === 'Critical' ? 'bg-red-500' :
-                        insight.urgency === 'Important' ? 'bg-orange-500' : 'bg-gray-400'
-                      }`} />
-                      
-                      <div className="flex-1 p-4">
-                        <div className="flex items-start justify-between mb-3">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-2">
-                              {getCategoryIcon(insight.category)}
-                              <span className="text-sm font-medium text-muted-foreground">{insight.category}</span>
-                              <Badge variant="outline" className={getUrgencyColor(insight.urgency)}>
-                                {insight.urgency}
-                              </Badge>
-                              <Badge variant={insight.impact === 'High' ? 'destructive' : insight.impact === 'Medium' ? 'default' : 'secondary'}>
-                                {insight.impact} Impact
-                              </Badge>
-                            </div>
-                            <h3 className="font-semibold text-lg mb-2">{insight.title}</h3>
-                            <p className="text-muted-foreground mb-3">{insight.description}</p>
-                          </div>
-                          
-                          {insight.actionable && (
-                            <Button
-                              size="sm"
-                              onClick={() => handleExecuteFix(insight.id)}
-                              disabled={isExecutingFix === insight.id}
-                              className="ml-4 flex items-center gap-2"
-                            >
-                              {isExecutingFix === insight.id ? (
-                                <>
-                                  <Loader2 className="h-4 w-4 animate-spin" />
-                                  Fixing...
-                                </>
-                              ) : (
-                                <>
-                                  <Zap className="h-4 w-4" />
-                                  Auto-Fix
-                                </>
-                              )}
-                            </Button>
-                          )}
-                        </div>
-
-                        {/* Detailed breakdown */}
-                        <div className="space-y-3 bg-muted/30 p-4 rounded-lg">
-                          <div className="flex items-start gap-2">
-                            <div className="mt-1">
-                              <div className="w-2 h-2 bg-primary rounded-full"></div>
-                            </div>
-                            <div className="flex-1">
-                              <h4 className="font-medium text-sm mb-1">🎯 Recommended Action</h4>
-                              <p className="text-sm text-muted-foreground">{insight.recommendation}</p>
-                            </div>
-                          </div>
-
-                          {/* Additional context based on category */}
-                          {insight.category === "Budget & Bidding" && (
-                            <div className="flex items-start gap-2">
-                              <div className="mt-1">
-                                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                              </div>
-                              <div className="flex-1">
-                                <h4 className="font-medium text-sm mb-1">💰 Financial Impact</h4>
-                                <p className="text-sm text-muted-foreground">
-                                  Estimated monthly savings: $2,400 | ROI improvement: +35% | Payback period: Immediate
-                                </p>
-                              </div>
-                            </div>
-                          )}
-
-                          {insight.category === "Keywords" && (
-                            <div className="flex items-start gap-2">
-                              <div className="mt-1">
-                                <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                              </div>
-                              <div className="flex-1">
-                                <h4 className="font-medium text-sm mb-1">🔍 Keywords Analysis</h4>
-                                <p className="text-sm text-muted-foreground">
-                                  Top wasteful terms: "free consultation", "cheap services", "how to" | Combined monthly waste: $890
-                                </p>
-                              </div>
-                            </div>
-                          )}
-
-                          {insight.category === "Quality Score" && (
-                            <div className="flex items-start gap-2">
-                              <div className="mt-1">
-                                <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
-                              </div>
-                              <div className="flex-1">
-                                <h4 className="font-medium text-sm mb-1">📊 Quality Score Breakdown</h4>
-                                <p className="text-sm text-muted-foreground">
-                                  Expected CTR: 6/10 | Ad Relevance: 4/10 | Landing Page: 7/10 | Current avg QS: 5.2/10
-                                </p>
-                              </div>
-                            </div>
-                          )}
-
-                          {insight.category === "Ad Copy" && (
-                            <div className="flex items-start gap-2">
-                              <div className="mt-1">
-                                <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
-                              </div>
-                              <div className="flex-1">
-                                <h4 className="font-medium text-sm mb-1">✍️ Creative Performance</h4>
-                                <p className="text-sm text-muted-foreground">
-                                  Low-performing headlines: 12 | Missing dynamic keyword insertion | CTR below account average by 23%
-                                </p>
-                              </div>
-                            </div>
-                          )}
-
-                          {insight.category === "Structure" && (
-                            <div className="flex items-start gap-2">
-                              <div className="mt-1">
-                                <div className="w-2 h-2 bg-indigo-500 rounded-full"></div>
-                              </div>
-                              <div className="flex-1">
-                                <h4 className="font-medium text-sm mb-1">🏗️ Account Structure</h4>
-                                <p className="text-sm text-muted-foreground">
-                                  Affected ad groups: 5 | Keywords per group: 50+ (optimal: 10-15) | Theme consistency: 45%
-                                </p>
-                              </div>
-                            </div>
-                          )}
-
-                          {insight.category === "Conversion Tracking" && (
-                            <div className="flex items-start gap-2">
-                              <div className="mt-1">
-                                <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-                              </div>
-                              <div className="flex-1">
-                                <h4 className="font-medium text-sm mb-1">📈 Tracking Setup</h4>
-                                <p className="text-sm text-muted-foreground">
-                                  Missing conversion data: 15-20% | Enhanced conversions: Disabled | GA4 integration: Partial
-                                </p>
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Implementation timeline */}
-                          <div className="flex items-start gap-2">
-                            <div className="mt-1">
-                              <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
-                            </div>
-                            <div className="flex-1">
-                              <h4 className="font-medium text-sm mb-1">⏱️ Implementation</h4>
-                              <p className="text-sm text-muted-foreground">
-                                {insight.urgency === 'Critical' ? 'Execute within 24 hours' :
-                                 insight.urgency === 'Important' ? 'Execute within 1 week' : 
-                                 'Execute within 1 month'} • 
-                                Estimated effort: {insight.actionable ? '5-15 minutes (automated)' : '1-2 hours (manual)'}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </TabsContent>
-
-          {/* Action Plan Tab */}
-          <TabsContent value="action-plan" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <TrendingUp className="h-5 w-5" />
-                  Prioritized Action Plan
-                </CardTitle>
-                <CardDescription>
-                  Optimizations ranked by impact and urgency. Execute in order for maximum results.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {auditResults.actionPlan.map((action, index) => (
-                    <div key={action.id} className="flex items-center gap-4 p-4 border rounded-lg">
-                      <div className="flex items-center justify-center w-8 h-8 bg-primary text-primary-foreground rounded-full text-sm font-bold">
-                        {index + 1}
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="font-semibold">{action.title}</span>
-                          <Badge variant="outline" className={getUrgencyColor(action.urgency)}>
-                            {action.urgency}
-                          </Badge>
-                          <span className={`text-sm font-medium ${getImpactColor(action.impact)}`}>
-                            {action.impact} Impact
-                          </span>
-                        </div>
-                        <p className="text-sm text-muted-foreground">{action.recommendation}</p>
-                      </div>
-                      <Button
-                        onClick={() => handleExecuteFix(action.id)}
-                        disabled={isExecutingFix === action.id}
-                        className="flex items-center gap-2"
-                      >
-                        {isExecutingFix === action.id ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <CheckCircle className="h-4 w-4" />
-                        )}
-                        Fix Now
-                      </Button>
-                    </div>
-                  ))}
+        {isLoading && (
+          <CardContent>
+            <div className="space-y-4">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                <h3 className="font-semibold mb-2">Running Enterprise Audit</h3>
+                <p className="text-sm text-muted-foreground">Analyzing campaigns, assets, URLs, and generating AI insights...</p>
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-sm">
+                  <div className="w-2 h-2 bg-blue-600 rounded-full animate-pulse"></div>
+                  Fetching 30-day performance data
                 </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
-      )}
+                <div className="flex items-center gap-2 text-sm">
+                  <div className="w-2 h-2 bg-blue-600 rounded-full animate-pulse"></div>
+                  Comparing with baseline period
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                  <div className="w-2 h-2 bg-blue-600 rounded-full animate-pulse"></div>
+                  Checking URL health
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                  <div className="w-2 h-2 bg-blue-600 rounded-full animate-pulse"></div>
+                  Analyzing asset completeness
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                  <div className="w-2 h-2 bg-blue-600 rounded-full animate-pulse"></div>
+                  Generating AI insights
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        )}
+
+        {auditResults && (
+          <CardContent>
+            <Tabs defaultValue="overview" className="w-full">
+              <TabsList className="grid w-full grid-cols-5">
+                <TabsTrigger value="overview">Overview</TabsTrigger>
+                <TabsTrigger value="campaigns">Campaigns</TabsTrigger>
+                <TabsTrigger value="issues">Issues</TabsTrigger>
+                <TabsTrigger value="recommendations">Actions</TabsTrigger>
+                <TabsTrigger value="ai-insights">AI Insights</TabsTrigger>
+              </TabsList>
+
+              {/* Overview Tab */}
+              <TabsContent value="overview" className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <Card>
+                    <CardContent className="pt-6">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-medium text-muted-foreground">Impressions</p>
+                          <p className="text-2xl font-bold">
+                            {auditResults.account_summary.key_metrics.current.impressions.toLocaleString()}
+                          </p>
+                          <div className="flex items-center gap-1 text-sm">
+                            {renderTrendIcon(auditResults.account_summary.key_metrics.deltas.impressions.pct)}
+                            <span className={auditResults.account_summary.key_metrics.deltas.impressions.pct >= 0 ? 'text-green-600' : 'text-red-600'}>
+                              {auditResults.account_summary.key_metrics.deltas.impressions.pct >= 0 ? '+' : ''}
+                              {auditResults.account_summary.key_metrics.deltas.impressions.pct.toFixed(1)}%
+                            </span>
+                          </div>
+                        </div>
+                        <BarChart3 className="h-8 w-8 text-blue-600" />
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardContent className="pt-6">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-medium text-muted-foreground">Clicks</p>
+                          <p className="text-2xl font-bold">
+                            {auditResults.account_summary.key_metrics.current.clicks.toLocaleString()}
+                          </p>
+                          <div className="flex items-center gap-1 text-sm">
+                            {renderTrendIcon(auditResults.account_summary.key_metrics.deltas.clicks.pct)}
+                            <span className={auditResults.account_summary.key_metrics.deltas.clicks.pct >= 0 ? 'text-green-600' : 'text-red-600'}>
+                              {auditResults.account_summary.key_metrics.deltas.clicks.pct >= 0 ? '+' : ''}
+                              {auditResults.account_summary.key_metrics.deltas.clicks.pct.toFixed(1)}%
+                            </span>
+                          </div>
+                        </div>
+                        <Target className="h-8 w-8 text-green-600" />
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardContent className="pt-6">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-medium text-muted-foreground">Cost</p>
+                          <p className="text-2xl font-bold">
+                            ${auditResults.account_summary.key_metrics.current.cost.toLocaleString()}
+                          </p>
+                          <div className="flex items-center gap-1 text-sm">
+                            {renderTrendIcon(auditResults.account_summary.key_metrics.deltas.cost.pct)}
+                            <span className={auditResults.account_summary.key_metrics.deltas.cost.pct >= 0 ? 'text-red-600' : 'text-green-600'}>
+                              {auditResults.account_summary.key_metrics.deltas.cost.pct >= 0 ? '+' : ''}
+                              {auditResults.account_summary.key_metrics.deltas.cost.pct.toFixed(1)}%
+                            </span>
+                          </div>
+                        </div>
+                        <DollarSign className="h-8 w-8 text-yellow-600" />
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardContent className="pt-6">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-medium text-muted-foreground">Conversions</p>
+                          <p className="text-2xl font-bold">
+                            {auditResults.account_summary.key_metrics.current.conversions.toFixed(1)}
+                          </p>
+                          <div className="flex items-center gap-1 text-sm">
+                            {renderTrendIcon(auditResults.account_summary.key_metrics.deltas.conversions.pct)}
+                            <span className={auditResults.account_summary.key_metrics.deltas.conversions.pct >= 0 ? 'text-green-600' : 'text-red-600'}>
+                              {auditResults.account_summary.key_metrics.deltas.conversions.pct >= 0 ? '+' : ''}
+                              {auditResults.account_summary.key_metrics.deltas.conversions.pct.toFixed(1)}%
+                            </span>
+                          </div>
+                        </div>
+                        <CheckCircle className="h-8 w-8 text-purple-600" />
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Time Period Analysis</CardTitle>
+                    <CardDescription>
+                      Current: {auditResults.account_summary.windows.current.start} to {auditResults.account_summary.windows.current.end}
+                      <br />
+                      Baseline: {auditResults.account_summary.windows.baseline.start} to {auditResults.account_summary.windows.baseline.end}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="text-center">
+                        <p className="text-sm text-muted-foreground">Statistical Significance</p>
+                        <Badge variant={auditResults.account_summary.stat_tests.ctr_sig ? "default" : "secondary"}>
+                          {auditResults.account_summary.stat_tests.ctr_sig ? "High Confidence" : "Low Volume"}
+                        </Badge>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-sm text-muted-foreground">Campaigns Analyzed</p>
+                        <p className="text-lg font-semibold">{auditResults.campaigns.length}</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-sm text-muted-foreground">URLs Checked</p>
+                        <p className="text-lg font-semibold">{auditResults.url_health.length}</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              {/* Campaigns Tab */}
+              <TabsContent value="campaigns" className="space-y-4">
+                {auditResults.campaigns.map((campaign, index) => (
+                  <Card key={index}>
+                    <CardHeader>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <CardTitle className="text-lg">{campaign.name}</CardTitle>
+                          <CardDescription>{campaign.type}</CardDescription>
+                        </div>
+                        <Badge variant="outline">{campaign.id}</Badge>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div>
+                          <p className="text-sm text-muted-foreground">Clicks</p>
+                          <p className="font-semibold">{campaign.metrics.clicks.toLocaleString()}</p>
+                          <div className="flex items-center gap-1 text-xs">
+                            {renderTrendIcon(campaign.deltas.clicks.pct)}
+                            <span>{campaign.deltas.clicks.pct >= 0 ? '+' : ''}{campaign.deltas.clicks.pct.toFixed(1)}%</span>
+                          </div>
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground">Cost</p>
+                          <p className="font-semibold">${campaign.metrics.cost.toLocaleString()}</p>
+                          <div className="flex items-center gap-1 text-xs">
+                            {renderTrendIcon(campaign.deltas.cost.pct)}
+                            <span>{campaign.deltas.cost.pct >= 0 ? '+' : ''}{campaign.deltas.cost.pct.toFixed(1)}%</span>
+                          </div>
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground">CTR</p>
+                          <p className="font-semibold">{campaign.metrics.ctr.toFixed(2)}%</p>
+                          <div className="flex items-center gap-1 text-xs">
+                            {renderTrendIcon(campaign.deltas.ctr.pct)}
+                            <span>{campaign.deltas.ctr.pct >= 0 ? '+' : ''}{campaign.deltas.ctr.pct.toFixed(1)}%</span>
+                          </div>
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground">Conversions</p>
+                          <p className="font-semibold">{campaign.metrics.conversions.toFixed(1)}</p>
+                          <div className="flex items-center gap-1 text-xs">
+                            {renderTrendIcon(campaign.deltas.conversions.pct)}
+                            <span>{campaign.deltas.conversions.pct >= 0 ? '+' : ''}{campaign.deltas.conversions.pct.toFixed(1)}%</span>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </TabsContent>
+
+              {/* Issues Tab */}
+              <TabsContent value="issues" className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Link className="h-5 w-5" />
+                        URL Health Check
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2">
+                        {auditResults.url_health.length === 0 ? (
+                          <p className="text-sm text-muted-foreground">No URLs found to check</p>
+                        ) : (
+                          auditResults.url_health.map((check, index) => (
+                            <div key={index} className="flex items-center justify-between p-2 border rounded">
+                              <div className="flex items-center gap-2">
+                                {check.ok ? (
+                                  <CheckCircle className="h-4 w-4 text-green-600" />
+                                ) : (
+                                  <XCircle className="h-4 w-4 text-red-600" />
+                                )}
+                                <span className="text-sm font-mono">{check.url.substring(0, 40)}...</span>
+                              </div>
+                              <Badge variant={check.ok ? "default" : "destructive"}>
+                                {check.status || "Error"}
+                              </Badge>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Settings className="h-5 w-5" />
+                        Asset Analysis
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        {auditResults.asset_analysis.ad_analysis.map((ad, index) => (
+                          <div key={index} className="p-3 border rounded">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-sm font-medium">Ad {ad.ad_id}</span>
+                              <div className="flex gap-2">
+                                <Badge variant="outline">{ad.headlines}H</Badge>
+                                <Badge variant="outline">{ad.descriptions}D</Badge>
+                              </div>
+                            </div>
+                            {ad.issues.length > 0 && (
+                              <div className="space-y-1">
+                                {ad.issues.map((issue, i) => (
+                                  <div key={i} className="flex items-center gap-2 text-sm text-orange-600">
+                                    <AlertTriangle className="h-3 w-3" />
+                                    {issue}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </TabsContent>
+
+              {/* Recommendations Tab */}
+              <TabsContent value="recommendations" className="space-y-4">
+                {auditResults.recommendations.map((rec, index) => (
+                  <Card key={index}>
+                    <CardContent className="pt-6">
+                      <div className="flex items-start gap-4">
+                        <div className={`w-3 h-3 rounded-full ${getPriorityColor(rec.priority)} flex-shrink-0 mt-2`}></div>
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between mb-2">
+                            <Badge variant="outline">{rec.category}</Badge>
+                            <Badge variant={rec.priority === 'Critical' ? 'destructive' : 'default'}>
+                              {rec.priority}
+                            </Badge>
+                          </div>
+                          <h4 className="font-semibold mb-1">{rec.issue}</h4>
+                          <p className="text-sm text-muted-foreground mb-2">{rec.action}</p>
+                          <div className="flex items-center gap-4 text-sm">
+                            <span className="text-green-600">Impact: {rec.expected_impact}</span>
+                            <span className="text-blue-600">Confidence: {rec.confidence}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </TabsContent>
+
+              {/* AI Insights Tab */}
+              <TabsContent value="ai-insights" className="space-y-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Brain className="h-5 w-5 text-purple-600" />
+                      AI-Powered Analysis
+                    </CardTitle>
+                    <CardDescription>
+                      Advanced insights generated by analyzing your account data patterns
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {auditResults.ai_insights ? (
+                      <div className="prose prose-sm max-w-none">
+                        <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed">
+                          {auditResults.ai_insights}
+                        </pre>
+                      </div>
+                    ) : (
+                      <Alert>
+                        <AlertTriangle className="h-4 w-4" />
+                        <AlertDescription>
+                          AI insights not available. Please ensure OpenAI API key is configured in edge function secrets.
+                        </AlertDescription>
+                      </Alert>
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
+          </CardContent>
+        )}
+      </Card>
     </div>
   );
 };

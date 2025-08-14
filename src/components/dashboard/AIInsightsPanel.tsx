@@ -599,7 +599,7 @@ export const AIInsightsPanel = () => {
           </TabsList>
           
           <TabsContent value="power-audit" className="space-y-4">
-            <PowerAuditPanel />
+            <PowerAuditPanel selectedAccount={selectedAccountForAnalysis} />
           </TabsContent>
           
           <TabsContent value="creatives" className="space-y-4">
