@@ -165,6 +165,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signInWithGoogle = async () => {
     try {
       console.log('🔧 Attempting Google OAuth sign in');
+      console.log('🔧 Current window origin:', window.location.origin);
+      
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
@@ -173,9 +175,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
       
       console.log('🔧 Google OAuth result:', { error: error?.message });
+      console.log('🔧 Full error object:', error);
+      
       return { error };
     } catch (e) {
       console.error('🔧 Google OAuth error:', e);
+      console.error('🔧 Full error details:', JSON.stringify(e, null, 2));
       return { error: e as any };
     }
   };
