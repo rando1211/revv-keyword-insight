@@ -1232,21 +1232,21 @@ async function generateStrategicAIInsights(analysisData: any, openaiApiKey: stri
   const prompt = `As a senior Google Ads strategist, analyze this comprehensive account data and provide strategic insights that would rival a top PPC agency's analysis:
 
 CAMPAIGN PERFORMANCE:
-${analysisData.campaignMetrics.campaigns.slice(0, 5).map(c => 
-  `• ${c.name}: $${c.current_spend.toLocaleString()} spend, ${c.deltas.conversions.pct.toFixed(1)}% conv change, ${c.bidding_strategy} strategy`
+${(analysisData.campaignMetrics?.campaigns || []).slice(0, 5).map(c => 
+  `• ${c.name}: $${c.current_spend?.toLocaleString() || 0} spend, ${c.deltas?.conversions?.pct?.toFixed(1) || 0}% conv change, ${c.bidding_strategy || 'unknown'} strategy`
 ).join('\n')}
 
 SEARCH TERMS WASTE:
-• Total waste identified: $${analysisData.searchTermsAnalysis.total_waste_identified.toLocaleString()}
-• Top wasteful terms: ${analysisData.searchTermsAnalysis.wasteful_terms.slice(0, 3).map(t => t.search_term).join(', ')}
+• Total waste identified: $${analysisData.searchTermsAnalysis?.total_waste_identified?.toLocaleString() || 0}
+• Top wasteful terms: ${(analysisData.searchTermsAnalysis?.wasteful_terms || []).slice(0, 3).map(t => t.search_term).join(', ')}
 
 KEYWORD STRATEGY:
-• Match type distribution: ${JSON.stringify(analysisData.keywordAnalysis.match_type_analysis)}
-• Quality score issues: ${analysisData.keywordAnalysis.quality_score_issues.length} keywords
+• Match type distribution: ${JSON.stringify(analysisData.keywordAnalysis?.match_type_analysis || {})}
+• Quality score issues: ${analysisData.keywordAnalysis?.quality_score_issues?.length || 0} keywords
 
 BID STRATEGY ANALYSIS:
-${Object.keys(analysisData.bidStrategyAnalysis.strategy_breakdown).map(strategy => 
-  `• ${strategy}: ${analysisData.bidStrategyAnalysis.strategy_breakdown[strategy].count} campaigns, $${analysisData.bidStrategyAnalysis.strategy_breakdown[strategy].avg_cpa.toFixed(2)} CPA`
+${Object.keys(analysisData.bidStrategyAnalysis?.strategy_breakdown || {}).map(strategy => 
+  `• ${strategy}: ${analysisData.bidStrategyAnalysis.strategy_breakdown[strategy]?.count || 0} campaigns, $${analysisData.bidStrategyAnalysis.strategy_breakdown[strategy]?.avg_cpa?.toFixed(2) || 0} CPA`
 ).join('\n')}
 
 SCALING OPPORTUNITIES:
@@ -1316,25 +1316,25 @@ async function generateStrategicIssuesAnalysis(analysisData: any, openaiApiKey: 
 
 ACCOUNT DATA SUMMARY:
 ${JSON.stringify({
-    total_campaigns: analysisData.campaignMetrics.campaigns.length,
-    declining_campaigns: analysisData.campaignMetrics.campaigns.filter(c => c.performance_trend === 'declining').length,
-    total_waste: analysisData.searchTermsAnalysis.total_waste_identified,
-    wasteful_terms_count: analysisData.searchTermsAnalysis.wasteful_terms.length,
-    quality_issues: analysisData.keywordAnalysis.quality_score_issues.length,
-    budget_constrained: analysisData.budgetAnalysis.constrained_campaigns.length,
-    creative_issues: analysisData.creativeAnalysis.issues.length
+    total_campaigns: analysisData.campaignMetrics?.campaigns?.length || 0,
+    declining_campaigns: analysisData.campaignMetrics?.campaigns?.filter(c => c.performance_trend === 'declining')?.length || 0,
+    total_waste: analysisData.searchTermsAnalysis?.total_waste_identified || 0,
+    wasteful_terms_count: analysisData.searchTermsAnalysis?.wasteful_terms?.length || 0,
+    quality_issues: analysisData.keywordAnalysis?.quality_score_issues?.length || 0,
+    budget_constrained: analysisData.budgetAnalysis?.constrained_campaigns?.length || 0,
+    creative_issues: analysisData.creativeAnalysis?.issues?.length || 0
   }, null, 2)}
 
 TOP SPENDING DECLINING CAMPAIGNS:
-${analysisData.campaignMetrics.campaigns
+${(analysisData.campaignMetrics?.campaigns || [])
   .filter(c => c.performance_trend === 'declining')
   .slice(0, 3)
-  .map(c => `${c.name}: $${c.current_spend.toLocaleString()} spend, ${c.deltas.conversions.pct.toFixed(1)}% conversion change`)
+  .map(c => `${c.name}: $${c.current_spend?.toLocaleString() || 0} spend, ${c.deltas?.conversions?.pct?.toFixed(1) || 0}% conversion change`)
   .join('\n')}
 
 SPECIFIC WASTEFUL TERMS:
-${analysisData.searchTermsAnalysis.wasteful_terms.slice(0, 5).map(t => 
-  `${t.search_term} in ${t.campaign_name}: $${t.cost.toFixed(2)} cost, ${t.clicks} clicks, 0 conversions`
+${(analysisData.searchTermsAnalysis?.wasteful_terms || []).slice(0, 5).map(t => 
+  `${t.search_term} in ${t.campaign_name}: $${t.cost?.toFixed(2) || 0} cost, ${t.clicks || 0} clicks, 0 conversions`
 ).join('\n')}
 
 Return ONLY valid JSON with actionable issues:
