@@ -84,10 +84,6 @@ serve(async (req) => {
       console.log('🎯 Filtering by campaigns:', selectedCampaignIds);
     }
     
-    // Use specific date range format like the working function
-    const endDate = new Date().toISOString().split('T')[0];
-    const startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-    
     const searchTermsQuery = `
       SELECT
         search_term_view.search_term,
@@ -96,16 +92,13 @@ serve(async (req) => {
         ad_group.id,
         ad_group.name,
         segments.device,
-        segments.geo_target_region,
         metrics.clicks,
         metrics.impressions,
         metrics.ctr,
         metrics.conversions,
-        metrics.cost_micros,
-        ${includeConversionValue ? 'metrics.conversions_value,' : ''}
-        metrics.average_cpc
+        metrics.cost_micros
       FROM search_term_view
-      WHERE segments.date BETWEEN '${startDate}' AND '${endDate}'
+      WHERE segments.date DURING LAST_30_DAYS
         AND campaign.status = 'ENABLED'
         AND ad_group.status = 'ENABLED'
         AND metrics.clicks > 0
