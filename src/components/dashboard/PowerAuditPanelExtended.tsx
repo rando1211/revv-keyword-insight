@@ -112,42 +112,44 @@ export const BudgetAnalysisTab = ({ budgetAnalysis, campaigns }: { budgetAnalysi
 
 // Enhanced AI Insights Tab Component
 export const AIInsightsTab = ({ insights }: { insights: any }) => {
-  console.log('🤖 AI Insights received:', insights);
-  
-  // Handle different data structures from the AI
-  const summary = insights?.summary || insights?.executive_summary || 'No AI insights available';
-  const keyFindings = insights?.key_findings || insights?.analysis?.key_findings || [];
-  const recommendations = insights?.recommendations || insights?.prioritized_recommendations || [];
-  const rootCauses = insights?.root_causes || insights?.underlying_issues || [];
-  const trends = insights?.trends || insights?.performance_trends || [];
-  const opportunities = insights?.opportunities || insights?.growth_opportunities || [];
+  if (!insights) {
+    return (
+      <Card>
+        <CardContent className="text-center py-8">
+          <Zap className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-muted-foreground">No AI Insights Available</h3>
+          <p className="text-muted-foreground">
+            Run the enterprise audit to generate AI-powered insights and recommendations.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Handle the actual AI insights structure from the API
+  const summary = insights.summary || insights.executive_summary || '';
+  const keyFindings = insights.key_findings || [];
+  const recommendations = insights.prioritized_recommendations || insights.recommendations || [];
+  const rootCauses = insights.root_causes || {};
+  const opportunities = insights.opportunities || [];
+  const trends = insights.trends || insights.performance_trends || [];
 
   return (
     <div className="space-y-6">
-      {/* Executive Summary */}
-      <Card className="border-l-4 border-l-primary">
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <Zap className="h-5 w-5 text-primary" />
-            <span>Executive Summary</span>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="prose prose-sm max-w-none">
-            {typeof summary === 'string' ? (
-              <p className="text-sm leading-relaxed">{summary}</p>
-            ) : (
-              <div className="space-y-2">
-                {Array.isArray(summary) ? summary.map((item: string, index: number) => (
-                  <p key={index} className="text-sm leading-relaxed">{item}</p>
-                )) : (
-                  <p className="text-sm text-muted-foreground">AI analysis is processing...</p>
-                )}
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+      {/* AI Summary */}
+      {summary && (
+        <Card className="border-l-4 border-l-primary">
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <Zap className="h-5 w-5 text-primary" />
+              <span>AI Analysis Summary</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm leading-relaxed">{summary}</p>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Key Findings */}
       {keyFindings.length > 0 && (
@@ -157,32 +159,13 @@ export const AIInsightsTab = ({ insights }: { insights: any }) => {
               <Target className="h-5 w-5 text-blue-600" />
               <span>Key Findings</span>
             </CardTitle>
-            <CardDescription>
-              Critical insights from your account analysis
-            </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid gap-3 md:grid-cols-2">
-              {keyFindings.map((finding: any, index: number) => (
-                <div key={index} className="p-3 border rounded-lg bg-gradient-to-r from-blue-50 to-transparent">
-                  <div className="flex items-start space-x-2">
-                    <div className="w-2 h-2 bg-blue-600 rounded-full mt-2 flex-shrink-0"></div>
-                    <div className="space-y-1">
-                      <p className="text-sm font-medium">
-                        {typeof finding === 'string' ? finding : finding.insight || finding.finding}
-                      </p>
-                      {finding.impact && (
-                        <Badge variant="outline" className="text-xs">
-                          {finding.impact} Impact
-                        </Badge>
-                      )}
-                      {finding.metric && (
-                        <p className="text-xs text-muted-foreground">
-                          Metric: {finding.metric}
-                        </p>
-                      )}
-                    </div>
-                  </div>
+            <div className="space-y-2">
+              {keyFindings.map((finding: string, index: number) => (
+                <div key={index} className="flex items-start space-x-2 p-2 bg-muted rounded">
+                  <CheckCircle className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                  <span className="text-sm">{finding}</span>
                 </div>
               ))}
             </div>
@@ -190,58 +173,33 @@ export const AIInsightsTab = ({ insights }: { insights: any }) => {
         </Card>
       )}
 
-      {/* Prioritized Recommendations */}
+      {/* Recommendations */}
       {recommendations.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center space-x-2">
               <TrendingUp className="h-5 w-5 text-green-600" />
-              <span>Prioritized Recommendations</span>
+              <span>Priority Recommendations</span>
             </CardTitle>
-            <CardDescription>
-              Action items ranked by potential impact
-            </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
+            <div className="space-y-3">
               {recommendations.map((rec: any, index: number) => (
-                <div key={index} className="border-l-4 border-l-green-500 p-4 bg-green-50 rounded-r-lg">
+                <div key={index} className="border-l-4 border-l-green-500 p-3 bg-green-50 rounded-r">
                   <div className="flex items-start justify-between">
-                    <div className="space-y-2 flex-1">
-                      <div className="flex items-center space-x-2">
-                        <Badge variant="default" className="text-xs">
-                          Priority {index + 1}
-                        </Badge>
-                        {rec.category && (
-                          <Badge variant="outline" className="text-xs">
-                            {rec.category}
-                          </Badge>
-                        )}
-                      </div>
-                      <h4 className="font-medium text-sm">
-                        {rec.action || rec.recommendation || rec.title}
-                      </h4>
-                      {rec.description && (
+                    <div className="space-y-1">
+                      <Badge variant="default" className="text-xs mb-2">
+                        Priority {index + 1}
+                      </Badge>
+                      <p className="font-medium text-sm">
+                        {typeof rec === 'string' ? rec : rec.action || rec.recommendation}
+                      </p>
+                      {rec.impact && (
                         <p className="text-xs text-muted-foreground">
-                          {rec.description}
-                        </p>
-                      )}
-                      {rec.rationale && (
-                        <p className="text-xs text-blue-700">
-                          <strong>Why:</strong> {rec.rationale}
+                          Impact: {rec.impact}
                         </p>
                       )}
                     </div>
-                    {rec.impact_estimate && (
-                      <div className="text-right">
-                        <div className="text-lg font-bold text-green-600">
-                          {rec.impact_estimate.includes('$') ? rec.impact_estimate : `$${rec.impact_estimate}`}
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          Potential Impact
-                        </div>
-                      </div>
-                    )}
                   </div>
                 </div>
               ))}
