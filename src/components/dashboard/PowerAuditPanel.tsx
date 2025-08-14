@@ -309,7 +309,11 @@ const PerformanceMapTab = ({ performanceMap }: { performanceMap: any[] }) => {
         <CardContent>
           <div className="h-96">
             <ResponsiveContainer width="100%" height="100%">
-              <ScatterChart data={performanceMap}>
+              <ScatterChart data={performanceMap?.map(entry => ({
+                ...entry,
+                // Scale bubble size based on spend - make them much bigger  
+                spend: Math.max(1000, entry.spend * 20) // Multiply by 20 to make bubbles much bigger
+              }))}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis 
                   type="number" 
@@ -348,17 +352,12 @@ const PerformanceMapTab = ({ performanceMap }: { performanceMap: any[] }) => {
             }}
           />
                 <Scatter dataKey="spend" fill="#8884d8">
-                  {performanceMap.map((entry, index) => {
-                    // Make bubbles bigger - scale spend to a larger range
-                    const bubbleSize = Math.max(100, Math.min(1000, entry.spend / 10));
-                    return (
-                      <Cell 
-                        key={`cell-${index}`} 
-                        fill={getQuadrantColor(entry.efficiency_quadrant)}
-                        r={bubbleSize}
-                      />
-                    );
-                  })}
+                  {performanceMap?.map((entry, index) => (
+                    <Cell 
+                      key={`cell-${index}`} 
+                      fill={getQuadrantColor(entry.efficiency_quadrant)}
+                    />
+                  ))}
                 </Scatter>
               </ScatterChart>
             </ResponsiveContainer>
