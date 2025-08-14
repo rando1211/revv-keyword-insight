@@ -588,7 +588,7 @@ function calculateAccountHealthScore(campaigns: any[], ads: any[], assets: any[]
   // URL health (10% weight)
   const urlScore = 10; // Simplified for now
   
-  return Math.round(performanceScore + searchTermsScore + keywordScore + assetScore + budgetScore + urlScore);
+  return Math.round(performanceScore + assetScore + searchTermsScore + keywordScore + budgetScore + urlScore);
 }
 
 function calculateOpportunityValue(campaigns: any[], searchTermsAnalysis?: any, scalingOpportunities?: any): number {
