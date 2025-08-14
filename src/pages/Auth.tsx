@@ -272,7 +272,7 @@ export default function Auth() {
                     onClick={() => {
                       localStorage.setItem('bypass-auth', 'true');
                       console.log('🔧 Auth bypass activated - navigating to dashboard');
-                      navigate('/?bypass=true');
+                      navigate('/dashboard');
                     }}
                     className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-lg py-3"
                   >
