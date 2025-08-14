@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { GoogleAdsAccount } from '@/lib/google-ads-service';
 import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { BudgetAnalysisTab, AIInsightsTab } from './PowerAuditPanelExtended';
 
 interface PowerAuditPanelProps {
@@ -59,79 +60,81 @@ export const PowerAuditPanel = ({ selectedAccount }: PowerAuditPanelProps) => {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight">🔍 Enterprise Power Audit</h2>
-          <p className="text-muted-foreground">
-            Advanced analytics, health scoring, and AI-powered insights
-          </p>
+    <TooltipProvider>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-bold tracking-tight">🔍 Enterprise Power Audit</h2>
+            <p className="text-muted-foreground">
+              Advanced analytics, health scoring, and AI-powered insights
+            </p>
+          </div>
+          <Button 
+            onClick={runAudit} 
+            disabled={isLoading || !selectedAccount}
+            className="relative"
+          >
+            {isLoading ? (
+              <>
+                <Activity className="mr-2 h-4 w-4 animate-spin" />
+                Running Advanced Audit...
+              </>
+            ) : (
+              <>
+                <Activity className="mr-2 h-4 w-4" />
+                Run Enterprise Audit
+              </>
+            )}
+          </Button>
         </div>
-        <Button 
-          onClick={runAudit} 
-          disabled={isLoading || !selectedAccount}
-          className="relative"
-        >
-          {isLoading ? (
-            <>
-              <Activity className="mr-2 h-4 w-4 animate-spin" />
-              Running Advanced Audit...
-            </>
-          ) : (
-            <>
-              <Activity className="mr-2 h-4 w-4" />
-              Run Enterprise Audit
-            </>
-          )}
-        </Button>
+
+        {!selectedAccount && (
+          <Alert>
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>
+              Please select a Google Ads account to run the enterprise audit.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {auditResults && (
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="grid w-full grid-cols-6">
+              <TabsTrigger value="health">Health Score</TabsTrigger>
+              <TabsTrigger value="performance">Performance Map</TabsTrigger>
+              <TabsTrigger value="campaigns">Campaigns</TabsTrigger>
+              <TabsTrigger value="budget">Budget & Pacing</TabsTrigger>
+              <TabsTrigger value="issues">Issues</TabsTrigger>
+              <TabsTrigger value="insights">AI Insights</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="health" className="space-y-4">
+              <HealthScoreTab results={auditResults} />
+            </TabsContent>
+
+            <TabsContent value="performance" className="space-y-4">
+              <PerformanceMapTab performanceMap={auditResults.performance_map} />
+            </TabsContent>
+
+            <TabsContent value="campaigns" className="space-y-4">
+              <CampaignsTab campaigns={auditResults.campaigns} />
+            </TabsContent>
+
+            <TabsContent value="budget" className="space-y-4">
+              <BudgetAnalysisTab budgetAnalysis={auditResults.budget_analysis} campaigns={auditResults.campaigns} />
+            </TabsContent>
+
+            <TabsContent value="issues" className="space-y-4">
+              <IssuesTab issues={auditResults.issues} />
+            </TabsContent>
+
+            <TabsContent value="insights" className="space-y-4">
+              <AIInsightsTab insights={auditResults.ai_insights} />
+            </TabsContent>
+          </Tabs>
+        )}
       </div>
-
-      {!selectedAccount && (
-        <Alert>
-          <AlertTriangle className="h-4 w-4" />
-          <AlertDescription>
-            Please select a Google Ads account to run the enterprise audit.
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {auditResults && (
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-6">
-            <TabsTrigger value="health">Health Score</TabsTrigger>
-            <TabsTrigger value="performance">Performance Map</TabsTrigger>
-            <TabsTrigger value="campaigns">Campaigns</TabsTrigger>
-            <TabsTrigger value="budget">Budget & Pacing</TabsTrigger>
-            <TabsTrigger value="issues">Issues</TabsTrigger>
-            <TabsTrigger value="insights">AI Insights</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="health" className="space-y-4">
-            <HealthScoreTab results={auditResults} />
-          </TabsContent>
-
-          <TabsContent value="performance" className="space-y-4">
-            <PerformanceMapTab performanceMap={auditResults.performance_map} />
-          </TabsContent>
-
-          <TabsContent value="campaigns" className="space-y-4">
-            <CampaignsTab campaigns={auditResults.campaigns} />
-          </TabsContent>
-
-          <TabsContent value="budget" className="space-y-4">
-            <BudgetAnalysisTab budgetAnalysis={auditResults.budget_analysis} campaigns={auditResults.campaigns} />
-          </TabsContent>
-
-          <TabsContent value="issues" className="space-y-4">
-            <IssuesTab issues={auditResults.issues} />
-          </TabsContent>
-
-          <TabsContent value="insights" className="space-y-4">
-            <AIInsightsTab insights={auditResults.ai_insights} />
-          </TabsContent>
-        </Tabs>
-      )}
-    </div>
+    </TooltipProvider>
   );
 };
 
