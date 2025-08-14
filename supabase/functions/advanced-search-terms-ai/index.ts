@@ -40,7 +40,7 @@ serve(async (req) => {
     const refreshToken = Deno.env.get('GOOGLE_REFRESH_TOKEN');
     const developerToken = Deno.env.get('GOOGLE_DEVELOPER_TOKEN');
     
-    console.log('🔑 Environment variables check:');
+    console.log('🔑 Environment variables check (v2):');
     console.log('- GOOGLE_CLIENT_ID:', clientId ? 'SET' : 'MISSING');
     console.log('- GOOGLE_CLIENT_SECRET:', clientSecret ? 'SET' : 'MISSING');
     console.log('- GOOGLE_REFRESH_TOKEN:', refreshToken ? 'SET' : 'MISSING');
