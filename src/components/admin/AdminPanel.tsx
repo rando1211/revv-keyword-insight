@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Crown, Shield, User as UserIcon, Trash2, UserPlus } from "lucide-react";
+import { SharedAccessManager } from "./SharedAccessManager";
 
 interface UserWithRole {
   id: string;
@@ -295,6 +296,8 @@ export const AdminPanel = () => {
           </Table>
         </CardContent>
       </Card>
+
+      <SharedAccessManager />
     </div>
   );
 };
