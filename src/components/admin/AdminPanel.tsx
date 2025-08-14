@@ -21,7 +21,7 @@ interface UserWithRole {
 
 export const AdminPanel = () => {
   const { toast } = useToast();
-  const { isAdmin } = useAuth();
+  const { isAdmin, session } = useAuth();
   const [users, setUsers] = useState<UserWithRole[]>([]);
   const [loading, setLoading] = useState(true);
   const [newUserEmail, setNewUserEmail] = useState("");
@@ -111,32 +111,39 @@ export const AdminPanel = () => {
     }
 
     try {
-      // Create user account
-      const { data, error } = await supabase.auth.admin.createUser({
-        email: newUserEmail,
-        password: 'tempPassword123!', // They'll need to reset this
-        email_confirm: true
+      // Create user through edge function
+      const { data, error } = await supabase.functions.invoke('create-admin-user', {
+        body: {
+          email: newUserEmail,
+          role: newUserRole
+        },
+        headers: {
+          Authorization: `Bearer ${session?.access_token}`,
+        },
       });
 
       if (error) throw error;
 
-      // Assign role
-      if (data.user) {
-        await updateUserRole(data.user.id, newUserRole);
-        
+      if (data.warning) {
+        toast({
+          title: "Partial Success",
+          description: data.warning,
+          variant: "destructive",
+        });
+      } else {
         toast({
           title: "Success",
-          description: `Admin user created successfully. They should reset their password.`,
+          description: `User created successfully. They should reset their password.`,
         });
-        
-        setNewUserEmail("");
-        fetchUsers();
       }
+      
+      setNewUserEmail("");
+      fetchUsers();
     } catch (error) {
       console.error('Error creating admin user:', error);
       toast({
         title: "Error",
-        description: "Failed to create admin user",
+        description: error.message || "Failed to create admin user",
         variant: "destructive",
       });
     }
