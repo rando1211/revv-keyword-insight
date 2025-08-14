@@ -164,16 +164,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signInWithGoogle = async () => {
     try {
+      console.log('🔧 Attempting Google OAuth sign in');
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/dashboard`,
-          scopes: 'openid profile email https://www.googleapis.com/auth/adwords'
+          redirectTo: `${window.location.origin}/dashboard`
         }
       });
       
+      console.log('🔧 Google OAuth result:', { error: error?.message });
       return { error };
     } catch (e) {
+      console.error('🔧 Google OAuth error:', e);
       return { error: e as any };
     }
   };
