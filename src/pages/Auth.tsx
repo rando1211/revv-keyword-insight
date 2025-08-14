@@ -266,20 +266,20 @@ export default function Auth() {
                   Elite optimization protocols await deployment
                 </p>
                 
-                {/* Temporary bypass for testing */}
+                {/* Performance Tracker Access */}
                 <div className="mt-4 pt-4 border-t border-muted">
                   <Button
                     onClick={() => {
                       localStorage.setItem('bypass-auth', 'true');
-                      navigate('/dashboard?bypass=true');
+                      console.log('🔧 Auth bypass activated - navigating to dashboard');
+                      navigate('/?bypass=true');
                     }}
-                    variant="outline"
-                    className="w-full text-xs"
+                    className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-lg py-3"
                   >
-                    🚀 Skip Auth & View Enhanced Analysis (Testing)
+                    🚀 ACCESS PERFORMANCE TRACKER
                   </Button>
                   <p className="text-xs text-muted-foreground text-center mt-2">
-                    Temporary bypass to see $5K analysis upgrades
+                    Click to access dashboard with performance tracking tools
                   </p>
                 </div>
               </form>
