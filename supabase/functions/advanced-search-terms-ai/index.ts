@@ -148,13 +148,6 @@ serve(async (req) => {
         console.log(`🔍 Term: "${searchTerm}" -> Clicks: ${clicks}, Conversions: ${conversions}, Campaign: "${campaignName}" -> Ad Group: "${adGroupName}"`);
         
         const device = term.segments?.device || 'UNKNOWN';
-        const region = term.segments?.geoTargetRegion || 'Unknown';
-        const hourOfDay = term.segments?.hour || 0;
-        const conversionValue = includeConversionValue ? parseFloat(term.metrics?.conversionsValue || '0') : 0;
-        const viewThroughConversions = parseFloat(term.metrics?.viewThroughConversions || '0');
-        const bounceRate = parseFloat(term.metrics?.bounceRate || '0');
-        const avgCpc = parseFloat(term.metrics?.averageCpc || '0') / 1000000;
-        const costPerConversion = parseFloat(term.metrics?.costPerConversion || '0') / 1000000;
 
         return {
           searchTerm,
@@ -168,15 +161,7 @@ serve(async (req) => {
           costMicros,
           cost: costMicros / 1000000,
           conversionRate: clicks > 0 ? (conversions / clicks) * 100 : 0,
-          device,
-          region,
-          hourOfDay,
-          conversionValue,
-          viewThroughConversions,
-          bounceRate,
-          avgCpc,
-          costPerConversion,
-          roas: conversionValue > 0 ? (conversionValue / (costMicros / 1000000)) : 0
+          device
         };
       })
     };
