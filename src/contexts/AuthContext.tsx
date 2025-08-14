@@ -107,16 +107,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setSession(session);
         setUser(session?.user ?? null);
         
-        // Handle successful OAuth callback
-        if (event === 'SIGNED_IN' && session?.user) {
-          console.log('🔧 OAuth sign-in successful, redirecting to dashboard');
-          setTimeout(() => {
-            checkSubscription();
-            checkUserRole();
-            // Redirect to dashboard after successful OAuth
-            window.location.href = '/dashboard';
-          }, 0);
-        } else if (session?.user) {
+        if (session?.user) {
           setTimeout(() => {
             checkSubscription();
             checkUserRole();
