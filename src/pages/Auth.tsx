@@ -269,7 +269,10 @@ export default function Auth() {
                 {/* Temporary bypass for testing */}
                 <div className="mt-4 pt-4 border-t border-muted">
                   <Button
-                    onClick={() => navigate('/dashboard')}
+                    onClick={() => {
+                      localStorage.setItem('bypass-auth', 'true');
+                      navigate('/dashboard?bypass=true');
+                    }}
                     variant="outline"
                     className="w-full text-xs"
                   >
