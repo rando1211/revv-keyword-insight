@@ -208,13 +208,13 @@ async function processEnterpriseAnalysis(
   // Calculate account health score
   const healthScore = calculateAccountHealthScore(campaignMetrics.campaigns, ads, assets);
   
-  // Calculate opportunity value
+  // Calculate opportunity value with improved logic
   const opportunityValue = calculateOpportunityValue(campaignMetrics.campaigns, ads, assets);
   
-  // Generate performance map data
+  // Generate performance map data with proper bubble sizing
   const performanceMap = generatePerformanceMap(campaignMetrics.campaigns);
   
-  // Budget and pacing analysis
+  // Budget and pacing analysis with fixed utilization logic
   const budgetAnalysis = analyzeBudgetPacing(campaignMetrics.campaigns);
   
   // Enhanced URL health checks
@@ -226,14 +226,27 @@ async function processEnterpriseAnalysis(
   // Competitive insights (mock data for now)
   const competitiveInsights = generateCompetitiveInsights();
   
-  // Enhanced AI insights
+  // Enhanced AI insights & Issues Analysis
   let aiInsights = null;
+  let detailedIssues = null;
+  
   if (openaiApiKey) {
     aiInsights = await generateEnhancedAIInsights(
       campaignMetrics,
       urlHealth,
       assetAnalysis,
       budgetAnalysis,
+      openaiApiKey
+    );
+    
+    // Generate detailed issues analysis
+    detailedIssues = await generateDetailedIssues(
+      campaignMetrics,
+      urlHealth,
+      assetAnalysis,
+      budgetAnalysis,
+      ads,
+      assets,
       openaiApiKey
     );
   }
@@ -279,7 +292,7 @@ async function processEnterpriseAnalysis(
     },
     campaigns: campaignMetrics.campaigns,
     budget_analysis: budgetAnalysis,
-    issues: {
+    issues: detailedIssues || {
       broken_urls: urlHealth.broken_urls,
       asset_completeness: assetAnalysis.issues,
       budget_constraints: budgetAnalysis.constrained_campaigns,
@@ -374,7 +387,7 @@ function aggregateAdvancedMetrics(current: any[], baseline: any[]) {
     // Determine performance trend
     const performance_trend = determinePerformanceTrend(deltas);
     
-    // Budget analysis
+    // Budget analysis - Fixed utilization calculation
     const budget_limited = current.budget_lost_impression_share > 10;
     const current_spend = current.cost;
     const utilization_rate = campaign.daily_budget > 0 ? current_spend / (campaign.daily_budget * 30) : 0;
@@ -474,54 +487,93 @@ function calculateAccountHealthScore(campaigns: any[], ads: any[], assets: any[]
 function calculateOpportunityValue(campaigns: any[], ads: any[], assets: any[]): number {
   let totalOpportunity = 0;
   
-  // Budget opportunity
-  const budgetOpportunity = campaigns.reduce((sum, campaign) => {
-    if (campaign.budget_limited) {
-      return sum + (campaign.current_spend * 0.15); // 15% increase potential
+  campaigns.forEach(campaign => {
+    // Estimate opportunity from budget constraints
+    if (campaign.budget_limited && campaign.metrics.budget_lost_impression_share > 10) {
+      const lostImpressionShare = campaign.metrics.budget_lost_impression_share / 100;
+      const potentialSpend = campaign.current_spend * (lostImpressionShare / (1 - lostImpressionShare));
+      const avgRoas = campaign.metrics.roas > 0 ? campaign.metrics.roas : 3.0; // default ROAS if none
+      const potentialConvValue = potentialSpend * avgRoas;
+      totalOpportunity += potentialConvValue;
     }
-    return sum;
-  }, 0);
+    
+    // Estimate opportunity from declining campaigns - recovery potential
+    if (campaign.performance_trend === 'declining' && campaign.deltas.conversions.abs < 0) {
+      const avgConvValue = campaign.metrics.conversions > 0 ? campaign.metrics.conversion_value / campaign.metrics.conversions : 50;
+      const recoveryPotential = Math.abs(campaign.deltas.conversions.abs) * avgConvValue * 0.7; // 70% recovery potential
+      totalOpportunity += recoveryPotential;
+    }
+    
+    // Estimate opportunity from low-performing assets
+    const missingAssets = countMissingAssets(campaign, ads, assets);
+    if (missingAssets > 0) {
+      const assetOpportunity = campaign.current_spend * 0.05 * missingAssets; // 5% lift per missing asset type
+      totalOpportunity += assetOpportunity;
+    }
+  });
   
-  // Asset opportunity (estimate 5% CTR improvement per missing asset type)
-  const assetOpportunity = campaigns.reduce((sum, campaign) => {
-    return sum + (campaign.current_spend * 0.05); // 5% improvement estimate
-  }, 0) * 0.3; // Apply to 30% of campaigns with asset issues
-  
-  return Math.round(budgetOpportunity + assetOpportunity);
+  return Math.round(totalOpportunity);
 }
 
-function generatePerformanceMap(campaigns: any[]) {
-  return campaigns.map(campaign => ({
-    id: campaign.id,
-    name: campaign.name,
-    conversion_change_pct: campaign.deltas.conversions.pct,
-    cpa_change_pct: campaign.deltas.cpa.pct,
-    spend: campaign.current_spend,
-    channel: campaign.type,
-    efficiency_quadrant: campaign.efficiency_quadrant
-  }));
+function countMissingAssets(campaign: any, ads: any[], assets: any[]): number {
+  let missing = 0;
+  
+  // Check for missing sitelinks (should have 4+)
+  const sitelinks = assets.filter(a => a.campaign.id === campaign.id && a.campaignAsset.fieldType === 'SITELINK');
+  if (sitelinks.length < 4) missing++;
+  
+  // Check for missing callouts (should have 4+)
+  const callouts = assets.filter(a => a.campaign.id === campaign.id && a.campaignAsset.fieldType === 'CALLOUT');
+  if (callouts.length < 4) missing++;
+  
+  // Check for structured snippets (should have 2+ headers)
+  const snippets = assets.filter(a => a.campaign.id === campaign.id && a.campaignAsset.fieldType === 'STRUCTURED_SNIPPET');
+  if (snippets.length < 2) missing++;
+  
+  return missing;
 }
 
-function analyzeBudgetPacing(campaigns: any[]) {
-  const budgetLimited = campaigns.filter(c => c.budget_limited).length;
+function generatePerformanceMap(campaigns: any[]): any[] {
+  return campaigns.map(campaign => {
+    // Normalize spend for bubble sizing (log scale for better visualization)
+    const normalizedSpend = Math.max(100, Math.log10(Math.max(1, campaign.current_spend)) * 1000);
+    
+    return {
+      name: campaign.name,
+      conversion_change_pct: campaign.deltas.conversions.pct || 0,
+      cpa_change_pct: campaign.deltas.cpa.pct || 0,
+      spend: normalizedSpend, // This will control bubble size
+      actual_spend: campaign.current_spend, // Keep actual for display
+      channel: campaign.type,
+      efficiency_quadrant: campaign.efficiency_quadrant,
+      conversions: campaign.metrics.conversions,
+      cpa: campaign.metrics.cpa
+    };
+  });
+}
+
+function analyzeBudgetPacing(campaigns: any[]): any {
+  const budgetLimited = campaigns.filter(c => c.budget_limited);
+  const underutilized = campaigns.filter(c => c.utilization_rate < 0.5);
   const totalCampaigns = campaigns.length;
   
-  const underutilized = campaigns.filter(c => c.utilization_rate < 0.5);
+  // Fix utilization calculation - handle campaigns with zero budget
+  const validUtilizations = campaigns.filter(c => c.daily_budget > 0).map(c => c.utilization_rate);
+  const avgUtilization = validUtilizations.length > 0 ? 
+    validUtilizations.reduce((sum, u) => sum + u, 0) / validUtilizations.length : 0;
   
-  const constrained_campaigns = campaigns
-    .filter(c => c.budget_limited)
-    .map(c => ({
-      name: c.name,
-      budget_lost_impression_share: c.metrics.budget_lost_impression_share,
-      daily_budget: c.daily_budget,
-      current_spend: c.current_spend
-    }));
-
   return {
-    budget_limited_percentage: totalCampaigns > 0 ? (budgetLimited / totalCampaigns) * 100 : 0,
+    budget_limited_percentage: totalCampaigns > 0 ? (budgetLimited.length / totalCampaigns) * 100 : 0,
     underutilized_campaigns: underutilized.length,
-    average_utilization: campaigns.reduce((sum, c) => sum + Math.min(c.utilization_rate, 1), 0) / totalCampaigns,
-    constrained_campaigns
+    average_utilization: Math.min(1, avgUtilization), // Cap at 100%
+    constrained_campaigns: budgetLimited.map(c => ({
+      name: c.name,
+      daily_budget: c.daily_budget,
+      current_spend: c.current_spend,
+      budget_lost_is: c.metrics.budget_lost_impression_share,
+      recommendation: `Increase budget by $${Math.round(c.daily_budget * 0.2)}/day`,
+      utilization_rate: Math.min(1, c.utilization_rate) // Cap individual rates too
+    }))
   };
 }
 
@@ -741,4 +793,95 @@ function extractInsightSection(content: string, section: string): string[] {
   }
   
   return insights.slice(0, 5); // Limit to 5 insights per section
+}
+
+async function generateDetailedIssues(
+  campaignMetrics: any,
+  urlHealth: any,
+  assetAnalysis: any,
+  budgetAnalysis: any,
+  ads: any[],
+  assets: any[],
+  openaiApiKey: string
+): Promise<any> {
+  try {
+    const issuesPrompt = `You are acting as a senior PPC analyst whose ONLY job is to populate the "Issues" tab of a Google Ads audit dashboard.
+
+CONTEXT:
+The "Issues" tab is where the user expects to see a prioritized, human-readable list of problems in their account that require attention.
+You have processed Google Ads account data for the last 30 days vs the prior 30 days.
+
+YOUR JOB:
+- Identify only true issues that could be harming performance, wasting budget, or blocking delivery.
+- DO NOT show healthy entities with no issues. This tab is for actionable problems only.
+
+ACCOUNT DATA:
+${JSON.stringify({
+  campaigns: campaignMetrics.campaigns.slice(0, 10), // Limit for API
+  url_health: urlHealth,
+  asset_analysis: assetAnalysis,
+  budget_analysis: budgetAnalysis
+}, null, 2)}
+
+OUTPUT ONLY valid JSON in this exact shape:
+{
+  "issues": [
+    {
+      "category": "Performance|Budget|Assets|Landing Page|Policy|Tracking",
+      "entity_level": "account|campaign|ad_group|ad|asset",
+      "entity_name": "string",
+      "summary": "One-line description of the problem",
+      "why": ["cause 1", "cause 2"],
+      "evidence": {
+        "current": {"key_metric": 0},
+        "baseline": {"key_metric": 0},
+        "trend_zscore": 0
+      },
+      "impact_estimate": {"type": "lost_conv_value|lost_clicks|wasted_spend", "value": 0},
+      "confidence": "High|Medium|Low",
+      "severity": "High|Medium|Low",
+      "recommended_action": "Specific fix",
+      "affected_children": ["entity names/IDs"]
+    }
+  ],
+  "totals": {
+    "high": 0,
+    "medium": 0,
+    "low": 0,
+    "estimated_value_at_risk": 0
+  }
+}`;
+
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openaiApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: 'You are a senior PPC analyst. Return ONLY valid JSON. No explanation outside the JSON.' },
+          { role: 'user', content: issuesPrompt }
+        ],
+        temperature: 0.3,
+        max_tokens: 2000
+      }),
+    });
+
+    const data = await response.json();
+    const content = data.choices[0].message.content;
+    
+    // Clean and parse JSON
+    const cleanContent = content.replace(/```json\n?|\n?```/g, '').trim();
+    const issues = JSON.parse(cleanContent);
+    
+    return issues;
+  } catch (error) {
+    console.error('❌ Issues analysis error:', error);
+    return {
+      issues: [],
+      totals: { high: 0, medium: 0, low: 0, estimated_value_at_risk: 0 }
+    };
+  }
 }

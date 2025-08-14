@@ -321,24 +321,28 @@ const PerformanceMapTab = ({ performanceMap }: { performanceMap: any[] }) => {
                   axisLine={false}
                   tickLine={false}
                 />
-                <Tooltip 
-                  cursor={{ strokeDasharray: '3 3' }}
-                  content={({ active, payload }) => {
-                    if (active && payload && payload[0]) {
-                      const data = payload[0].payload;
-                      return (
-                        <div className="bg-background border rounded p-2 shadow">
-                          <p className="font-medium">{data.name}</p>
-                          <p className="text-sm">Conversions: {data.conversion_change_pct > 0 ? '+' : ''}{data.conversion_change_pct.toFixed(1)}%</p>
-                          <p className="text-sm">CPA: {data.cpa_change_pct > 0 ? '+' : ''}{data.cpa_change_pct.toFixed(1)}%</p>
-                          <p className="text-sm">Spend: ${data.spend.toLocaleString()}</p>
-                          <p className="text-sm">Channel: {data.channel}</p>
-                        </div>
-                      );
-                    }
-                    return null;
-                  }}
-                />
+          <Tooltip 
+            cursor={{ strokeDasharray: '3 3' }}
+            content={({ active, payload }) => {
+              if (active && payload && payload[0]) {
+                const data = payload[0].payload;
+                return (
+                  <div className="bg-background border rounded p-3 shadow-lg">
+                    <p className="font-medium text-lg">{data.name}</p>
+                    <div className="mt-2 space-y-1">
+                      <p className="text-sm">Conversions: {data.conversion_change_pct > 0 ? '+' : ''}{data.conversion_change_pct.toFixed(1)}%</p>
+                      <p className="text-sm">CPA: {data.cpa_change_pct > 0 ? '+' : ''}{data.cpa_change_pct.toFixed(1)}%</p>
+                      <p className="text-sm">Spend: ${data.actual_spend?.toLocaleString() || data.spend.toLocaleString()}</p>
+                      <p className="text-sm">Channel: {data.channel}</p>
+                      <p className="text-sm">Conversions: {data.conversions?.toFixed(1) || 'N/A'}</p>
+                      <p className="text-sm">CPA: ${data.cpa?.toFixed(2) || 'N/A'}</p>
+                    </div>
+                  </div>
+                );
+              }
+              return null;
+            }}
+          />
                 <Scatter dataKey="spend" fill="#8884d8">
                   {performanceMap.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={getQuadrantColor(entry.efficiency_quadrant)} />
@@ -387,8 +391,12 @@ const CampaignsTab = ({ campaigns }: { campaigns: any[] }) => (
               </CardDescription>
             </div>
             <div className="flex items-center space-x-2">
-              <Badge variant={campaign.performance_trend === 'improving' ? 'default' : 
-                           campaign.performance_trend === 'declining' ? 'destructive' : 'secondary'}>
+              <Badge 
+                variant={campaign.performance_trend === 'improving' ? 'default' : 
+                        campaign.performance_trend === 'declining' ? 'destructive' : 'secondary'}
+                className="cursor-help"
+                title={`${campaign.performance_trend} - ${campaign.deltas.conversions.pct.toFixed(1)}% conv change`}
+              >
                 {campaign.performance_trend}
               </Badge>
               {campaign.budget_limited && (

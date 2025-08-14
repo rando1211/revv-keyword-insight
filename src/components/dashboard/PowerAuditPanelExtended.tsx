@@ -78,8 +78,8 @@ export const BudgetAnalysisTab = ({ budgetAnalysis, campaigns }: { budgetAnalysi
         <CardContent>
           <div className="space-y-3">
             {campaigns?.slice(0, 10).map((campaign: any, index: number) => {
-              const utilizationRate = campaign.current_spend / (campaign.daily_budget * 30);
-              const cappedRate = Math.min(utilizationRate, 1);
+              const utilizationRate = campaign.daily_budget > 0 ? campaign.current_spend / (campaign.daily_budget * 30) : 0;
+              const cappedRate = Math.min(utilizationRate, 1.5); // Allow showing over 100% but cap display
               
               return (
                 <div key={index} className="space-y-2">
@@ -91,12 +91,12 @@ export const BudgetAnalysisTab = ({ budgetAnalysis, campaigns }: { budgetAnalysi
                       <span className="text-sm text-muted-foreground">
                         ${campaign.current_spend?.toLocaleString()} / ${(campaign.daily_budget * 30)?.toLocaleString()}
                       </span>
-                      <Badge variant={utilizationRate > 0.9 ? "destructive" : utilizationRate < 0.5 ? "secondary" : "default"}>
-                        {Math.round(cappedRate * 100)}%
+                      <Badge variant={utilizationRate > 1 ? "destructive" : utilizationRate > 0.9 ? "default" : utilizationRate < 0.5 ? "secondary" : "outline"}>
+                        {Math.round(utilizationRate * 100)}%
                       </Badge>
                     </div>
                   </div>
-                  <Progress value={cappedRate * 100} className="h-2" />
+                  <Progress value={Math.min(utilizationRate * 100, 100)} className="h-2" />
                   {campaign.budget_limited && (
                     <p className="text-xs text-orange-600">⚠️ Budget limited</p>
                   )}
