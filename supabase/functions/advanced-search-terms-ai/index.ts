@@ -84,6 +84,10 @@ serve(async (req) => {
       console.log('🎯 Filtering by campaigns:', selectedCampaignIds);
     }
     
+    // Use specific date range format like the working function
+    const endDate = new Date().toISOString().split('T')[0];
+    const startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    
     const searchTermsQuery = `
       SELECT
         search_term_view.search_term,
@@ -105,7 +109,7 @@ serve(async (req) => {
         metrics.average_cpc,
         metrics.cost_per_conversion
       FROM search_term_view
-      WHERE segments.date DURING ${dateRange}
+      WHERE segments.date BETWEEN '${startDate}' AND '${endDate}'
         AND campaign.status = 'ENABLED'
         AND ad_group.status = 'ENABLED'
         AND metrics.clicks > 0
@@ -129,7 +133,9 @@ serve(async (req) => {
     });
 
     if (!searchTermsResponse.ok) {
-      throw new Error(`Google Ads API failed: ${searchTermsResponse.status}`);
+      const errorText = await searchTermsResponse.text();
+      console.error('🚨 Google Ads API Error Details:', errorText);
+      throw new Error(`Google Ads API failed: ${searchTermsResponse.status} - ${errorText}`);
     }
 
     const searchTermsData = await searchTermsResponse.json();
