@@ -34,16 +34,16 @@ serve(async (req) => {
     console.log('📝 Campaign Context:', campaignContext);
     console.log('🎯 Selected Campaign IDs:', selectedCampaignIds);
 
-    // Get Google Ads API credentials from environment
-    const clientId = Deno.env.get('GOOGLE_CLIENT_ID');
-    const clientSecret = Deno.env.get('GOOGLE_CLIENT_SECRET');
-    const refreshToken = Deno.env.get('GOOGLE_REFRESH_TOKEN');
+    // Get Google Ads API credentials from environment - using actual Supabase secret names
+    const clientId = Deno.env.get('Client ID');
+    const clientSecret = Deno.env.get('Secret');
+    const refreshToken = Deno.env.get('Refresh token');
     const developerToken = Deno.env.get('GOOGLE_DEVELOPER_TOKEN');
     
-    console.log('🔑 Environment variables check (v2):');
-    console.log('- GOOGLE_CLIENT_ID:', clientId ? 'SET' : 'MISSING');
-    console.log('- GOOGLE_CLIENT_SECRET:', clientSecret ? 'SET' : 'MISSING');
-    console.log('- GOOGLE_REFRESH_TOKEN:', refreshToken ? 'SET' : 'MISSING');
+    console.log('🔑 Environment variables check (v3):');
+    console.log('- Client ID:', clientId ? 'SET' : 'MISSING');
+    console.log('- Secret:', clientSecret ? 'SET' : 'MISSING');
+    console.log('- Refresh token:', refreshToken ? 'SET' : 'MISSING');
     console.log('- GOOGLE_DEVELOPER_TOKEN:', developerToken ? 'SET' : 'MISSING');
     
     if (!clientId || !clientSecret || !refreshToken || !developerToken) {
