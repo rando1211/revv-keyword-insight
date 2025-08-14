@@ -86,7 +86,7 @@ export const CreativesAnalysisUI = ({ customerId, campaignIds, onBack }: Creativ
       setCreativesData({ creatives, analysis });
 
       // Generate professional executive summary
-      const professionalSummary = generateProfessionalSummary(creatives, analysis);
+      const professionalSummary = generateProfessionalSummary(creatives, analysis, selectedTimeframe);
       console.log('🎯 Generated Executive Summary:', professionalSummary);
       setExecutiveSummary(professionalSummary);
 
@@ -111,7 +111,7 @@ export const CreativesAnalysisUI = ({ customerId, campaignIds, onBack }: Creativ
   };
 
   // Generate professional executive summary like a $5K agency audit
-  const generateProfessionalSummary = (creatives, analysis) => {
+  const generateProfessionalSummary = (creatives, analysis, timeframe) => {
     // Enhanced statistical analysis
     const totalAssets = creatives.length;
     const avgCtr = analysis.performance.avgCtr;
@@ -177,7 +177,15 @@ export const CreativesAnalysisUI = ({ customerId, campaignIds, onBack }: Creativ
     const projectedRevenue = totalConversions * 1.3 * 50; // Assuming $50 average order value
     const roiMultiplier = (projectedRevenue - totalCost) / totalCost;
 
+    // Format timeframe for display
+    const timeframeDisplay = timeframe.replace('LAST_', '').replace('_', ' ');
+    const campaignInfo = analysis.campaigns === 1 ? 
+      `Single Campaign Analysis` : 
+      `${analysis.campaigns} Campaigns Portfolio`;
+
     return `🎯 **EXECUTIVE CREATIVE PERFORMANCE AUDIT** | ${totalAssets} Assets Analyzed
+**📅 ANALYSIS PERIOD: ${timeframeDisplay} | ${campaignInfo}**
+**🎯 DATA SOURCE: ${creatives.length > 0 ? creatives[0].campaign || 'Multiple Campaigns' : 'N/A'}**
 
 **📊 PERFORMANCE REALITY CHECK:**
 • Overall CTR: ${(avgCtrValue * 100).toFixed(2)}% ± ${(confidenceInterval * 100).toFixed(2)}% (95% CI)
