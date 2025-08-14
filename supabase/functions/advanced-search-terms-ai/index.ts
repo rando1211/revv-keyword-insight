@@ -97,17 +97,13 @@ serve(async (req) => {
         ad_group.name,
         segments.device,
         segments.geo_target_region,
-        segments.hour,
         metrics.clicks,
         metrics.impressions,
         metrics.ctr,
         metrics.conversions,
         metrics.cost_micros,
         ${includeConversionValue ? 'metrics.conversions_value,' : ''}
-        metrics.view_through_conversions,
-        metrics.bounce_rate,
-        metrics.average_cpc,
-        metrics.cost_per_conversion
+        metrics.average_cpc
       FROM search_term_view
       WHERE segments.date BETWEEN '${startDate}' AND '${endDate}'
         AND campaign.status = 'ENABLED'
