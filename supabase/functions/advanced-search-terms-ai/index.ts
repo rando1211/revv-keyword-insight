@@ -34,11 +34,11 @@ serve(async (req) => {
     console.log('📝 Campaign Context:', campaignContext);
     console.log('🎯 Selected Campaign IDs:', selectedCampaignIds);
 
-    // Get Google Ads API credentials from environment - using actual Supabase secret names
-    const clientId = Deno.env.get('Client ID');
-    const clientSecret = Deno.env.get('Secret');
-    const refreshToken = Deno.env.get('Refresh token');
-    const developerToken = Deno.env.get('GOOGLE_DEVELOPER_TOKEN');
+    // Get Google Ads API credentials from environment - using exact same names as working function
+    const developerToken = Deno.env.get("Developer Token");
+    const clientId = Deno.env.get("Client ID");
+    const clientSecret = Deno.env.get("Secret");
+    const refreshToken = Deno.env.get("Refresh token");
     
     console.log('🔑 Environment variables check (v3):');
     console.log('- Client ID:', clientId ? 'SET' : 'MISSING');
