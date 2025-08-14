@@ -572,6 +572,14 @@ function calculateAccountHealthScore(campaigns: any[], ads: any[], assets: any[]
   const assetPenalty = Math.min(assetIssues * 2, 30);
   const assetScore = 30 - assetPenalty;
   
+  // Search terms health (15% weight)
+  const searchTermsScore = searchTermsAnalysis ? 
+    Math.min(15, (searchTermsAnalysis.high_performing_terms / Math.max(searchTermsAnalysis.total_terms_analyzed, 1)) * 15) : 10;
+  
+  // Keyword health (15% weight)
+  const keywordScore = keywordAnalysis ? 
+    Math.min(15, (keywordAnalysis.high_performing_keywords / Math.max(keywordAnalysis.total_keywords_analyzed, 1)) * 15) : 10;
+
   // Budget efficiency (20% weight)
   const budgetLimitedCampaigns = campaigns.filter(c => c.budget_limited).length;
   const budgetPenalty = totalCampaigns > 0 ? (budgetLimitedCampaigns / totalCampaigns) * 20 : 0;
