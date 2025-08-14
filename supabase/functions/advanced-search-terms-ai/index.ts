@@ -278,7 +278,7 @@ Provide your analysis in the following structured format. Return ONLY valid JSON
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4.1-2025-04-14',
+        model: 'gpt-4o-mini',
         messages: [
           { 
             role: 'system', 
@@ -290,8 +290,7 @@ Provide your analysis in the following structured format. Return ONLY valid JSON
           }
         ],
         temperature: 0.1,
-        max_tokens: 4000,
-        seed: parseInt(customerId) // Ensure consistent but isolated responses per customer
+        max_tokens: 4000
       }),
     });
 
