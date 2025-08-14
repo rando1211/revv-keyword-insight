@@ -40,6 +40,7 @@ export const PowerAuditPanel = ({ selectedAccount }: PowerAuditPanelProps) => {
 
       if (error) throw error;
 
+      console.log('🔍 Audit Results:', data);
       setAuditResults(data);
       toast({
         title: "Enterprise Audit Complete",
@@ -461,88 +462,249 @@ const CampaignsTab = ({ campaigns }: { campaigns: any[] }) => (
   </div>
 );
 
-// Issues Tab Component
-const IssuesTab = ({ issues }: { issues: any }) => (
-  <div className="space-y-6">
-    {/* Broken URLs */}
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center space-x-2">
-          <XCircle className="h-5 w-5 text-red-500" />
-          <span>Broken URLs</span>
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        {issues.broken_urls?.length > 0 ? (
-          <div className="space-y-2">
-            {issues.broken_urls.map((url: any, index: number) => (
-              <div key={index} className="flex items-center justify-between p-2 bg-red-50 rounded">
-                <span className="text-sm font-mono truncate">{url.url}</span>
-                <Badge variant="destructive">{url.status || 'Failed'}</Badge>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="text-sm text-muted-foreground">No broken URLs detected</p>
-        )}
-      </CardContent>
-    </Card>
+// Enhanced Issues Tab Component
+const IssuesTab = ({ issues }: { issues: any }) => {
+  console.log('🔍 Issues data received:', issues);
+  
+  const issuesList = issues?.issues || [];
+  const totals = issues?.totals || { high: 0, medium: 0, low: 0, estimated_value_at_risk: 0 };
 
-    {/* Asset Issues */}
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center space-x-2">
-          <AlertTriangle className="h-5 w-5 text-orange-500" />
-          <span>Asset Completeness</span>
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        {issues.asset_completeness?.length > 0 ? (
-          <div className="space-y-2">
-            {issues.asset_completeness.map((issue: any, index: number) => (
-              <div key={index} className="p-2 bg-orange-50 rounded">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">{issue.campaign}</span>
-                  <Badge variant="outline">{issue.severity}</Badge>
+  const getSeverityColor = (severity: string) => {
+    switch (severity.toLowerCase()) {
+      case 'high': return 'text-red-600 bg-red-50 border-red-200';
+      case 'medium': return 'text-orange-600 bg-orange-50 border-orange-200';
+      case 'low': return 'text-blue-600 bg-blue-50 border-blue-200';
+      default: return 'text-gray-600 bg-gray-50 border-gray-200';
+    }
+  };
+
+  const getCategoryIcon = (category: string) => {
+    switch (category.toLowerCase()) {
+      case 'performance': return <TrendingDown className="h-4 w-4" />;
+      case 'budget': return <DollarSign className="h-4 w-4" />;
+      case 'assets': return <Target className="h-4 w-4" />;
+      case 'landing page': return <XCircle className="h-4 w-4" />;
+      case 'policy': return <AlertTriangle className="h-4 w-4" />;
+      case 'tracking': return <Activity className="h-4 w-4" />;
+      default: return <AlertTriangle className="h-4 w-4" />;
+    }
+  };
+
+  // If we have AI-powered issues, show the enhanced view
+  if (issuesList.length > 0) {
+    return (
+      <div className="space-y-6">
+        {/* Issues Summary */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <AlertTriangle className="h-5 w-5 text-orange-600" />
+              <span>Issues Summary</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="text-center">
+                <div className="text-2xl font-bold text-red-600">{totals.high}</div>
+                <div className="text-sm text-muted-foreground">High Severity</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-orange-600">{totals.medium}</div>
+                <div className="text-sm text-muted-foreground">Medium Severity</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-blue-600">{totals.low}</div>
+                <div className="text-sm text-muted-foreground">Low Severity</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-green-600">${totals.estimated_value_at_risk?.toLocaleString() || '0'}</div>
+                <div className="text-sm text-muted-foreground">Value at Risk</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Issues List */}
+        <div className="space-y-4">
+          {issuesList.map((issue: any, index: number) => (
+            <Card key={index} className={`border-l-4 ${getSeverityColor(issue.severity)}`}>
+              <CardHeader>
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center space-x-3">
+                    {getCategoryIcon(issue.category)}
+                    <div>
+                      <CardTitle className="text-lg">{issue.entity_name}</CardTitle>
+                      <CardDescription className="text-base font-medium">{issue.summary}</CardDescription>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Badge variant="outline" className={getSeverityColor(issue.severity)}>
+                      {issue.severity}
+                    </Badge>
+                    <Badge variant="secondary">{issue.category}</Badge>
+                  </div>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  {issue.issue}: {issue.current_count}/{issue.recommended_min}
-                </p>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="text-sm text-muted-foreground">All campaigns have adequate assets</p>
-        )}
-      </CardContent>
-    </Card>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {/* Why Section */}
+                  <div>
+                    <h4 className="font-medium text-sm mb-2">Why this happened:</h4>
+                    <ul className="list-disc list-inside space-y-1">
+                      {issue.why?.map((reason: string, i: number) => (
+                        <li key={i} className="text-sm text-muted-foreground">{reason}</li>
+                      ))}
+                    </ul>
+                  </div>
 
-    {/* Budget Constraints */}
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center space-x-2">
-          <DollarSign className="h-5 w-5 text-yellow-500" />
-          <span>Budget Constraints</span>
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        {issues.budget_constraints?.length > 0 ? (
-          <div className="space-y-2">
-            {issues.budget_constraints.map((constraint: any, index: number) => (
-              <div key={index} className="p-2 bg-yellow-50 rounded">
-                <div className="text-sm font-medium">{constraint.name}</div>
-                <p className="text-xs text-muted-foreground">
-                  Budget Lost IS: {constraint.budget_lost_impression_share}%
-                </p>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="text-sm text-muted-foreground">No significant budget constraints detected</p>
-        )}
-      </CardContent>
-    </Card>
-  </div>
-);
+                  {/* Evidence */}
+                  {issue.evidence && (
+                    <div>
+                      <h4 className="font-medium text-sm mb-2">Evidence:</h4>
+                      <div className="flex items-center space-x-4 text-sm">
+                        {issue.evidence.current && Object.entries(issue.evidence.current).map(([key, value]: [string, any]) => (
+                          <div key={key} className="flex items-center space-x-1">
+                            <span className="text-muted-foreground">{key}:</span>
+                            <span className="font-medium">{typeof value === 'number' ? value.toLocaleString() : value}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Impact & Action */}
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-medium text-sm">Recommended Action:</h4>
+                      <p className="text-sm text-muted-foreground">{issue.recommended_action}</p>
+                    </div>
+                    {issue.impact_estimate?.value && (
+                      <div className="text-right">
+                        <div className="text-sm font-medium">Potential Impact</div>
+                        <div className="text-lg font-bold text-green-600">
+                          ${issue.impact_estimate.value.toLocaleString()}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Affected Children */}
+                  {issue.affected_children?.length > 0 && (
+                    <div>
+                      <h4 className="font-medium text-sm mb-1">Affected:</h4>
+                      <div className="flex flex-wrap gap-1">
+                        {issue.affected_children.slice(0, 3).map((child: string, i: number) => (
+                          <Badge key={i} variant="outline" className="text-xs">{child}</Badge>
+                        ))}
+                        {issue.affected_children.length > 3 && (
+                          <Badge variant="outline" className="text-xs">+{issue.affected_children.length - 3} more</Badge>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // Fallback to basic view if no AI-powered issues
+  return (
+    <div className="space-y-6">
+      {/* Broken URLs */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2">
+            <XCircle className="h-5 w-5 text-red-500" />
+            <span>Broken URLs</span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {issues?.broken_urls?.length > 0 ? (
+            <div className="space-y-2">
+              {issues.broken_urls.map((url: any, index: number) => (
+                <div key={index} className="flex items-center justify-between p-2 bg-red-50 rounded">
+                  <span className="text-sm font-mono truncate">{url.url}</span>
+                  <Badge variant="destructive">{url.status || 'Failed'}</Badge>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">No broken URLs detected</p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Asset Issues */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2">
+            <AlertTriangle className="h-5 w-5 text-orange-500" />
+            <span>Asset Completeness</span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {issues?.asset_completeness?.length > 0 ? (
+            <div className="space-y-2">
+              {issues.asset_completeness.map((issue: any, index: number) => (
+                <div key={index} className="p-2 bg-orange-50 rounded">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">{issue.campaign}</span>
+                    <Badge variant="outline">{issue.severity}</Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {issue.issue}: {issue.current_count}/{issue.recommended_min}
+                  </p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">All campaigns have adequate assets</p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Budget Constraints */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2">
+            <DollarSign className="h-5 w-5 text-yellow-500" />
+            <span>Budget Constraints</span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {issues?.budget_constraints?.length > 0 ? (
+            <div className="space-y-2">
+              {issues.budget_constraints.map((constraint: any, index: number) => (
+                <div key={index} className="p-2 bg-yellow-50 rounded">
+                  <div className="text-sm font-medium">{constraint.name}</div>
+                  <p className="text-xs text-muted-foreground">
+                    Budget Lost IS: {constraint.budget_lost_impression_share}%
+                  </p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">No significant budget constraints detected</p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* No Issues State */}
+      {(!issues?.broken_urls?.length && !issues?.asset_completeness?.length && !issues?.budget_constraints?.length) && (
+        <Card>
+          <CardContent className="text-center py-8">
+            <CheckCircle className="h-12 w-12 text-green-600 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-green-600">No Critical Issues Found</h3>
+            <p className="text-muted-foreground">Your account appears to be running smoothly with no major issues detected.</p>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+};
 
 export default PowerAuditPanel;
