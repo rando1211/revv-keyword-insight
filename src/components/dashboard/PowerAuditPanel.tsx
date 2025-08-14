@@ -99,10 +99,12 @@ export const PowerAuditPanel = ({ selectedAccount }: PowerAuditPanelProps) => {
 
         {auditResults && (
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-6">
+            <TabsList className="grid w-full grid-cols-8">
               <TabsTrigger value="health">Health Score</TabsTrigger>
               <TabsTrigger value="performance">Performance Map</TabsTrigger>
               <TabsTrigger value="campaigns">Campaigns</TabsTrigger>
+              <TabsTrigger value="search-terms">Search Terms</TabsTrigger>
+              <TabsTrigger value="keywords">Keywords</TabsTrigger>
               <TabsTrigger value="budget">Budget & Pacing</TabsTrigger>
               <TabsTrigger value="issues">Issues</TabsTrigger>
               <TabsTrigger value="insights">AI Insights</TabsTrigger>
@@ -118,6 +120,14 @@ export const PowerAuditPanel = ({ selectedAccount }: PowerAuditPanelProps) => {
 
             <TabsContent value="campaigns" className="space-y-4">
               <CampaignsTab campaigns={auditResults.campaigns} />
+            </TabsContent>
+
+            <TabsContent value="search-terms" className="space-y-4">
+              <SearchTermsTab searchTermsAnalysis={auditResults.search_terms_analysis} />
+            </TabsContent>
+
+            <TabsContent value="keywords" className="space-y-4">
+              <KeywordsTab keywordAnalysis={auditResults.keyword_analysis} bidStrategyAnalysis={auditResults.bid_strategy_analysis} />
             </TabsContent>
 
             <TabsContent value="budget" className="space-y-4">
@@ -471,6 +481,134 @@ const CampaignsTab = ({ campaigns }: { campaigns: any[] }) => (
     ))}
   </div>
 );
+
+// Search Terms Tab Component
+const SearchTermsTab = ({ searchTermsAnalysis }: { searchTermsAnalysis: any }) => {
+  if (!searchTermsAnalysis) {
+    return (
+      <Card>
+        <CardContent className="text-center py-8">
+          <p className="text-muted-foreground">Search terms analysis not available</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">Total Waste Identified</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-red-600">
+              ${searchTermsAnalysis.total_waste_identified?.toLocaleString() || '0'}
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">Wasteful Terms</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {searchTermsAnalysis.wasteful_terms?.length || 0}
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">High Performing Terms</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">
+              {searchTermsAnalysis.high_performing_terms?.length || 0}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Top Wasteful Search Terms</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-2">
+            {searchTermsAnalysis.wasteful_terms?.slice(0, 10).map((term: any, index: number) => (
+              <div key={index} className="flex justify-between items-center p-2 bg-red-50 rounded">
+                <div>
+                  <span className="font-medium">{term.search_term}</span>
+                  <div className="text-sm text-muted-foreground">{term.campaign_name}</div>
+                </div>
+                <div className="text-right">
+                  <div className="text-sm font-medium text-red-600">${term.cost?.toFixed(2)}</div>
+                  <div className="text-xs text-muted-foreground">{term.clicks} clicks, 0 conv</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
+
+// Keywords Tab Component
+const KeywordsTab = ({ keywordAnalysis, bidStrategyAnalysis }: { keywordAnalysis: any, bidStrategyAnalysis: any }) => {
+  if (!keywordAnalysis) {
+    return (
+      <Card>
+        <CardContent className="text-center py-8">
+          <p className="text-muted-foreground">Keyword analysis not available</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Match Type Distribution</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 md:grid-cols-3">
+            {Object.entries(keywordAnalysis.match_type_analysis || {}).map(([matchType, data]: [string, any]) => (
+              <div key={matchType} className="text-center p-4 border rounded">
+                <div className="text-lg font-bold">{data.count}</div>
+                <div className="text-sm text-muted-foreground capitalize">{matchType} Match</div>
+                <div className="text-xs">${data.cost?.toLocaleString()} spend</div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Quality Score Issues</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-2">
+            {keywordAnalysis.quality_score_issues?.slice(0, 10).map((issue: any, index: number) => (
+              <div key={index} className="flex justify-between items-center p-2 bg-orange-50 rounded">
+                <div>
+                  <span className="font-medium">{issue.keyword}</span>
+                  <div className="text-sm text-muted-foreground">{issue.campaign_name}</div>
+                </div>
+                <div className="text-right">
+                  <Badge variant="destructive">QS: {issue.quality_score}</Badge>
+                  <div className="text-xs text-muted-foreground">${issue.cost?.toFixed(2)} cost</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
 
 // Enhanced Issues Tab Component
 const IssuesTab = ({ issues }: { issues: any }) => {

@@ -89,27 +89,68 @@ serve(async (req) => {
       'Content-Type': 'application/json'
     };
 
-    // Enhanced campaign query with budget and auction data
+    // Enhanced campaign query with comprehensive strategic data
     const campaignQuery = `
       SELECT
         campaign.id, campaign.name, campaign.advertising_channel_type,
         campaign.bidding_strategy_type, campaign.target_cpa.target_cpa_micros,
         campaign.target_roas.target_roas, campaign.campaign_budget,
         campaign_budget.amount_micros, campaign_budget.delivery_method,
+        campaign.start_date, campaign.end_date,
         metrics.impressions, metrics.clicks, metrics.cost_micros,
         metrics.conversions, metrics.conversions_value,
         metrics.ctr, metrics.average_cpc, metrics.conversions_from_interactions_rate,
         metrics.search_impression_share, metrics.search_rank_lost_impression_share,
-        metrics.search_budget_lost_impression_share,
+        metrics.search_budget_lost_impression_share, metrics.search_rank_lost_impression_share,
         metrics.top_impression_percentage, metrics.absolute_top_impression_percentage,
-        segments.date, segments.device
+        metrics.average_cost_per_conversion, metrics.cost_per_conversion,
+        metrics.active_view_impressions, metrics.active_view_ctr,
+        segments.date, segments.device, segments.hour, segments.day_of_week
       FROM campaign
       WHERE campaign.status = 'ENABLED'
         AND segments.date BETWEEN '${windows.current.start}' AND '${windows.current.end}'
     `;
 
-    console.log('📊 Fetching campaign performance...');
-    const [campaignResponse, baselineResponse] = await Promise.all([
+    // Search terms query for waste detection and opportunities
+    const searchTermsQuery = `
+      SELECT
+        campaign.id, campaign.name, ad_group.id as ad_group_id,
+        keyword_view.resource_name, search_term_view.search_term,
+        search_term_view.status, search_term_view.click_type,
+        metrics.impressions, metrics.clicks, metrics.cost_micros,
+        metrics.conversions, metrics.conversions_value, metrics.ctr,
+        segments.date, segments.device
+      FROM search_term_view
+      WHERE campaign.status = 'ENABLED'
+        AND segments.date BETWEEN '${windows.current.start}' AND '${windows.current.end}'
+        AND metrics.impressions > 0
+      ORDER BY metrics.cost_micros DESC
+      LIMIT 1000
+    `;
+
+    // Keywords query for match type analysis
+    const keywordsQuery = `
+      SELECT
+        campaign.id, campaign.name, ad_group.id as ad_group_id,
+        ad_group_criterion.keyword.text, ad_group_criterion.keyword.match_type,
+        ad_group_criterion.quality_info.quality_score,
+        ad_group_criterion.quality_info.creative_quality_score,
+        ad_group_criterion.quality_info.post_click_quality_score,
+        ad_group_criterion.quality_info.search_predicted_ctr,
+        metrics.impressions, metrics.clicks, metrics.cost_micros,
+        metrics.conversions, metrics.conversions_value,
+        segments.date
+      FROM keyword_view
+      WHERE campaign.status = 'ENABLED'
+        AND ad_group_criterion.status = 'ENABLED'
+        AND segments.date BETWEEN '${windows.current.start}' AND '${windows.current.end}'
+        AND metrics.impressions > 0
+      ORDER BY metrics.cost_micros DESC
+      LIMIT 500
+    `;
+
+    console.log('📊 Fetching comprehensive campaign data...');
+    const [campaignResponse, baselineResponse, searchTermsResponse, keywordsResponse] = await Promise.all([
       fetch(apiUrl, {
         method: 'POST',
         headers,
@@ -124,13 +165,28 @@ serve(async (req) => {
             `BETWEEN '${windows.baseline.start}' AND '${windows.baseline.end}'`
           )
         })
+      }),
+      fetch(apiUrl, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ query: searchTermsQuery })
+      }),
+      fetch(apiUrl, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ query: keywordsQuery })
       })
     ]);
 
-    const [campaignData, baselineCampaignData] = await Promise.all([
+    const [campaignData, baselineCampaignData, searchTermsData, keywordsData] = await Promise.all([
       campaignResponse.json(),
-      baselineResponse.json()
+      baselineResponse.json(),
+      searchTermsResponse.ok ? searchTermsResponse.json() : { results: [] },
+      keywordsResponse.ok ? keywordsResponse.json() : { results: [] }
     ]);
+
+    console.log('📊 Search terms data count:', searchTermsData.results?.length || 0);
+    console.log('📊 Keywords data count:', keywordsData.results?.length || 0);
 
     // Enhanced ads and assets queries
     const adsQuery = `
@@ -177,13 +233,15 @@ serve(async (req) => {
     console.log('📊 Ads data count:', adsData.results?.length || 0);
     console.log('📊 Assets data count:', assetsData.results?.length || 0);
 
-    // Process comprehensive analysis
-    console.log('🔄 Processing enterprise analysis...');
+    // Process comprehensive strategic analysis
+    console.log('🔄 Processing enterprise strategic analysis...');
     const analysis = await processEnterpriseAnalysis(
       campaignData.results || [],
       baselineCampaignData.results || [],
       adsData.results || [],
       assetsData.results || [],
+      searchTermsData.results || [],
+      keywordsData.results || [],
       windows,
       openaiApiKey
     );
@@ -213,32 +271,42 @@ async function processEnterpriseAnalysis(
   baselineCampaigns: any[],
   ads: any[],
   assets: any[],
+  searchTerms: any[],
+  keywords: any[],
   windows: any,
   openaiApiKey?: string
 ) {
-  // Aggregate campaign metrics with advanced calculations
+  // Enhanced strategic data aggregation
   const campaignMetrics = aggregateAdvancedMetrics(currentCampaigns, baselineCampaigns);
   
-  // Calculate account health score
-  const healthScore = calculateAccountHealthScore(campaignMetrics.campaigns, ads, assets);
+  // Strategic search terms analysis for waste detection
+  const searchTermsAnalysis = analyzeSearchTermsStrategically(searchTerms, campaignMetrics.campaigns);
   
-  // Calculate opportunity value with improved logic
-  const opportunityValue = calculateOpportunityValue(campaignMetrics.campaigns, ads, assets);
+  // Keywords match type and quality score analysis
+  const keywordAnalysis = analyzeKeywordStrategy(keywords, campaignMetrics.campaigns);
   
-  // Generate performance map data with proper bubble sizing
-  const performanceMap = generatePerformanceMap(campaignMetrics.campaigns);
+  // Bid strategy performance comparison
+  const bidStrategyAnalysis = analyzeBidStrategyImpact(campaignMetrics.campaigns);
   
-  // Budget and pacing analysis with fixed utilization logic
+  // Budget efficiency and scaling opportunities
   const budgetAnalysis = analyzeBudgetPacing(campaignMetrics.campaigns);
+  const scalingOpportunities = identifyScalingOpportunities(campaignMetrics.campaigns, budgetAnalysis);
   
-  // Enhanced URL health checks
-  const urlHealth = await performAdvancedUrlChecks(ads);
-  
-  // Asset completeness analysis
+  // Creative and asset strategic analysis
+  const creativeAnalysis = analyzeCreativePerformance(ads, campaignMetrics.campaigns);
   const assetAnalysis = analyzeAssetCompleteness(ads, assets);
   
-  // Competitive insights (mock data for now)
-  const competitiveInsights = generateCompetitiveInsights();
+  // URL and landing page analysis
+  const urlHealth = await performAdvancedUrlChecks(ads);
+  
+  // Account health with strategic context
+  const healthScore = calculateAccountHealthScore(campaignMetrics.campaigns, ads, assets, searchTermsAnalysis, keywordAnalysis);
+  
+  // Opportunity value with granular calculations
+  const opportunityValue = calculateOpportunityValue(campaignMetrics.campaigns, searchTermsAnalysis, scalingOpportunities);
+  
+  // Enhanced performance mapping
+  const performanceMap = generatePerformanceMap(campaignMetrics.campaigns);
   
   // Enhanced AI insights & Issues Analysis
   let aiInsights = null;
@@ -247,28 +315,30 @@ async function processEnterpriseAnalysis(
   console.log('🤖 OpenAI API Key available:', !!openaiApiKey);
   
   if (openaiApiKey) {
-    console.log('🤖 Generating AI insights...');
-    aiInsights = await generateEnhancedAIInsights(
+    console.log('🤖 Generating strategic AI insights...');
+    aiInsights = await generateStrategicAIInsights({
       campaignMetrics,
-      urlHealth,
-      assetAnalysis,
+      searchTermsAnalysis,
+      keywordAnalysis,
+      bidStrategyAnalysis,
       budgetAnalysis,
-      openaiApiKey
-    );
+      scalingOpportunities,
+      creativeAnalysis,
+      assetAnalysis,
+      urlHealth
+    }, openaiApiKey);
     
-    console.log('🔍 Generating detailed issues analysis...');
-    // Generate detailed issues analysis
-    detailedIssues = await generateDetailedIssues(
+    console.log('🔍 Generating detailed strategic issues analysis...');
+    detailedIssues = await generateStrategicIssuesAnalysis({
       campaignMetrics,
-      urlHealth,
-      assetAnalysis,
-      budgetAnalysis,
-      ads,
-      assets,
-      openaiApiKey
-    );
+      searchTermsAnalysis,
+      keywordAnalysis,
+      bidStrategyAnalysis,
+      scalingOpportunities,
+      creativeAnalysis
+    }, openaiApiKey);
     
-    console.log('✅ AI analysis complete', { aiInsights: !!aiInsights, detailedIssues: !!detailedIssues });
+    console.log('✅ Strategic AI analysis complete', { aiInsights: !!aiInsights, detailedIssues: !!detailedIssues });
   } else {
     console.log('⚠️ OpenAI API key not available, using fallback analysis');
   }
@@ -314,11 +384,18 @@ async function processEnterpriseAnalysis(
     },
     campaigns: campaignMetrics.campaigns,
     budget_analysis: budgetAnalysis,
+    scaling_opportunities: scalingOpportunities,
+    search_terms_analysis: searchTermsAnalysis,
+    keyword_analysis: keywordAnalysis,
+    bid_strategy_analysis: bidStrategyAnalysis,
+    creative_analysis: creativeAnalysis,
     issues: detailedIssues || {
-      broken_urls: urlHealth.broken_urls,
-      asset_completeness: assetAnalysis.issues,
+      wasteful_spend: searchTermsAnalysis.wasteful_terms.slice(0, 10),
+      keyword_opportunities: keywordAnalysis.opportunities.slice(0, 5),
       budget_constraints: budgetAnalysis.constrained_campaigns,
-      competitive_insights: competitiveInsights
+      creative_issues: creativeAnalysis.issues,
+      broken_urls: urlHealth.broken_urls,
+      asset_completeness: assetAnalysis.issues
     },
     ai_insights: aiInsights
   };
@@ -482,7 +559,7 @@ function getEfficiencyQuadrant(conversionChange: number, cpaChange: number): str
   return 'down_expensive';
 }
 
-function calculateAccountHealthScore(campaigns: any[], ads: any[], assets: any[]): number {
+function calculateAccountHealthScore(campaigns: any[], ads: any[], assets: any[], searchTermsAnalysis?: any, keywordAnalysis?: any): number {
   let score = 100;
   
   // Performance health (40% weight)
@@ -503,34 +580,58 @@ function calculateAccountHealthScore(campaigns: any[], ads: any[], assets: any[]
   // URL health (10% weight)
   const urlScore = 10; // Simplified for now
   
-  return Math.round(performanceScore + assetScore + budgetScore + urlScore);
+  return Math.round(performanceScore + searchTermsScore + keywordScore + assetScore + budgetScore + urlScore);
 }
 
-function calculateOpportunityValue(campaigns: any[], ads: any[], assets: any[]): number {
+function calculateOpportunityValue(campaigns: any[], searchTermsAnalysis?: any, scalingOpportunities?: any): number {
   let totalOpportunity = 0;
   
+  // Strategic waste elimination opportunity (immediate impact)
+  if (searchTermsAnalysis) {
+    // Annual savings from eliminating wasteful search terms
+    totalOpportunity += searchTermsAnalysis.total_waste_identified * 12;
+  }
+
+  // Scaling opportunities (high-confidence growth)
+  if (scalingOpportunities) {
+    scalingOpportunities.scaling_opportunities.forEach(opp => {
+      if (opp.type === 'budget_increase') {
+        const campaign = campaigns.find(c => c.name === opp.campaign_name);
+        if (campaign) {
+          const avgRoas = campaign.metrics.roas > 0 ? campaign.metrics.roas : 3.0;
+          // Annual value of recommended budget increase
+          const annualValue = opp.recommended_increase * 365 * avgRoas;
+          totalOpportunity += annualValue;
+        }
+      }
+    });
+  }
+  
   campaigns.forEach(campaign => {
-    // Estimate opportunity from budget constraints
-    if (campaign.budget_limited && campaign.metrics.budget_lost_impression_share > 10) {
+    // Budget-constrained high performers (proven ROI)
+    if (campaign.budget_limited && campaign.performance_trend === 'improving' && campaign.metrics.roas > 2) {
       const lostImpressionShare = campaign.metrics.budget_lost_impression_share / 100;
-      const potentialSpend = campaign.current_spend * (lostImpressionShare / (1 - lostImpressionShare));
-      const avgRoas = campaign.metrics.roas > 0 ? campaign.metrics.roas : 3.0; // default ROAS if none
-      const potentialConvValue = potentialSpend * avgRoas;
-      totalOpportunity += potentialConvValue;
+      if (lostImpressionShare > 0.1) { // Only if significant lost IS
+        const potentialSpend = campaign.current_spend * (lostImpressionShare / (1 - lostImpressionShare));
+        const potentialConvValue = potentialSpend * campaign.metrics.roas;
+        totalOpportunity += potentialConvValue * 12; // Annualized
+      }
     }
     
-    // Estimate opportunity from declining campaigns - recovery potential
-    if (campaign.performance_trend === 'declining' && campaign.deltas.conversions.abs < 0) {
-      const avgConvValue = campaign.metrics.conversions > 0 ? campaign.metrics.conversion_value / campaign.metrics.conversions : 50;
-      const recoveryPotential = Math.abs(campaign.deltas.conversions.abs) * avgConvValue * 0.7; // 70% recovery potential
-      totalOpportunity += recoveryPotential;
+    // Declining campaigns recovery potential (conservative estimate)
+    if (campaign.performance_trend === 'declining' && campaign.current_spend > 500) {
+      // Assume 25% recovery potential of current conversion value
+      const recoveryPotential = campaign.metrics.conversion_value * 0.25;
+      totalOpportunity += recoveryPotential * 12; // Annualized
     }
     
-    // Estimate opportunity from low-performing assets
-    const missingAssets = countMissingAssets(campaign, ads, assets);
-    if (missingAssets > 0) {
-      const assetOpportunity = campaign.current_spend * 0.05 * missingAssets; // 5% lift per missing asset type
-      totalOpportunity += assetOpportunity;
+    // Impression share growth opportunities
+    if (campaign.metrics.search_impression_share < 70 && 
+        campaign.metrics.conversions > 5 && 
+        campaign.performance_trend !== 'declining') {
+      const impressionShareGap = (70 - campaign.metrics.search_impression_share) / 100;
+      const potentialGrowth = campaign.metrics.conversion_value * impressionShareGap * 0.5; // Conservative multiplier
+      totalOpportunity += potentialGrowth * 12; // Annualized
     }
   });
   
@@ -815,6 +916,472 @@ function extractInsightSection(content: string, section: string): string[] {
   }
   
   return insights.slice(0, 5); // Limit to 5 insights per section
+}
+
+// NEW Strategic Analysis Functions
+function analyzeSearchTermsStrategically(searchTerms: any[], campaigns: any[]) {
+  const campaignMap = new Map(campaigns.map(c => [c.id, c]));
+  
+  const wastefulTerms = [];
+  const highPerformingTerms = [];
+  const opportunityTerms = [];
+  
+  searchTerms.forEach(term => {
+    const cost = parseFloat(term.metrics.costMicros || '0') / 1000000;
+    const conversions = parseFloat(term.metrics.conversions || '0');
+    const clicks = parseInt(term.metrics.clicks || '0');
+    const ctr = parseFloat(term.metrics.ctr || '0');
+    
+    const campaign = campaignMap.get(term.campaign.id);
+    if (!campaign) return;
+    
+    // Identify wasteful terms - high cost, no conversions, multiple clicks
+    if (cost > 50 && conversions === 0 && clicks > 10) {
+      wastefulTerms.push({
+        search_term: term.searchTermView.searchTerm,
+        campaign_name: term.campaign.name,
+        campaign_id: term.campaign.id,
+        cost,
+        clicks,
+        conversions,
+        potential_savings: cost,
+        recommendation: 'Add as negative keyword',
+        match_type: 'broad_match_issue'
+      });
+    }
+    
+    // Identify high-performing terms for expansion
+    if (conversions > 0 && ctr > 0.05 && cost > 20) {
+      highPerformingTerms.push({
+        search_term: term.searchTermView.searchTerm,
+        campaign_name: term.campaign.name,
+        cost,
+        conversions,
+        ctr,
+        recommendation: 'Consider adding as exact match keyword'
+      });
+    }
+    
+    // Identify opportunity terms - good CTR but low volume
+    if (ctr > 0.08 && clicks < 10 && cost < 10) {
+      opportunityTerms.push({
+        search_term: term.searchTermView.searchTerm,
+        campaign_name: term.campaign.name,
+        ctr,
+        opportunity: 'Increase bids for more volume'
+      });
+    }
+  });
+  
+  return {
+    wasteful_terms: wastefulTerms,
+    high_performing_terms: highPerformingTerms,
+    opportunity_terms: opportunityTerms,
+    total_waste_identified: wastefulTerms.reduce((sum, t) => sum + t.cost, 0),
+    summary: {
+      total_terms_analyzed: searchTerms.length,
+      waste_terms_count: wastefulTerms.length,
+      opportunity_terms_count: opportunityTerms.length
+    }
+  };
+}
+
+function analyzeKeywordStrategy(keywords: any[], campaigns: any[]) {
+  const campaignMap = new Map(campaigns.map(c => [c.id, c]));
+  
+  const matchTypeAnalysis = {
+    broad: { count: 0, cost: 0, conversions: 0 },
+    phrase: { count: 0, cost: 0, conversions: 0 },
+    exact: { count: 0, cost: 0, conversions: 0 }
+  };
+  
+  const qualityScoreIssues = [];
+  const opportunities = [];
+  
+  keywords.forEach(kw => {
+    const cost = parseFloat(kw.metrics.costMicros || '0') / 1000000;
+    const conversions = parseFloat(kw.metrics.conversions || '0');
+    const matchType = kw.adGroupCriterion.keyword.matchType.toLowerCase();
+    const qualityScore = parseInt(kw.adGroupCriterion.qualityInfo?.qualityScore || '0');
+    
+    const campaign = campaignMap.get(kw.campaign.id);
+    if (!campaign) return;
+    
+    // Analyze match types
+    if (matchTypeAnalysis[matchType]) {
+      matchTypeAnalysis[matchType].count++;
+      matchTypeAnalysis[matchType].cost += cost;
+      matchTypeAnalysis[matchType].conversions += conversions;
+    }
+    
+    // Identify quality score issues
+    if (qualityScore > 0 && qualityScore < 5 && cost > 20) {
+      qualityScoreIssues.push({
+        keyword: kw.adGroupCriterion.keyword.text,
+        campaign_name: kw.campaign.name,
+        quality_score: qualityScore,
+        cost,
+        recommendation: 'Improve ad relevance and landing page'
+      });
+    }
+    
+    // Identify scaling opportunities
+    if (conversions > 0 && cost > 50 && matchType === 'exact') {
+      opportunities.push({
+        keyword: kw.adGroupCriterion.keyword.text,
+        campaign_name: kw.campaign.name,
+        conversions,
+        cost,
+        opportunity: 'Scale with phrase match variant'
+      });
+    }
+  });
+  
+  return {
+    match_type_analysis: matchTypeAnalysis,
+    quality_score_issues: qualityScoreIssues,
+    opportunities,
+    strategy_recommendations: generateKeywordStrategyRecommendations(matchTypeAnalysis)
+  };
+}
+
+function generateKeywordStrategyRecommendations(matchTypeAnalysis: any) {
+  const recommendations = [];
+  
+  const totalCost = Object.values(matchTypeAnalysis).reduce((sum: number, mt: any) => sum + mt.cost, 0);
+  const broadPercentage = totalCost > 0 ? (matchTypeAnalysis.broad.cost / totalCost) * 100 : 0;
+  
+  if (broadPercentage > 60) {
+    recommendations.push('High broad match usage detected - review search terms for waste');
+  }
+  
+  if (matchTypeAnalysis.exact.count < matchTypeAnalysis.broad.count * 0.5) {
+    recommendations.push('Consider adding more exact match keywords for high-performing terms');
+  }
+  
+  return recommendations;
+}
+
+function analyzeBidStrategyImpact(campaigns: any[]) {
+  const strategies = {};
+  
+  campaigns.forEach(campaign => {
+    const strategy = campaign.bidding_strategy;
+    if (!strategies[strategy]) {
+      strategies[strategy] = {
+        count: 0,
+        total_cost: 0,
+        total_conversions: 0,
+        total_conv_value: 0,
+        campaigns: []
+      };
+    }
+    
+    strategies[strategy].count++;
+    strategies[strategy].total_cost += campaign.current_spend;
+    strategies[strategy].total_conversions += campaign.metrics.conversions;
+    strategies[strategy].total_conv_value += campaign.metrics.conversion_value;
+    strategies[strategy].campaigns.push({
+      name: campaign.name,
+      cost: campaign.current_spend,
+      conversions: campaign.metrics.conversions,
+      performance_trend: campaign.performance_trend
+    });
+  });
+  
+  // Calculate performance metrics for each strategy
+  Object.keys(strategies).forEach(strategy => {
+    const data = strategies[strategy];
+    data.avg_cpa = data.total_conversions > 0 ? data.total_cost / data.total_conversions : 0;
+    data.avg_roas = data.total_cost > 0 ? data.total_conv_value / data.total_cost : 0;
+    data.improving_campaigns = data.campaigns.filter(c => c.performance_trend === 'improving').length;
+  });
+  
+  return {
+    strategy_breakdown: strategies,
+    recommendations: generateBidStrategyRecommendations(strategies)
+  };
+}
+
+function generateBidStrategyRecommendations(strategies: any) {
+  const recommendations = [];
+  
+  const strategyNames = Object.keys(strategies);
+  if (strategyNames.length > 1) {
+    // Compare strategies
+    const bestStrategy = strategyNames.reduce((best, current) => {
+      const bestData = strategies[best];
+      const currentData = strategies[current];
+      
+      if (currentData.avg_roas > bestData.avg_roas && currentData.improving_campaigns > 0) {
+        return current;
+      }
+      return best;
+    });
+    
+    recommendations.push(`${bestStrategy} appears to be performing best - consider testing on more campaigns`);
+  }
+  
+  return recommendations;
+}
+
+function identifyScalingOpportunities(campaigns: any[], budgetAnalysis: any) {
+  const opportunities = [];
+  
+  campaigns.forEach(campaign => {
+    // Budget-constrained high performers
+    if (campaign.budget_limited && 
+        campaign.performance_trend === 'improving' && 
+        campaign.metrics.roas > 3) {
+      opportunities.push({
+        type: 'budget_increase',
+        campaign_name: campaign.name,
+        current_budget: campaign.daily_budget,
+        recommended_increase: Math.round(campaign.daily_budget * 0.5),
+        expected_impact: 'Scale successful campaign',
+        confidence: 'High'
+      });
+    }
+    
+    // High-performing campaigns with room to grow
+    if (campaign.metrics.search_impression_share < 70 && 
+        campaign.metrics.conversions > 10 && 
+        campaign.performance_trend !== 'declining') {
+      opportunities.push({
+        type: 'impression_share_growth',
+        campaign_name: campaign.name,
+        current_is: campaign.metrics.search_impression_share,
+        opportunity: 'Increase bids to capture more impression share',
+        confidence: 'Medium'
+      });
+    }
+  });
+  
+  return {
+    scaling_opportunities: opportunities,
+    total_budget_opportunity: opportunities
+      .filter(o => o.type === 'budget_increase')
+      .reduce((sum, o) => sum + o.recommended_increase, 0)
+  };
+}
+
+function analyzeCreativePerformance(ads: any[], campaigns: any[]) {
+  const campaignMap = new Map(campaigns.map(c => [c.id, c]));
+  
+  const issues = [];
+  const opportunities = [];
+  
+  // Group ads by campaign
+  const adsByCampaign = ads.reduce((acc, ad) => {
+    const campaignId = ad.campaign.id;
+    if (!acc[campaignId]) acc[campaignId] = [];
+    acc[campaignId].push(ad);
+    return acc;
+  }, {});
+  
+  Object.keys(adsByCampaign).forEach(campaignId => {
+    const campaignAds = adsByCampaign[campaignId];
+    const campaign = campaignMap.get(campaignId);
+    
+    if (!campaign) return;
+    
+    // Check ad count
+    if (campaignAds.length < 3) {
+      issues.push({
+        campaign_name: campaign.name,
+        issue: 'Insufficient ad variants',
+        current_count: campaignAds.length,
+        recommendation: 'Add more ad variants for testing'
+      });
+    }
+    
+    // Check for policy issues
+    const policyIssues = campaignAds.filter(ad => 
+      ad.adGroupAd?.policySummary?.approvalStatus !== 'APPROVED'
+    );
+    
+    if (policyIssues.length > 0) {
+      issues.push({
+        campaign_name: campaign.name,
+        issue: 'Policy violations detected',
+        affected_ads: policyIssues.length,
+        recommendation: 'Review and fix policy violations'
+      });
+    }
+  });
+  
+  return {
+    issues,
+    opportunities,
+    summary: {
+      total_ads_analyzed: ads.length,
+      campaigns_with_issues: issues.length
+    }
+  };
+}
+
+async function generateStrategicAIInsights(analysisData: any, openaiApiKey: string) {
+  const prompt = `As a senior Google Ads strategist, analyze this comprehensive account data and provide strategic insights that would rival a top PPC agency's analysis:
+
+CAMPAIGN PERFORMANCE:
+${analysisData.campaignMetrics.campaigns.slice(0, 5).map(c => 
+  `• ${c.name}: $${c.current_spend.toLocaleString()} spend, ${c.deltas.conversions.pct.toFixed(1)}% conv change, ${c.bidding_strategy} strategy`
+).join('\n')}
+
+SEARCH TERMS WASTE:
+• Total waste identified: $${analysisData.searchTermsAnalysis.total_waste_identified.toLocaleString()}
+• Top wasteful terms: ${analysisData.searchTermsAnalysis.wasteful_terms.slice(0, 3).map(t => t.search_term).join(', ')}
+
+KEYWORD STRATEGY:
+• Match type distribution: ${JSON.stringify(analysisData.keywordAnalysis.match_type_analysis)}
+• Quality score issues: ${analysisData.keywordAnalysis.quality_score_issues.length} keywords
+
+BID STRATEGY ANALYSIS:
+${Object.keys(analysisData.bidStrategyAnalysis.strategy_breakdown).map(strategy => 
+  `• ${strategy}: ${analysisData.bidStrategyAnalysis.strategy_breakdown[strategy].count} campaigns, $${analysisData.bidStrategyAnalysis.strategy_breakdown[strategy].avg_cpa.toFixed(2)} CPA`
+).join('\n')}
+
+SCALING OPPORTUNITIES:
+• Budget opportunities: ${analysisData.scalingOpportunities.scaling_opportunities.length} identified
+• Total potential budget increase: $${analysisData.scalingOpportunities.total_budget_opportunity}/day
+
+Provide a strategic analysis with:
+1. EXECUTIVE SUMMARY (2-3 sentences on account health and key opportunity)
+2. ROOT CAUSE ANALYSIS (Why performance is trending this way)
+3. PRIORITIZED RECOMMENDATIONS (Top 5 actions with expected impact)
+4. STRATEGIC OPPORTUNITIES (Growth levers and budget reallocation)
+5. RISK FACTORS (What could hurt performance if not addressed)
+
+Format as JSON with these exact keys: executive_summary, root_causes, prioritized_recommendations, strategic_opportunities, risk_factors`;
+
+  try {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openaiApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: 'You are a senior Google Ads strategist. Provide strategic insights that match expert-level PPC analysis. Return valid JSON only.' },
+          { role: 'user', content: prompt }
+        ],
+        max_tokens: 2000,
+        temperature: 0.3
+      }),
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      const content = data.choices[0].message.content;
+      const cleanContent = content.replace(/```json\n?|\n?```/g, '').trim();
+      
+      try {
+        return JSON.parse(cleanContent);
+      } catch (parseError) {
+        console.error('JSON parse error for AI insights:', parseError);
+        return {
+          executive_summary: content.substring(0, 200),
+          root_causes: ['Analysis in progress'],
+          prioritized_recommendations: ['Review search terms for waste', 'Optimize bid strategies'],
+          strategic_opportunities: ['Scale budget-constrained high performers'],
+          risk_factors: ['Monitor declining campaigns']
+        };
+      }
+    }
+  } catch (error) {
+    console.error('Strategic AI insights error:', error);
+  }
+
+  return {
+    executive_summary: 'Strategic analysis requires additional data processing',
+    root_causes: ['Performance trends need deeper analysis'],
+    prioritized_recommendations: ['Review budget allocation', 'Optimize search terms'],
+    strategic_opportunities: ['Scale successful campaigns'],
+    risk_factors: ['Monitor budget constraints']
+  };
+}
+
+async function generateStrategicIssuesAnalysis(analysisData: any, openaiApiKey: string) {
+  const issuesPrompt = `You are a senior PPC analyst identifying critical issues in this Google Ads account that need immediate attention.
+
+ACCOUNT DATA SUMMARY:
+${JSON.stringify({
+    total_campaigns: analysisData.campaignMetrics.campaigns.length,
+    declining_campaigns: analysisData.campaignMetrics.campaigns.filter(c => c.performance_trend === 'declining').length,
+    total_waste: analysisData.searchTermsAnalysis.total_waste_identified,
+    wasteful_terms_count: analysisData.searchTermsAnalysis.wasteful_terms.length,
+    quality_issues: analysisData.keywordAnalysis.quality_score_issues.length,
+    budget_constrained: analysisData.budgetAnalysis.constrained_campaigns.length,
+    creative_issues: analysisData.creativeAnalysis.issues.length
+  }, null, 2)}
+
+TOP SPENDING DECLINING CAMPAIGNS:
+${analysisData.campaignMetrics.campaigns
+  .filter(c => c.performance_trend === 'declining')
+  .slice(0, 3)
+  .map(c => `${c.name}: $${c.current_spend.toLocaleString()} spend, ${c.deltas.conversions.pct.toFixed(1)}% conversion change`)
+  .join('\n')}
+
+SPECIFIC WASTEFUL TERMS:
+${analysisData.searchTermsAnalysis.wasteful_terms.slice(0, 5).map(t => 
+  `${t.search_term} in ${t.campaign_name}: $${t.cost.toFixed(2)} cost, ${t.clicks} clicks, 0 conversions`
+).join('\n')}
+
+Return ONLY valid JSON with actionable issues:
+{
+  "critical_issues": [
+    {
+      "title": "Specific issue title",
+      "entity": "Campaign/Keyword/Ad name",
+      "problem": "What's wrong",
+      "impact": "Dollar amount or performance metric",
+      "action": "Specific fix",
+      "priority": "High/Medium/Low"
+    }
+  ],
+  "waste_elimination": {
+    "immediate_savings": number,
+    "actions": ["specific action 1", "specific action 2"]
+  },
+  "performance_recovery": {
+    "declining_campaigns_recovery_value": number,
+    "recommendations": ["specific rec 1", "specific rec 2"]
+  }
+}`;
+
+  try {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openaiApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: 'You are a PPC analyst. Return ONLY valid JSON. No explanation outside JSON.' },
+          { role: 'user', content: issuesPrompt }
+        ],
+        temperature: 0.2,
+        max_tokens: 1500
+      }),
+    });
+
+    const data = await response.json();
+    const content = data.choices[0].message.content;
+    const cleanContent = content.replace(/```json\n?|\n?```/g, '').trim();
+    
+    return JSON.parse(cleanContent);
+  } catch (error) {
+    console.error('Strategic issues analysis error:', error);
+    return {
+      critical_issues: [],
+      waste_elimination: { immediate_savings: 0, actions: [] },
+      performance_recovery: { declining_campaigns_recovery_value: 0, recommendations: [] }
+    };
+  }
 }
 
 async function generateDetailedIssues(
