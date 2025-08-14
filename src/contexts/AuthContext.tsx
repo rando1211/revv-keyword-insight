@@ -98,11 +98,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     console.log('🔧 AuthContext: Setting up auth listener');
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        console.log('🔧 Auth state change:', event, { hasSession: !!session, userId: session?.user?.id });
+        console.log('🔧 Auth state change:', event, { 
+          hasSession: !!session, 
+          userId: session?.user?.id,
+          accessToken: !!session?.access_token 
+        });
+        
         setSession(session);
         setUser(session?.user ?? null);
         
-        if (session?.user) {
+        // Handle successful OAuth callback
+        if (event === 'SIGNED_IN' && session?.user) {
+          console.log('🔧 OAuth sign-in successful, redirecting to dashboard');
+          setTimeout(() => {
+            checkSubscription();
+            checkUserRole();
+            // Redirect to dashboard after successful OAuth
+            window.location.href = '/dashboard';
+          }, 0);
+        } else if (session?.user) {
           setTimeout(() => {
             checkSubscription();
             checkUserRole();
@@ -118,7 +132,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     console.log('🔧 AuthContext: Getting initial session');
     supabase.auth.getSession().then(({ data: { session } }) => {
-      console.log('🔧 Initial session:', { hasSession: !!session, userId: session?.user?.id });
+      console.log('🔧 Initial session:', { 
+        hasSession: !!session, 
+        userId: session?.user?.id,
+        accessToken: !!session?.access_token 
+      });
       setSession(session);
       setUser(session?.user ?? null);
       
@@ -167,17 +185,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('🔧 Attempting Google OAuth sign in');
       console.log('🔧 Current window origin:', window.location.origin);
       
+      // Use /auth as redirect to match Supabase configuration
+      const redirectUrl = `${window.location.origin}/auth`;
+      console.log('🔧 OAuth redirect URL:', redirectUrl);
+      
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/dashboard`
+          redirectTo: redirectUrl,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent'
+          }
         }
       });
       
       console.log('🔧 Google OAuth result:', { error: error?.message });
       console.log('🔧 Full error object:', error);
       
-      return { error };
+      if (error) {
+        console.error('🔧 OAuth initiation failed:', error);
+        return { error };
+      }
+      
+      console.log('🔧 OAuth initiation successful, redirecting to Google...');
+      return { error: null };
     } catch (e) {
       console.error('🔧 Google OAuth error:', e);
       console.error('🔧 Full error details:', JSON.stringify(e, null, 2));
