@@ -111,32 +111,27 @@ serve(async (req) => {
         AND segments.date BETWEEN '${windows.current.start}' AND '${windows.current.end}'
     `;
 
-    // Search terms query for waste detection and opportunities
+    // Search terms query for waste detection and opportunities - more flexible
     const searchTermsQuery = `
       SELECT
         campaign.id, campaign.name, ad_group.id as ad_group_id,
-        keyword_view.resource_name, search_term_view.search_term,
-        search_term_view.status, search_term_view.click_type,
+        search_term_view.search_term, search_term_view.status,
         metrics.impressions, metrics.clicks, metrics.cost_micros,
         metrics.conversions, metrics.conversions_value, metrics.ctr,
-        segments.date, segments.device
+        segments.date
       FROM search_term_view
       WHERE campaign.status = 'ENABLED'
         AND segments.date BETWEEN '${windows.current.start}' AND '${windows.current.end}'
-        AND metrics.impressions > 0
       ORDER BY metrics.cost_micros DESC
       LIMIT 1000
     `;
 
-    // Keywords query for match type analysis
+    // Keywords query for match type analysis - more flexible
     const keywordsQuery = `
       SELECT
         campaign.id, campaign.name, ad_group.id as ad_group_id,
         ad_group_criterion.keyword.text, ad_group_criterion.keyword.match_type,
         ad_group_criterion.quality_info.quality_score,
-        ad_group_criterion.quality_info.creative_quality_score,
-        ad_group_criterion.quality_info.post_click_quality_score,
-        ad_group_criterion.quality_info.search_predicted_ctr,
         metrics.impressions, metrics.clicks, metrics.cost_micros,
         metrics.conversions, metrics.conversions_value,
         segments.date
@@ -144,7 +139,6 @@ serve(async (req) => {
       WHERE campaign.status = 'ENABLED'
         AND ad_group_criterion.status = 'ENABLED'
         AND segments.date BETWEEN '${windows.current.start}' AND '${windows.current.end}'
-        AND metrics.impressions > 0
       ORDER BY metrics.cost_micros DESC
       LIMIT 500
     `;
@@ -232,6 +226,11 @@ serve(async (req) => {
 
     console.log('📊 Ads data count:', adsData.results?.length || 0);
     console.log('📊 Assets data count:', assetsData.results?.length || 0);
+    
+    // Add detailed debugging for campaign data
+    console.log('📊 Campaign data sample:', campaignData.results?.[0] || 'No campaigns');
+    console.log('📊 Search terms sample:', searchTermsData.results?.[0] || 'No search terms');
+    console.log('📊 Keywords sample:', keywordsData.results?.[0] || 'No keywords');
 
     // Process comprehensive strategic analysis
     console.log('🔄 Processing enterprise strategic analysis...');
