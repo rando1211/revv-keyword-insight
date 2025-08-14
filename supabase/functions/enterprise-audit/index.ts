@@ -109,19 +109,25 @@ serve(async (req) => {
       LIMIT 50
     `;
 
-    // Search terms query for waste detection and opportunities - more flexible
+    // Search terms query - simplified and working format
     const searchTermsQuery = `
       SELECT
-        campaign.id, campaign.name, ad_group.id as ad_group_id,
-        search_term_view.search_term, search_term_view.status,
-        metrics.impressions, metrics.clicks, metrics.cost_micros,
-        metrics.conversions, metrics.conversions_value, metrics.ctr,
-        segments.date
+        search_term_view.search_term,
+        campaign.id,
+        campaign.name,
+        ad_group.name,
+        metrics.clicks,
+        metrics.impressions,
+        metrics.ctr,
+        metrics.conversions,
+        metrics.cost_micros
       FROM search_term_view
-      WHERE campaign.status = 'ENABLED'
-        AND segments.date BETWEEN '${windows.current.start}' AND '${windows.current.end}'
-      ORDER BY metrics.cost_micros DESC
-      LIMIT 1000
+      WHERE segments.date DURING LAST_30_DAYS
+        AND campaign.status = 'ENABLED'
+        AND ad_group.status = 'ENABLED'
+        AND metrics.clicks > 0
+      ORDER BY metrics.clicks DESC
+      LIMIT 100
     `;
 
     // Keywords query for match type analysis - more flexible
