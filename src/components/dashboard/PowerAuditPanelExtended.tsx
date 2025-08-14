@@ -112,154 +112,241 @@ export const BudgetAnalysisTab = ({ budgetAnalysis, campaigns }: { budgetAnalysi
 
 // Enhanced AI Insights Tab Component
 export const AIInsightsTab = ({ insights }: { insights: any }) => {
-  const rootCauses = insights?.root_causes || {};
-  const recommendations = insights?.recommendations || {};
-  const whyNotActions = insights?.why_not_actions || [];
+  console.log('🤖 AI Insights received:', insights);
+  
+  // Handle different data structures from the AI
+  const summary = insights?.summary || insights?.executive_summary || 'No AI insights available';
+  const keyFindings = insights?.key_findings || insights?.analysis?.key_findings || [];
+  const recommendations = insights?.recommendations || insights?.prioritized_recommendations || [];
+  const rootCauses = insights?.root_causes || insights?.underlying_issues || [];
+  const trends = insights?.trends || insights?.performance_trends || [];
+  const opportunities = insights?.opportunities || insights?.growth_opportunities || [];
 
   return (
     <div className="space-y-6">
-      {/* Root Causes Analysis */}
-      <Card>
+      {/* Executive Summary */}
+      <Card className="border-l-4 border-l-primary">
         <CardHeader>
           <CardTitle className="flex items-center space-x-2">
             <Zap className="h-5 w-5 text-primary" />
-            <span>Root Cause Analysis</span>
+            <span>Executive Summary</span>
           </CardTitle>
-          <CardDescription>
-            AI-identified factors driving performance changes
-          </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4 md:grid-cols-2">
-            {Object.entries(rootCauses).map(([category, issues]: [string, any]) => (
-              <div key={category} className="space-y-2">
-                <h4 className="font-medium capitalize text-sm">
-                  {category.replace('_', ' ')}
-                </h4>
-                {Array.isArray(issues) && issues.length > 0 ? (
-                  <div className="space-y-1">
-                    {issues.map((issue: any, index: number) => (
-                      <div key={index} className="text-xs p-2 bg-muted rounded">
-                        <div className="font-medium">{issue.campaign}</div>
-                        <div className="text-muted-foreground">{issue.issue}</div>
-                        <Badge variant="outline" className="mt-1">
-                          {issue.impact} Impact
-                        </Badge>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-xs text-muted-foreground">No issues detected</p>
+          <div className="prose prose-sm max-w-none">
+            {typeof summary === 'string' ? (
+              <p className="text-sm leading-relaxed">{summary}</p>
+            ) : (
+              <div className="space-y-2">
+                {Array.isArray(summary) ? summary.map((item: string, index: number) => (
+                  <p key={index} className="text-sm leading-relaxed">{item}</p>
+                )) : (
+                  <p className="text-sm text-muted-foreground">AI analysis is processing...</p>
                 )}
               </div>
-            ))}
+            )}
           </div>
         </CardContent>
       </Card>
 
-      {/* Recommendations by Category */}
-      <Card>
-        <CardHeader>
-          <CardTitle>AI Recommendations</CardTitle>
-          <CardDescription>
-            Categorized optimization opportunities
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-3">
-              <h4 className="font-medium text-sm flex items-center space-x-2">
-                <TrendingUp className="h-4 w-4 text-green-600" />
-                <span>Improve CTR</span>
-              </h4>
-              {recommendations.improve_ctr?.length > 0 ? (
-                recommendations.improve_ctr.map((rec: any, index: number) => (
-                  <div key={index} className="text-xs p-2 bg-green-50 rounded">
-                    {rec.action}
-                  </div>
-                ))
-              ) : (
-                <p className="text-xs text-muted-foreground">No CTR opportunities identified</p>
-              )}
-            </div>
-
-            <div className="space-y-3">
-              <h4 className="font-medium text-sm flex items-center space-x-2">
-                <Target className="h-4 w-4 text-blue-600" />
-                <span>Improve CVR</span>
-              </h4>
-              {recommendations.improve_cvr?.length > 0 ? (
-                recommendations.improve_cvr.map((rec: any, index: number) => (
-                  <div key={index} className="text-xs p-2 bg-blue-50 rounded">
-                    {rec.action}
-                  </div>
-                ))
-              ) : (
-                <p className="text-xs text-muted-foreground">No CVR opportunities identified</p>
-              )}
-            </div>
-
-            <div className="space-y-3">
-              <h4 className="font-medium text-sm flex items-center space-x-2">
-                <DollarSign className="h-4 w-4 text-purple-600" />
-                <span>Lower CPC</span>
-              </h4>
-              {recommendations.lower_cpc?.length > 0 ? (
-                recommendations.lower_cpc.map((rec: any, index: number) => (
-                  <div key={index} className="text-xs p-2 bg-purple-50 rounded">
-                    {rec.action}
-                  </div>
-                ))
-              ) : (
-                <p className="text-xs text-muted-foreground">No CPC reduction opportunities identified</p>
-              )}
-            </div>
-
-            <div className="space-y-3">
-              <h4 className="font-medium text-sm flex items-center space-x-2">
-                <Users className="h-4 w-4 text-orange-600" />
-                <span>Increase Volume</span>
-              </h4>
-              {recommendations.increase_volume?.length > 0 ? (
-                recommendations.increase_volume.map((rec: any, index: number) => (
-                  <div key={index} className="text-xs p-2 bg-orange-50 rounded">
-                    {rec.action}
-                  </div>
-                ))
-              ) : (
-                <p className="text-xs text-muted-foreground">No volume opportunities identified</p>
-              )}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Why Not Actions */}
-      {whyNotActions.length > 0 && (
+      {/* Key Findings */}
+      {keyFindings.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>Why Not Actions</CardTitle>
+            <CardTitle className="flex items-center space-x-2">
+              <Target className="h-5 w-5 text-blue-600" />
+              <span>Key Findings</span>
+            </CardTitle>
             <CardDescription>
-              Actions considered but not recommended due to low confidence
+              Critical insights from your account analysis
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-2">
-              {whyNotActions.map((action: any, index: number) => (
-                <Alert key={index}>
-                  <AlertTriangle className="h-4 w-4" />
-                  <AlertDescription>
-                    <div className="font-medium">{action.action}</div>
-                    <div className="text-sm text-muted-foreground mt-1">
-                      Reason: {action.reason}
+            <div className="grid gap-3 md:grid-cols-2">
+              {keyFindings.map((finding: any, index: number) => (
+                <div key={index} className="p-3 border rounded-lg bg-gradient-to-r from-blue-50 to-transparent">
+                  <div className="flex items-start space-x-2">
+                    <div className="w-2 h-2 bg-blue-600 rounded-full mt-2 flex-shrink-0"></div>
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium">
+                        {typeof finding === 'string' ? finding : finding.insight || finding.finding}
+                      </p>
+                      {finding.impact && (
+                        <Badge variant="outline" className="text-xs">
+                          {finding.impact} Impact
+                        </Badge>
+                      )}
+                      {finding.metric && (
+                        <p className="text-xs text-muted-foreground">
+                          Metric: {finding.metric}
+                        </p>
+                      )}
                     </div>
-                    <Badge variant="outline" className="mt-2">
-                      {action.confidence} Confidence
-                    </Badge>
-                  </AlertDescription>
-                </Alert>
+                  </div>
+                </div>
               ))}
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Prioritized Recommendations */}
+      {recommendations.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <TrendingUp className="h-5 w-5 text-green-600" />
+              <span>Prioritized Recommendations</span>
+            </CardTitle>
+            <CardDescription>
+              Action items ranked by potential impact
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {recommendations.map((rec: any, index: number) => (
+                <div key={index} className="border-l-4 border-l-green-500 p-4 bg-green-50 rounded-r-lg">
+                  <div className="flex items-start justify-between">
+                    <div className="space-y-2 flex-1">
+                      <div className="flex items-center space-x-2">
+                        <Badge variant="default" className="text-xs">
+                          Priority {index + 1}
+                        </Badge>
+                        {rec.category && (
+                          <Badge variant="outline" className="text-xs">
+                            {rec.category}
+                          </Badge>
+                        )}
+                      </div>
+                      <h4 className="font-medium text-sm">
+                        {rec.action || rec.recommendation || rec.title}
+                      </h4>
+                      {rec.description && (
+                        <p className="text-xs text-muted-foreground">
+                          {rec.description}
+                        </p>
+                      )}
+                      {rec.rationale && (
+                        <p className="text-xs text-blue-700">
+                          <strong>Why:</strong> {rec.rationale}
+                        </p>
+                      )}
+                    </div>
+                    {rec.impact_estimate && (
+                      <div className="text-right">
+                        <div className="text-lg font-bold text-green-600">
+                          {rec.impact_estimate.includes('$') ? rec.impact_estimate : `$${rec.impact_estimate}`}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          Potential Impact
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Performance Trends */}
+      {trends.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <TrendingDown className="h-5 w-5 text-orange-600" />
+              <span>Performance Trends</span>
+            </CardTitle>
+            <CardDescription>
+              Patterns and changes in your account performance
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-3 md:grid-cols-2">
+              {trends.map((trend: any, index: number) => (
+                <div key={index} className="p-3 border rounded-lg">
+                  <div className="flex items-center space-x-2 mb-2">
+                    {trend.direction === 'up' ? (
+                      <TrendingUp className="h-4 w-4 text-green-600" />
+                    ) : trend.direction === 'down' ? (
+                      <TrendingDown className="h-4 w-4 text-red-600" />
+                    ) : (
+                      <Target className="h-4 w-4 text-gray-600" />
+                    )}
+                    <span className="font-medium text-sm">
+                      {trend.metric || trend.title || 'Performance Trend'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {trend.description || trend.observation}
+                  </p>
+                  {trend.change && (
+                    <Badge variant="outline" className="mt-2 text-xs">
+                      {trend.change}
+                    </Badge>
+                  )}
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Growth Opportunities */}
+      {opportunities.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <Users className="h-5 w-5 text-purple-600" />
+              <span>Growth Opportunities</span>
+            </CardTitle>
+            <CardDescription>
+              Untapped potential in your account
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {opportunities.map((opp: any, index: number) => (
+                <div key={index} className="p-3 bg-purple-50 rounded-lg border-l-4 border-l-purple-500">
+                  <div className="flex items-start justify-between">
+                    <div className="space-y-1">
+                      <h4 className="font-medium text-sm">
+                        {opp.opportunity || opp.title || opp.description}
+                      </h4>
+                      {opp.details && (
+                        <p className="text-xs text-muted-foreground">
+                          {opp.details}
+                        </p>
+                      )}
+                      {opp.potential_impact && (
+                        <p className="text-xs text-purple-700">
+                          <strong>Potential:</strong> {opp.potential_impact}
+                        </p>
+                      )}
+                    </div>
+                    {opp.value_estimate && (
+                      <Badge variant="outline" className="text-purple-700">
+                        {opp.value_estimate}
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Fallback for when no insights are available */}
+      {!summary && keyFindings.length === 0 && recommendations.length === 0 && (
+        <Card>
+          <CardContent className="text-center py-8">
+            <Zap className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-muted-foreground">AI Analysis in Progress</h3>
+            <p className="text-muted-foreground">
+              Advanced insights are being generated. Please run the audit again for comprehensive AI analysis.
+            </p>
           </CardContent>
         </Card>
       )}

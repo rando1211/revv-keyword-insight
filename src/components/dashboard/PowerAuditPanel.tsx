@@ -352,12 +352,17 @@ const PerformanceMapTab = ({ performanceMap }: { performanceMap: any[] }) => {
             }}
           />
                 <Scatter dataKey="spend" fill="#8884d8">
-                  {performanceMap?.map((entry, index) => (
-                    <Cell 
-                      key={`cell-${index}`} 
-                      fill={getQuadrantColor(entry.efficiency_quadrant)}
-                    />
-                  ))}
+                  {performanceMap?.map((entry, index) => {
+                    // Calculate bigger bubble size based on spend
+                    const bubbleSize = Math.max(200, Math.min(2000, entry.spend / 100));
+                    return (
+                      <Cell 
+                        key={`cell-${index}`} 
+                        fill={getQuadrantColor(entry.efficiency_quadrant)}
+                        r={bubbleSize}
+                      />
+                    );
+                  })}
                 </Scatter>
               </ScatterChart>
             </ResponsiveContainer>
