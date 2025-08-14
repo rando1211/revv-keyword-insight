@@ -24,7 +24,7 @@ import { CampaignBuilderWizard } from '@/components/campaign-builder/CampaignBui
 
 const Index = () => {
   const { toast } = useToast();
-  const { user, signOut, loading, subscription, isAdmin } = useAuth();
+  const { user, signOut, loading, subscription, isAdmin, checkUserRole } = useAuth();
   const { isOnboardingOpen, loading: onboardingLoading, completeOnboarding, skipOnboarding } = useOnboarding();
   const navigate = useNavigate();
 
@@ -245,6 +245,15 @@ Simulation by REVV Marketing ROI Calculator
               <Badge variant="secondary">
                 {user?.email}
               </Badge>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={checkUserRole}
+                className="text-primary-foreground border-primary-foreground hover:bg-primary-foreground hover:text-primary"
+              >
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Refresh Role
+              </Button>
               <Button 
                 variant="outline" 
                 size="sm" 
