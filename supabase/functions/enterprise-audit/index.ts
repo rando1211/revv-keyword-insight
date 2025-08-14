@@ -12,9 +12,15 @@ serve(async (req) => {
   }
 
   try {
-    const { customerId } = await req.json();
+    console.log('🚀 Enterprise audit function called');
+    
+    const requestBody = await req.json();
+    console.log('📝 Request body:', requestBody);
+    
+    const { customerId } = requestBody;
     
     if (!customerId) {
+      console.log('❌ No customer ID provided');
       throw new Error('Customer ID is required');
     }
 
@@ -160,12 +166,19 @@ serve(async (req) => {
       fetch(apiUrl, { method: 'POST', headers, body: JSON.stringify({ query: assetsQuery }) })
     ]);
 
+    console.log('📊 Ads response status:', adsResponse.status);
+    console.log('📊 Assets response status:', assetsResponse.status);
+
     const [adsData, assetsData] = await Promise.all([
       adsResponse.ok ? adsResponse.json() : { results: [] },
       assetsResponse.ok ? assetsResponse.json() : { results: [] }
     ]);
 
+    console.log('📊 Ads data count:', adsData.results?.length || 0);
+    console.log('📊 Assets data count:', assetsData.results?.length || 0);
+
     // Process comprehensive analysis
+    console.log('🔄 Processing enterprise analysis...');
     const analysis = await processEnterpriseAnalysis(
       campaignData.results || [],
       baselineCampaignData.results || [],
@@ -176,6 +189,7 @@ serve(async (req) => {
     );
 
     console.log('✅ Enterprise audit complete');
+    console.log('📊 Analysis structure:', Object.keys(analysis));
 
     return new Response(JSON.stringify(analysis), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -230,7 +244,10 @@ async function processEnterpriseAnalysis(
   let aiInsights = null;
   let detailedIssues = null;
   
+  console.log('🤖 OpenAI API Key available:', !!openaiApiKey);
+  
   if (openaiApiKey) {
+    console.log('🤖 Generating AI insights...');
     aiInsights = await generateEnhancedAIInsights(
       campaignMetrics,
       urlHealth,
@@ -239,6 +256,7 @@ async function processEnterpriseAnalysis(
       openaiApiKey
     );
     
+    console.log('🔍 Generating detailed issues analysis...');
     // Generate detailed issues analysis
     detailedIssues = await generateDetailedIssues(
       campaignMetrics,
@@ -249,6 +267,10 @@ async function processEnterpriseAnalysis(
       assets,
       openaiApiKey
     );
+    
+    console.log('✅ AI analysis complete', { aiInsights: !!aiInsights, detailedIssues: !!detailedIssues });
+  } else {
+    console.log('⚠️ OpenAI API key not available, using fallback analysis');
   }
 
   return {
