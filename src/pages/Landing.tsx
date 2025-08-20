@@ -21,8 +21,14 @@ import {
   ArrowRight,
   DollarSign,
   Clock,
-  MousePointer
+  MousePointer,
+  Gauge,
+  Settings,
+  MoreVertical,
+  TrendingDown,
+  AlertTriangle
 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Link } from "react-router-dom";
 import { useState, useEffect } from "react";
 
@@ -243,151 +249,238 @@ const Landing = () => {
                   </TabsList>
 
                   <TabsContent value="performance" className="space-y-6">
-                    <div className="grid md:grid-cols-3 gap-6 mb-8">
-                      <Card className="p-6 text-center bg-gradient-to-br from-success/10 to-success/5 border-success/30 shadow-card hover:shadow-elevation transition-all transform hover:scale-105">
-                        <div className="bg-success/20 p-3 rounded-xl w-fit mx-auto mb-4">
-                          <DollarSign className="h-10 w-10 text-success" />
+                    <Card className="bg-card/50 backdrop-blur-sm border-white/10 hover:shadow-elevation transition-shadow">
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                          <Gauge className="h-5 w-5 text-success" />
+                          Performance Impact Score
+                        </CardTitle>
+                        <p className="text-muted-foreground">Real-time performance metrics and optimization impact</p>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                          {/* Before Metrics */}
+                          <div className="space-y-3">
+                            <h4 className="font-medium text-muted-foreground">Current Performance</h4>
+                            <div className="space-y-2">
+                              <div className="flex justify-between">
+                                <span className="text-sm">CTR</span>
+                                <span className="font-medium">3.2%</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-sm">CPA</span>
+                                <span className="font-medium">$85</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-sm">Wasted Spend</span>
+                                <span className="font-medium text-destructive">12%</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* After Metrics */}
+                          <div className="space-y-3">
+                            <h4 className="font-medium text-success">After Optimization</h4>
+                            <div className="space-y-2">
+                              <div className="flex justify-between">
+                                <span className="text-sm">CTR</span>
+                                <span className="font-medium text-success">4.8%</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-sm">CPA</span>
+                                <span className="font-medium text-success">$62</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-sm">Wasted Spend</span>
+                                <span className="font-medium text-success">3%</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Projected Savings */}
+                          <div className="space-y-3">
+                            <h4 className="font-medium text-primary">Monthly Impact</h4>
+                            <div className="space-y-2">
+                              <div className="flex justify-between">
+                                <span className="text-sm">Cost Savings</span>
+                                <span className="font-medium text-success">${demoData.metrics.wastedSpend > 0 ? demoData.metrics.wastedSpend.toLocaleString() : '2,840'}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-sm">ROI Improvement</span>
+                                <span className="font-medium text-success">+{demoData.metrics.roasImprovement || 27}%</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-sm">Optimizations</span>
+                                <span className="font-medium">47 Applied</span>
+                              </div>
+                            </div>
+                          </div>
                         </div>
-                        <div className="text-3xl font-bold text-success mb-2">
-                          ${demoData.metrics.wastedSpend.toLocaleString()}
+                        
+                        <div className="space-y-2">
+                          <div className="flex justify-between text-sm">
+                            <span>Optimization Progress</span>
+                            <span>{isRunningDemo && demoStep >= 3 ? '74%' : '0%'} Complete</span>
+                          </div>
+                          <Progress value={isRunningDemo && demoStep >= 3 ? 74 : 0} className="h-2" />
                         </div>
-                        <p className="text-sm font-semibold text-muted-foreground">💰 Waste Eliminated</p>
-                      </Card>
-                      <Card className="p-6 text-center bg-gradient-to-br from-primary/10 to-primary/5 border-primary/30 shadow-card hover:shadow-elevation transition-all transform hover:scale-105">
-                        <div className="bg-primary/20 p-3 rounded-xl w-fit mx-auto mb-4">
-                          <TrendingUp className="h-10 w-10 text-primary" />
-                        </div>
-                        <div className="text-3xl font-bold text-primary mb-2">
-                          +{demoData.metrics.roasImprovement}%
-                        </div>
-                        <p className="text-sm font-semibold text-muted-foreground">📈 ROAS Improvement</p>
-                      </Card>
-                      <Card className="p-6 text-center bg-gradient-to-br from-warning/10 to-warning/5 border-warning/30 shadow-card hover:shadow-elevation transition-all transform hover:scale-105">
-                        <div className="bg-warning/20 p-3 rounded-xl w-fit mx-auto mb-4">
-                          <Clock className="h-10 w-10 text-warning" />
-                        </div>
-                        <div className="text-3xl font-bold text-warning mb-2">
-                          {demoData.metrics.timesSaved}h
-                        </div>
-                        <p className="text-sm font-semibold text-muted-foreground">⏰ Time Saved</p>
-                      </Card>
-                    </div>
-                    
-                    <div className="h-80">
-                      <ChartContainer
-                        config={{
-                          before: { label: "Before DEXTRUM", color: "hsl(var(--muted-foreground))" },
-                          after: { label: "After DEXTRUM", color: "hsl(var(--primary))" }
-                        }}
-                        className="h-full"
-                      >
-                        <ResponsiveContainer width="100%" height="100%">
-                          <LineChart data={demoData.performanceData}>
-                            <XAxis dataKey="day" />
-                            <YAxis />
-                            <ChartTooltip content={<ChartTooltipContent />} />
-                            <Line 
-                              type="monotone" 
-                              dataKey="before" 
-                              stroke="hsl(var(--muted-foreground))" 
-                              strokeWidth={2}
-                              strokeDasharray="5 5"
-                            />
-                            <Line 
-                              type="monotone" 
-                              dataKey="after" 
-                              stroke="hsl(var(--primary))" 
-                              strokeWidth={3}
-                            />
-                          </LineChart>
-                        </ResponsiveContainer>
-                      </ChartContainer>
-                    </div>
+                      </CardContent>
+                    </Card>
                   </TabsContent>
 
                   <TabsContent value="campaigns" className="space-y-6">
-                    <div className="grid gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                       {demoData.campaigns.map((campaign, index) => (
-                        <Card key={campaign.name} className="p-4 hover:shadow-elevation transition-shadow">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              <div className="w-3 h-3 bg-primary rounded-full"></div>
-                              <div>
-                                <h4 className="font-semibold">{campaign.name}</h4>
-                                <p className="text-sm text-muted-foreground">
-                                  {campaign.conversions} conversions • {campaign.ctr}% CTR
-                                </p>
+                        <Card key={campaign.name} className="bg-card/50 backdrop-blur-sm border-white/10 hover:shadow-elevation transition-shadow">
+                          <CardHeader className="pb-3">
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1">
+                                <CardTitle className="text-lg mb-2">{campaign.name}</CardTitle>
+                                <Badge variant="default" className="text-success">
+                                  ENABLED
+                                </Badge>
+                              </div>
+                              <Button variant="ghost" size="icon">
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </CardHeader>
+                          
+                          <CardContent className="space-y-4">
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="space-y-1">
+                                <p className="text-sm text-muted-foreground">Impressions</p>
+                                <p className="text-lg font-semibold">{(campaign.spend * 10).toLocaleString()}</p>
+                              </div>
+                              <div className="space-y-1">
+                                <p className="text-sm text-muted-foreground">Clicks</p>
+                                <p className="text-lg font-semibold">{Math.round(campaign.spend / campaign.cpc).toLocaleString()}</p>
+                              </div>
+                              <div className="space-y-1">
+                                <p className="text-sm text-muted-foreground">CTR</p>
+                                <div className="flex items-center space-x-1">
+                                  <p className="text-lg font-semibold">{campaign.ctr}%</p>
+                                  {campaign.ctr > 2 ? (
+                                    <TrendingUp className="h-4 w-4 text-success" />
+                                  ) : (
+                                    <TrendingDown className="h-4 w-4 text-destructive" />
+                                  )}
+                                </div>
+                              </div>
+                              <div className="space-y-1">
+                                <p className="text-sm text-muted-foreground">Cost</p>
+                                <p className="text-lg font-semibold">${campaign.spend.toLocaleString()}</p>
                               </div>
                             </div>
-                            <div className="text-right">
-                              <div className="text-lg font-bold">${campaign.spend.toLocaleString()}</div>
-                              <div className="text-sm text-muted-foreground">
-                                ${campaign.cpc.toFixed(2)} CPC
+
+                            <div className="pt-3 border-t">
+                              <div className="flex justify-between items-center mb-2">
+                                <p className="text-sm text-muted-foreground">Conversions</p>
+                                <p className="font-semibold">{campaign.conversions}</p>
+                              </div>
+                              <div className="flex justify-between items-center">
+                                <p className="text-sm text-muted-foreground">Conversion Rate</p>
+                                <p className="font-semibold">{((campaign.conversions / (campaign.spend / campaign.cpc)) * 100).toFixed(2)}%</p>
                               </div>
                             </div>
-                          </div>
-                          <div className="mt-3">
-                            <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
-                              <span>Optimization Progress</span>
-                              <span>{isRunningDemo && demoStep >= 3 ? "85%" : "0%"}</span>
+
+                            <div className="flex space-x-2 pt-2">
+                              <Button variant="outline" size="sm" className="flex-1">
+                                <Eye className="h-4 w-4 mr-2" />
+                                View Details
+                              </Button>
+                              <Button variant="outline" size="sm" className="flex-1">
+                                <Zap className="h-4 w-4 mr-2" />
+                                Optimize
+                              </Button>
                             </div>
-                            <Progress 
-                              value={isRunningDemo && demoStep >= 3 ? 85 : 0} 
-                              className="h-1"
-                            />
-                          </div>
+                          </CardContent>
                         </Card>
                       ))}
                     </div>
                   </TabsContent>
 
                   <TabsContent value="search-terms" className="space-y-6">
-                    <div className="space-y-3">
-                      {demoData.searchTerms.map((term, index) => (
-                        <Card key={term.term} className="p-4">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              <div className={`w-2 h-2 rounded-full ${
-                                term.status === "optimized" ? "bg-success animate-pulse" :
-                                term.status === "flagged" ? "bg-warning animate-pulse" :
-                                term.status === "analyzing" ? "bg-accent animate-pulse" :
-                                "bg-muted-foreground"
-                              }`}></div>
-                              <div>
-                                <code className="text-sm font-mono bg-muted px-2 py-1 rounded">
-                                  "{term.term}"
-                                </code>
-                                <p className="text-xs text-muted-foreground mt-1">
-                                  Wasted ${term.waste} this month
-                                </p>
-                              </div>
-                            </div>
-                            <Badge variant={
-                              term.status === "optimized" ? "default" :
-                              term.status === "flagged" ? "destructive" :
-                              term.status === "analyzing" ? "secondary" :
-                              "outline"
-                            }>
-                              {term.status === "optimized" ? "✓ Blocked" :
-                               term.status === "flagged" ? "⚠ Flagged" :
-                               term.status === "analyzing" ? "⟳ Analyzing" :
-                               "Pending"}
-                            </Badge>
+                    <Card className="bg-card/50 backdrop-blur-sm border-white/10 hover:shadow-elevation transition-shadow">
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                          <Activity className="h-5 w-5 text-primary" />
+                          Search Terms AI Analysis
+                        </CardTitle>
+                        <p className="text-muted-foreground">
+                          AI-powered analysis to identify irrelevant search terms and optimization opportunities
+                        </p>
+                      </CardHeader>
+                      <CardContent className="space-y-6">
+                        {/* Analysis Stats */}
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                          <div className="text-center p-4 rounded-lg bg-background/50 border">
+                            <div className="text-2xl font-bold text-destructive">247</div>
+                            <div className="text-sm text-muted-foreground">Irrelevant Terms</div>
                           </div>
-                        </Card>
-                      ))}
-                    </div>
-                    
-                    {demoData.metrics.wastedSpend > 0 && (
-                      <Card className="p-4 bg-success/5 border-success/20">
-                        <div className="flex items-center gap-2 text-success">
-                          <CheckCircle2 className="h-5 w-5" />
-                          <span className="font-semibold">
-                            ${demoData.metrics.wastedSpend.toLocaleString()} in wasted spend blocked automatically
-                          </span>
+                          <div className="text-center p-4 rounded-lg bg-background/50 border">
+                            <div className="text-2xl font-bold text-warning">89</div>
+                            <div className="text-sm text-muted-foreground">High Cost, No Conv</div>
+                          </div>
+                          <div className="text-center p-4 rounded-lg bg-background/50 border">
+                            <div className="text-2xl font-bold text-primary">${demoData.metrics.wastedSpend > 0 ? demoData.metrics.wastedSpend.toLocaleString() : '1,240'}</div>
+                            <div className="text-sm text-muted-foreground">Potential Savings</div>
+                          </div>
+                          <div className="text-center p-4 rounded-lg bg-background/50 border">
+                            <div className="text-2xl font-bold text-success">156</div>
+                            <div className="text-sm text-muted-foreground">Optimizations Ready</div>
+                          </div>
                         </div>
-                      </Card>
-                    )}
+
+                        {/* Search Term Items */}
+                        <div className="space-y-3">
+                          <h4 className="font-semibold flex items-center gap-2">
+                            <AlertTriangle className="h-4 w-4 text-warning" />
+                            High Priority Optimizations
+                          </h4>
+                          {demoData.searchTerms.map((term, index) => (
+                            <div key={term.term} className="flex items-center justify-between p-4 rounded-lg border bg-background/50 hover:bg-background/70 transition-colors">
+                              <div className="flex items-center gap-4">
+                                <Checkbox defaultChecked />
+                                <div className={`w-3 h-3 rounded-full ${
+                                  term.status === "optimized" ? "bg-success animate-pulse" :
+                                  term.status === "flagged" ? "bg-destructive" :
+                                  term.status === "analyzing" ? "bg-warning animate-pulse" :
+                                  "bg-destructive"
+                                }`} />
+                                <div className="flex-1">
+                                  <p className="font-medium">"{term.term}"</p>
+                                   <p className="text-sm text-muted-foreground">
+                                     {term.status === "optimized" ? "✓ Optimization applied" :
+                                      term.status === "flagged" ? "Add as negative keyword" :
+                                      term.status === "analyzing" ? "Analyzing performance..." :
+                                      "Add as negative keyword"}
+                                   </p>
+                                 </div>
+                               </div>
+                               <div className="text-right">
+                                 <p className="font-medium text-success">Save ${term.waste}</p>
+                                 <p className="text-sm text-muted-foreground">
+                                   {term.status === "optimized" ? "✓ Completed" : "High impact"}
+                                 </p>
+                               </div>
+                             </div>
+                          ))}
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="flex gap-3 pt-4 border-t">
+                          <Button className="flex-1" size="lg" disabled={isRunningDemo}>
+                            <CheckCircle2 className="h-4 w-4 mr-2" />
+                            {isRunningDemo ? "⚡ Executing..." : "Execute Selected (12)"}
+                          </Button>
+                          <Button variant="outline" size="lg">
+                            <Settings className="h-4 w-4 mr-2" />
+                            Review All
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
                   </TabsContent>
                 </Tabs>
               </CardContent>
