@@ -1,7 +1,10 @@
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
+import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, BarChart, Bar, Cell } from "recharts";
 import { 
   Zap, 
   Target, 
@@ -15,30 +18,108 @@ import {
   Activity,
   TrendingUp,
   CheckCircle2,
-  ArrowRight
+  ArrowRight,
+  DollarSign,
+  Clock,
+  MousePointer
 } from "lucide-react";
 import { Link } from "react-router-dom";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 const Landing = () => {
   const [demoStep, setDemoStep] = useState(0);
   const [isRunningDemo, setIsRunningDemo] = useState(false);
+  const [activeDemo, setActiveDemo] = useState("performance");
+  const [demoData, setDemoData] = useState(generateInitialData());
+
+  // Mock data generators
+  function generateInitialData() {
+    return {
+      campaigns: [
+        { name: "Campaign A", spend: 2400, conversions: 12, ctr: 2.1, cpc: 3.20 },
+        { name: "Campaign B", spend: 1800, conversions: 8, ctr: 1.8, cpc: 4.10 },
+        { name: "Campaign C", spend: 3200, conversions: 18, ctr: 2.8, cpc: 2.90 }
+      ],
+      performanceData: [
+        { day: "Mon", before: 2400, after: 2400, roas: 3.2 },
+        { day: "Tue", before: 2100, after: 2100, roas: 3.4 },
+        { day: "Wed", before: 2800, after: 2800, roas: 2.9 },
+        { day: "Thu", before: 2200, after: 2200, roas: 3.1 },
+        { day: "Fri", before: 2600, after: 2600, roas: 3.3 },
+        { day: "Sat", before: 2900, after: 2900, roas: 2.8 },
+        { day: "Sun", before: 2400, after: 2400, roas: 3.0 }
+      ],
+      searchTerms: [
+        { term: "buy shoes online", waste: 420, status: "blocked" },
+        { term: "free shoes", waste: 320, status: "blocked" },
+        { term: "cheap shoes kids", waste: 280, status: "blocked" }
+      ],
+      metrics: {
+        wastedSpend: 0,
+        roasImprovement: 0,
+        timesSaved: 0
+      }
+    };
+  }
 
   const runOptimizationDemo = () => {
     setIsRunningDemo(true);
     setDemoStep(0);
     
     const steps = [
-      { label: "Analyzing campaigns...", duration: 2000 },
-      { label: "Identifying inefficiencies...", duration: 1500 },
-      { label: "Generating recommendations...", duration: 2000 },
-      { label: "Executing optimizations...", duration: 1800 },
-      { label: "Optimization complete.", duration: 1000 }
+      { 
+        label: "Scanning 47 campaigns...", 
+        duration: 1500,
+        action: () => setDemoData(prev => ({ ...prev, metrics: { ...prev.metrics, wastedSpend: 1240 } }))
+      },
+      { 
+        label: "Analyzing 12,847 search terms...", 
+        duration: 2000,
+        action: () => setDemoData(prev => ({ 
+          ...prev, 
+          searchTerms: prev.searchTerms.map(term => ({ ...term, status: "analyzing" }))
+        }))
+      },
+      { 
+        label: "Identifying wasted spend...", 
+        duration: 1800,
+        action: () => setDemoData(prev => ({ 
+          ...prev, 
+          searchTerms: prev.searchTerms.map(term => ({ ...term, status: "flagged" })),
+          metrics: { ...prev.metrics, wastedSpend: 2840 }
+        }))
+      },
+      { 
+        label: "Executing optimizations...", 
+        duration: 2200,
+        action: () => {
+          setDemoData(prev => ({
+            ...prev,
+            performanceData: prev.performanceData.map(day => ({
+              ...day,
+              after: day.before * (1 + Math.random() * 0.4 + 0.2),
+              roas: day.roas * (1 + Math.random() * 0.3 + 0.15)
+            })),
+            searchTerms: prev.searchTerms.map(term => ({ ...term, status: "optimized" })),
+            metrics: {
+              wastedSpend: 2840,
+              roasImprovement: 42,
+              timesSaved: 18
+            }
+          }));
+        }
+      },
+      { 
+        label: "✓ Optimization complete. $2,840 waste eliminated.", 
+        duration: 1000,
+        action: () => {}
+      }
     ];
 
     steps.forEach((step, index) => {
       setTimeout(() => {
         setDemoStep(index + 1);
+        step.action();
         if (index === steps.length - 1) {
           setTimeout(() => {
             setIsRunningDemo(false);
@@ -103,25 +184,188 @@ const Landing = () => {
             </Button>
           </div>
 
-          {/* Interactive Demo */}
-          {isRunningDemo && (
-            <div className="bg-card border border-border/50 rounded-xl p-6 max-w-md mx-auto">
-              <div className="space-y-4">
+          {/* Interactive Demo Dashboard */}
+          <div className="max-w-6xl mx-auto mt-16">
+            <Card className="bg-card/50 backdrop-blur-sm border-border/50">
+              <CardHeader className="pb-4">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">OPTIMIZATION PROTOCOL</span>
-                  <div className="h-2 w-2 bg-destructive rounded-full animate-pulse"></div>
+                  <div>
+                    <CardTitle className="text-2xl font-bold">DEXTRUM Live Demo</CardTitle>
+                    <p className="text-muted-foreground">Watch AI optimization in real-time</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {isRunningDemo && <div className="h-2 w-2 bg-destructive rounded-full animate-pulse"></div>}
+                    <Badge variant={isRunningDemo ? "destructive" : "secondary"}>
+                      {isRunningDemo ? "OPTIMIZING" : "READY"}
+                    </Badge>
+                  </div>
                 </div>
-                <Progress value={(demoStep / 5) * 100} className="h-2" />
-                <p className="text-sm text-muted-foreground">
-                  {demoStep === 1 && "Analyzing campaigns..."}
-                  {demoStep === 2 && "Identifying inefficiencies..."}
-                  {demoStep === 3 && "Generating recommendations..."}
-                  {demoStep === 4 && "Executing optimizations..."}
-                  {demoStep === 5 && "✓ Optimization complete."}
-                </p>
-              </div>
-            </div>
-          )}
+                {isRunningDemo && (
+                  <div className="mt-4 space-y-2">
+                    <Progress value={(demoStep / 5) * 100} className="h-2" />
+                    <p className="text-sm text-muted-foreground">
+                      {demoStep === 1 && "Scanning 47 campaigns..."}
+                      {demoStep === 2 && "Analyzing 12,847 search terms..."}
+                      {demoStep === 3 && "Identifying wasted spend..."}
+                      {demoStep === 4 && "Executing optimizations..."}
+                      {demoStep === 5 && "✓ Optimization complete. $2,840 waste eliminated."}
+                    </p>
+                  </div>
+                )}
+              </CardHeader>
+              <CardContent>
+                <Tabs value={activeDemo} onValueChange={setActiveDemo} className="w-full">
+                  <TabsList className="grid w-full grid-cols-3 mb-6">
+                    <TabsTrigger value="performance">Performance Impact</TabsTrigger>
+                    <TabsTrigger value="campaigns">Campaign Analysis</TabsTrigger>
+                    <TabsTrigger value="search-terms">Search Terms</TabsTrigger>
+                  </TabsList>
+
+                  <TabsContent value="performance" className="space-y-6">
+                    <div className="grid md:grid-cols-3 gap-4 mb-6">
+                      <Card className="p-4 text-center bg-success/5 border-success/20">
+                        <DollarSign className="h-8 w-8 text-success mx-auto mb-2" />
+                        <div className="text-2xl font-bold text-success">
+                          ${demoData.metrics.wastedSpend.toLocaleString()}
+                        </div>
+                        <p className="text-sm text-muted-foreground">Waste Eliminated</p>
+                      </Card>
+                      <Card className="p-4 text-center bg-accent/5 border-accent/20">
+                        <TrendingUp className="h-8 w-8 text-accent mx-auto mb-2" />
+                        <div className="text-2xl font-bold text-accent">
+                          +{demoData.metrics.roasImprovement}%
+                        </div>
+                        <p className="text-sm text-muted-foreground">ROAS Improvement</p>
+                      </Card>
+                      <Card className="p-4 text-center bg-warning/5 border-warning/20">
+                        <Clock className="h-8 w-8 text-warning mx-auto mb-2" />
+                        <div className="text-2xl font-bold text-warning">
+                          {demoData.metrics.timesSaved}h
+                        </div>
+                        <p className="text-sm text-muted-foreground">Time Saved</p>
+                      </Card>
+                    </div>
+                    
+                    <div className="h-80">
+                      <ChartContainer
+                        config={{
+                          before: { label: "Before DEXTRUM", color: "hsl(var(--muted-foreground))" },
+                          after: { label: "After DEXTRUM", color: "hsl(var(--primary))" }
+                        }}
+                        className="h-full"
+                      >
+                        <ResponsiveContainer width="100%" height="100%">
+                          <LineChart data={demoData.performanceData}>
+                            <XAxis dataKey="day" />
+                            <YAxis />
+                            <ChartTooltip content={<ChartTooltipContent />} />
+                            <Line 
+                              type="monotone" 
+                              dataKey="before" 
+                              stroke="hsl(var(--muted-foreground))" 
+                              strokeWidth={2}
+                              strokeDasharray="5 5"
+                            />
+                            <Line 
+                              type="monotone" 
+                              dataKey="after" 
+                              stroke="hsl(var(--primary))" 
+                              strokeWidth={3}
+                            />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </ChartContainer>
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="campaigns" className="space-y-6">
+                    <div className="grid gap-4">
+                      {demoData.campaigns.map((campaign, index) => (
+                        <Card key={campaign.name} className="p-4 hover:shadow-elevation transition-shadow">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className="w-3 h-3 bg-primary rounded-full"></div>
+                              <div>
+                                <h4 className="font-semibold">{campaign.name}</h4>
+                                <p className="text-sm text-muted-foreground">
+                                  {campaign.conversions} conversions • {campaign.ctr}% CTR
+                                </p>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-lg font-bold">${campaign.spend.toLocaleString()}</div>
+                              <div className="text-sm text-muted-foreground">
+                                ${campaign.cpc.toFixed(2)} CPC
+                              </div>
+                            </div>
+                          </div>
+                          <div className="mt-3">
+                            <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
+                              <span>Optimization Progress</span>
+                              <span>{isRunningDemo && demoStep >= 3 ? "85%" : "0%"}</span>
+                            </div>
+                            <Progress 
+                              value={isRunningDemo && demoStep >= 3 ? 85 : 0} 
+                              className="h-1"
+                            />
+                          </div>
+                        </Card>
+                      ))}
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="search-terms" className="space-y-6">
+                    <div className="space-y-3">
+                      {demoData.searchTerms.map((term, index) => (
+                        <Card key={term.term} className="p-4">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className={`w-2 h-2 rounded-full ${
+                                term.status === "optimized" ? "bg-success animate-pulse" :
+                                term.status === "flagged" ? "bg-warning animate-pulse" :
+                                term.status === "analyzing" ? "bg-accent animate-pulse" :
+                                "bg-muted-foreground"
+                              }`}></div>
+                              <div>
+                                <code className="text-sm font-mono bg-muted px-2 py-1 rounded">
+                                  "{term.term}"
+                                </code>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  Wasted ${term.waste} this month
+                                </p>
+                              </div>
+                            </div>
+                            <Badge variant={
+                              term.status === "optimized" ? "default" :
+                              term.status === "flagged" ? "destructive" :
+                              term.status === "analyzing" ? "secondary" :
+                              "outline"
+                            }>
+                              {term.status === "optimized" ? "✓ Blocked" :
+                               term.status === "flagged" ? "⚠ Flagged" :
+                               term.status === "analyzing" ? "⟳ Analyzing" :
+                               "Pending"}
+                            </Badge>
+                          </div>
+                        </Card>
+                      ))}
+                    </div>
+                    
+                    {demoData.metrics.wastedSpend > 0 && (
+                      <Card className="p-4 bg-success/5 border-success/20">
+                        <div className="flex items-center gap-2 text-success">
+                          <CheckCircle2 className="h-5 w-5" />
+                          <span className="font-semibold">
+                            ${demoData.metrics.wastedSpend.toLocaleString()} in wasted spend blocked automatically
+                          </span>
+                        </div>
+                      </Card>
+                    )}
+                  </TabsContent>
+                </Tabs>
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </section>
 
