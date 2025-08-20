@@ -55,11 +55,15 @@ serve(async (req) => {
         user_id: user.id,
         stripe_customer_id: null,
         subscribed: false,
-        subscription_tier: null,
+        subscription_tier: 'trial',
         subscription_end: null,
         updated_at: new Date().toISOString(),
       }, { onConflict: 'email' });
-      return new Response(JSON.stringify({ subscribed: false }), {
+      return new Response(JSON.stringify({ 
+        subscribed: false, 
+        subscription_tier: 'trial',
+        trial_end: null 
+      }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
       });
@@ -74,28 +78,37 @@ serve(async (req) => {
       limit: 1,
     });
     const hasActiveSub = subscriptions.data.length > 0;
-    let subscriptionTier = null;
+    let subscriptionTier = 'trial';
     let subscriptionEnd = null;
 
     if (hasActiveSub) {
       const subscription = subscriptions.data[0];
       subscriptionEnd = new Date(subscription.current_period_end * 1000).toISOString();
       logStep("Active subscription found", { subscriptionId: subscription.id, endDate: subscriptionEnd });
-      // Determine subscription tier from price
+      
+      // Determine tier from price
       const priceId = subscription.items.data[0].price.id;
       const price = await stripe.prices.retrieve(priceId);
       const amount = price.unit_amount || 0;
-      if (amount <= 999) {
-        subscriptionTier = "Basic";
-      } else if (amount <= 1999) {
-        subscriptionTier = "Premium";
+      
+      if (amount <= 3000) {
+        subscriptionTier = "starter";
+      } else if (amount <= 10000) {
+        subscriptionTier = "professional";
       } else {
-        subscriptionTier = "Enterprise";
+        subscriptionTier = "agency";
       }
       logStep("Determined subscription tier", { priceId, amount, subscriptionTier });
     } else {
       logStep("No active subscription found");
     }
+
+    // Get current subscriber data for trial_end
+    const { data: currentSubscriber } = await supabaseClient
+      .from("subscribers")
+      .select("trial_end")
+      .eq("email", user.email)
+      .single();
 
     await supabaseClient.from("subscribers").upsert({
       email: user.email,
@@ -104,6 +117,7 @@ serve(async (req) => {
       subscribed: hasActiveSub,
       subscription_tier: subscriptionTier,
       subscription_end: subscriptionEnd,
+      trial_end: currentSubscriber?.trial_end || new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
       updated_at: new Date().toISOString(),
     }, { onConflict: 'email' });
 
@@ -111,7 +125,8 @@ serve(async (req) => {
     return new Response(JSON.stringify({
       subscribed: hasActiveSub,
       subscription_tier: subscriptionTier,
-      subscription_end: subscriptionEnd
+      subscription_end: subscriptionEnd,
+      trial_end: currentSubscriber?.trial_end
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,

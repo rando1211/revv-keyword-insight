@@ -9,6 +9,8 @@ import Index from "./pages/Index";
 import Landing from "./pages/Landing";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
+import Subscription from "./pages/Subscription";
+import SubscriptionSuccess from "./pages/SubscriptionSuccess";
 
 const queryClient = new QueryClient();
 
@@ -23,6 +25,16 @@ const App = () => (
           <Route path="/dashboard" element={
             <ProtectedRoute>
               <Index />
+            </ProtectedRoute>
+          } />
+          <Route path="/subscription" element={
+            <ProtectedRoute>
+              <Subscription />
+            </ProtectedRoute>
+          } />
+          <Route path="/subscription-success" element={
+            <ProtectedRoute>
+              <SubscriptionSuccess />
             </ProtectedRoute>
           } />
           <Route path="/" element={<Landing />} />
