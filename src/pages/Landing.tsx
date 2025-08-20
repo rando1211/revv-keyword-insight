@@ -131,23 +131,30 @@ const Landing = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-destructive/5">
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 relative overflow-hidden">
+      {/* Animated Background Elements */}
+      <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-primary/20 rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute top-40 -left-40 w-60 h-60 bg-accent/15 rounded-full blur-3xl animate-pulse delay-1000"></div>
+        <div className="absolute bottom-40 right-1/3 w-40 h-40 bg-primary/10 rounded-full blur-2xl animate-pulse delay-2000"></div>
+      </div>
+
       {/* Header */}
-      <header className="border-b border-border/20 backdrop-blur-sm bg-background/95 sticky top-0 z-50">
+      <header className="border-b border-border/20 backdrop-blur-md bg-background/80 sticky top-0 z-50">
         <div className="container mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
-              <div className="bg-destructive text-destructive-foreground rounded-lg p-2 font-bold text-lg tracking-wider">
+              <div className="bg-gradient-primary text-primary-foreground rounded-xl p-3 font-bold text-xl tracking-wider shadow-glow">
                 DEXTRUM
               </div>
               <span className="text-sm font-medium text-muted-foreground">AI Optimization Butler</span>
             </div>
             <div className="flex items-center space-x-4">
               <Link to="/auth">
-                <Button variant="ghost" className="font-medium">Command Center</Button>
+                <Button variant="ghost" className="font-medium hover:bg-primary/10 transition-colors">Command Center</Button>
               </Link>
               <Link to="/auth">
-                <Button className="font-medium">Deploy DEXTRUM</Button>
+                <Button className="font-medium bg-gradient-primary hover:opacity-90 shadow-card transition-all">Deploy DEXTRUM</Button>
               </Link>
             </div>
           </div>
@@ -155,94 +162,114 @@ const Landing = () => {
       </header>
 
       {/* Hero Section */}
-      <section className="py-20 px-6">
-        <div className="container mx-auto text-center max-w-5xl">
-          <Badge variant="destructive" className="mb-6 text-sm font-medium">
-            TACTICAL OPS READY
+      <section className="py-24 px-6 relative">
+        <div className="container mx-auto text-center max-w-6xl relative z-10">
+          <Badge className="mb-8 text-sm font-medium bg-gradient-primary border-primary/20 shadow-glow animate-pulse">
+            🚀 TACTICAL OPS READY
           </Badge>
-          <h1 className="text-6xl font-bold mb-6 bg-gradient-to-r from-destructive to-destructive/70 bg-clip-text text-transparent leading-tight">
-            Meet DEXTRUM:<br />Your Tactical Optimization Butler
+          <h1 className="text-7xl lg:text-8xl font-bold mb-8 bg-gradient-hero bg-clip-text text-transparent leading-tight tracking-tight">
+            Meet DEXTRUM
           </h1>
-          <p className="text-2xl text-muted-foreground mb-8 max-w-3xl mx-auto font-medium">
-            While others analyze, DEXTRUM executes. Precision automation that eliminates inefficiencies and neutralizes wasted spend.
+          <h2 className="text-3xl lg:text-4xl font-semibold mb-8 text-foreground/90">
+            Your Tactical Optimization Butler
+          </h2>
+          <p className="text-xl lg:text-2xl text-muted-foreground mb-12 max-w-4xl mx-auto font-medium leading-relaxed">
+            While others analyze, DEXTRUM executes. Precision automation that eliminates inefficiencies and neutralizes wasted spend with military-grade precision.
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
+          <div className="flex flex-col sm:flex-row gap-6 justify-center mb-16">
             <Link to="/auth">
-              <Button size="lg" className="text-lg px-8 font-semibold">
-                Initiate Optimization Protocol
+              <Button size="lg" className="text-xl px-12 py-4 font-semibold bg-gradient-primary hover:opacity-90 shadow-elevation transform hover:scale-105 transition-all">
+                🎯 Initiate Protocol
               </Button>
             </Link>
             <Button 
               size="lg" 
               variant="outline" 
-              className="text-lg px-8 font-semibold group"
+              className="text-xl px-12 py-4 font-semibold group border-primary/20 hover:bg-primary/5 hover:border-primary/40 transition-all transform hover:scale-105"
               onClick={runOptimizationDemo}
               disabled={isRunningDemo}
             >
-              <Zap className="mr-2 h-5 w-5 group-hover:text-destructive transition-colors" />
-              {isRunningDemo ? "Running Protocol..." : "Run Optimization Protocol"}
+              <Zap className="mr-3 h-6 w-6 group-hover:text-primary transition-colors" />
+              {isRunningDemo ? "⚡ Running Protocol..." : "⚡ Live Demo"}
             </Button>
           </div>
 
           {/* Interactive Demo Dashboard */}
-          <div className="max-w-6xl mx-auto mt-16">
-            <Card className="bg-card/50 backdrop-blur-sm border-border/50">
-              <CardHeader className="pb-4">
+          <div className="max-w-7xl mx-auto mt-20">
+            <Card className="bg-gradient-card backdrop-blur-md border-border/30 shadow-elevation overflow-hidden">
+              <CardHeader className="pb-6 bg-gradient-to-r from-primary/5 to-accent/5 border-b border-border/20">
                 <div className="flex items-center justify-between">
                   <div>
-                    <CardTitle className="text-2xl font-bold">DEXTRUM Live Demo</CardTitle>
-                    <p className="text-muted-foreground">Watch AI optimization in real-time</p>
+                    <CardTitle className="text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent">
+                      ⚡ DEXTRUM Live Command Center
+                    </CardTitle>
+                    <p className="text-muted-foreground text-lg mt-2">Watch AI optimization execute in real-time</p>
                   </div>
-                  <div className="flex items-center gap-2">
-                    {isRunningDemo && <div className="h-2 w-2 bg-destructive rounded-full animate-pulse"></div>}
-                    <Badge variant={isRunningDemo ? "destructive" : "secondary"}>
-                      {isRunningDemo ? "OPTIMIZING" : "READY"}
+                  <div className="flex items-center gap-3">
+                    {isRunningDemo && <div className="h-3 w-3 bg-primary rounded-full animate-pulse shadow-glow"></div>}
+                    <Badge 
+                      variant={isRunningDemo ? "default" : "secondary"}
+                      className={isRunningDemo ? "bg-gradient-primary shadow-glow animate-pulse" : ""}
+                    >
+                      {isRunningDemo ? "🔥 OPTIMIZING" : "⚡ READY TO DEPLOY"}
                     </Badge>
                   </div>
                 </div>
                 {isRunningDemo && (
-                  <div className="mt-4 space-y-2">
-                    <Progress value={(demoStep / 5) * 100} className="h-2" />
-                    <p className="text-sm text-muted-foreground">
-                      {demoStep === 1 && "Scanning 47 campaigns..."}
-                      {demoStep === 2 && "Analyzing 12,847 search terms..."}
-                      {demoStep === 3 && "Identifying wasted spend..."}
-                      {demoStep === 4 && "Executing optimizations..."}
-                      {demoStep === 5 && "✓ Optimization complete. $2,840 waste eliminated."}
+                  <div className="mt-6 space-y-3">
+                    <Progress value={(demoStep / 5) * 100} className="h-3 bg-secondary" />
+                    <p className="text-sm text-muted-foreground font-mono bg-muted/50 px-3 py-2 rounded border-l-4 border-primary">
+                      {demoStep === 1 && "🔍 Scanning 47 campaigns..."}
+                      {demoStep === 2 && "🧠 Analyzing 12,847 search terms..."}
+                      {demoStep === 3 && "⚠️ Identifying wasted spend..."}
+                      {demoStep === 4 && "🚀 Executing optimizations..."}
+                      {demoStep === 5 && "✅ Optimization complete. $2,840 waste eliminated."}
                     </p>
                   </div>
                 )}
               </CardHeader>
               <CardContent>
                 <Tabs value={activeDemo} onValueChange={setActiveDemo} className="w-full">
-                  <TabsList className="grid w-full grid-cols-3 mb-6">
-                    <TabsTrigger value="performance">Performance Impact</TabsTrigger>
-                    <TabsTrigger value="campaigns">Campaign Analysis</TabsTrigger>
-                    <TabsTrigger value="search-terms">Search Terms</TabsTrigger>
+                  <TabsList className="grid w-full grid-cols-3 mb-8 bg-secondary/50 p-1 rounded-xl">
+                    <TabsTrigger value="performance" className="data-[state=active]:bg-gradient-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-card transition-all font-semibold">
+                      📊 Performance Impact
+                    </TabsTrigger>
+                    <TabsTrigger value="campaigns" className="data-[state=active]:bg-gradient-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-card transition-all font-semibold">
+                      🎯 Campaign Analysis
+                    </TabsTrigger>
+                    <TabsTrigger value="search-terms" className="data-[state=active]:bg-gradient-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-card transition-all font-semibold">
+                      🔍 Search Terms
+                    </TabsTrigger>
                   </TabsList>
 
                   <TabsContent value="performance" className="space-y-6">
-                    <div className="grid md:grid-cols-3 gap-4 mb-6">
-                      <Card className="p-4 text-center bg-success/5 border-success/20">
-                        <DollarSign className="h-8 w-8 text-success mx-auto mb-2" />
-                        <div className="text-2xl font-bold text-success">
+                    <div className="grid md:grid-cols-3 gap-6 mb-8">
+                      <Card className="p-6 text-center bg-gradient-to-br from-success/10 to-success/5 border-success/30 shadow-card hover:shadow-elevation transition-all transform hover:scale-105">
+                        <div className="bg-success/20 p-3 rounded-xl w-fit mx-auto mb-4">
+                          <DollarSign className="h-10 w-10 text-success" />
+                        </div>
+                        <div className="text-3xl font-bold text-success mb-2">
                           ${demoData.metrics.wastedSpend.toLocaleString()}
                         </div>
-                        <p className="text-sm text-muted-foreground">Waste Eliminated</p>
+                        <p className="text-sm font-semibold text-muted-foreground">💰 Waste Eliminated</p>
                       </Card>
-                      <Card className="p-4 text-center bg-accent/5 border-accent/20">
-                        <TrendingUp className="h-8 w-8 text-accent mx-auto mb-2" />
-                        <div className="text-2xl font-bold text-accent">
+                      <Card className="p-6 text-center bg-gradient-to-br from-primary/10 to-primary/5 border-primary/30 shadow-card hover:shadow-elevation transition-all transform hover:scale-105">
+                        <div className="bg-primary/20 p-3 rounded-xl w-fit mx-auto mb-4">
+                          <TrendingUp className="h-10 w-10 text-primary" />
+                        </div>
+                        <div className="text-3xl font-bold text-primary mb-2">
                           +{demoData.metrics.roasImprovement}%
                         </div>
-                        <p className="text-sm text-muted-foreground">ROAS Improvement</p>
+                        <p className="text-sm font-semibold text-muted-foreground">📈 ROAS Improvement</p>
                       </Card>
-                      <Card className="p-4 text-center bg-warning/5 border-warning/20">
-                        <Clock className="h-8 w-8 text-warning mx-auto mb-2" />
-                        <div className="text-2xl font-bold text-warning">
+                      <Card className="p-6 text-center bg-gradient-to-br from-warning/10 to-warning/5 border-warning/30 shadow-card hover:shadow-elevation transition-all transform hover:scale-105">
+                        <div className="bg-warning/20 p-3 rounded-xl w-fit mx-auto mb-4">
+                          <Clock className="h-10 w-10 text-warning" />
+                        </div>
+                        <div className="text-3xl font-bold text-warning mb-2">
                           {demoData.metrics.timesSaved}h
                         </div>
-                        <p className="text-sm text-muted-foreground">Time Saved</p>
+                        <p className="text-sm font-semibold text-muted-foreground">⏰ Time Saved</p>
                       </Card>
                     </div>
                     
