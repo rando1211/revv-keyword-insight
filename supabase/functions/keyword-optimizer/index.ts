@@ -48,7 +48,7 @@ serve(async (req) => {
 
     // Use campaign query that works and returns real costs
     const cleanCustomerId = customerId.replace('customers/', '');
-    const adsApiUrl = `https://googleads.googleapis.com/v18/customers/${cleanCustomerId}/googleAds:search`;
+    const adsApiUrl = `https://googleads.googleapis.com/v17/customers/${cleanCustomerId}/googleAds:search`;
 
     const headers = {
       'Authorization': `Bearer ${access_token}`,

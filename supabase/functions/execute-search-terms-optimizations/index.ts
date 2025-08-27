@@ -66,7 +66,7 @@ serve(async (req) => {
 
     // First, fetch campaigns to get campaign IDs for actions that need them
     console.log('📊 Fetching campaigns for context...');
-    const campaignsApiUrl = `https://googleads.googleapis.com/v18/customers/${cleanCustomerId}/googleAds:search`;
+    const campaignsApiUrl = `https://googleads.googleapis.com/v17/customers/${cleanCustomerId}/googleAds:search`;
     
     const campaignsQuery = `
       SELECT
@@ -112,7 +112,7 @@ serve(async (req) => {
             throw new Error('No campaigns found to add negative keyword');
           }
 
-          const negativeKeywordApiUrl = `https://googleads.googleapis.com/v18/customers/${cleanCustomerId}/campaignCriteria:mutate`;
+          const negativeKeywordApiUrl = `https://googleads.googleapis.com/v17/customers/${cleanCustomerId}/campaignCriteria:mutate`;
           
           const negativeKeywordPayload = {
             operations: [
@@ -194,7 +194,7 @@ serve(async (req) => {
 
           if (targetAdGroup) {
             // Add keyword to the ad group
-            const keywordApiUrl = `https://googleads.googleapis.com/v18/customers/${cleanCustomerId}/adGroupCriteria:mutate`;
+            const keywordApiUrl = `https://googleads.googleapis.com/v17/customers/${cleanCustomerId}/adGroupCriteria:mutate`;
             
             const matchType = action.type === 'exact_match' ? 'EXACT' : 'PHRASE';
             const keywordPayload = {

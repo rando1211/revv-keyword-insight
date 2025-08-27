@@ -101,7 +101,7 @@ serve(async (req) => {
       const accessToken = tokenData.access_token;
 
       // Test direct access
-      const directAccessResponse = await fetch(`https://googleads.googleapis.com/v18/customers/${cleanCustomerId}/googleAds:search`, {
+      const directAccessResponse = await fetch(`https://googleads.googleapis.com/v17/customers/${cleanCustomerId}/googleAds:search`, {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${accessToken}`,
@@ -141,7 +141,7 @@ serve(async (req) => {
           console.log(`🔍 Using known MCC mapping: ${cleanCustomerId} -> ${knownMCC}`);
           
           // Test this known relationship
-          const knownMCCResponse = await fetch(`https://googleads.googleapis.com/v18/customers/${cleanCustomerId}/googleAds:search`, {
+          const knownMCCResponse = await fetch(`https://googleads.googleapis.com/v17/customers/${cleanCustomerId}/googleAds:search`, {
             method: "POST",
             headers: {
               "Authorization": `Bearer ${accessToken}`,
@@ -165,7 +165,7 @@ serve(async (req) => {
         if (!loginCustomerId && primaryCustomerId !== cleanCustomerId) {
           console.log(`🔍 Trying primary customer ${primaryCustomerId} as login-customer-id for ${cleanCustomerId}`);
           
-          const managerAccessResponse = await fetch(`https://googleads.googleapis.com/v18/customers/${cleanCustomerId}/googleAds:search`, {
+          const managerAccessResponse = await fetch(`https://googleads.googleapis.com/v17/customers/${cleanCustomerId}/googleAds:search`, {
             method: "POST",
             headers: {
               "Authorization": `Bearer ${accessToken}`,
@@ -189,7 +189,7 @@ serve(async (req) => {
         if (!loginCustomerId && cleanCustomerId !== '9301596383') {
           console.log('🔍 Trying hardcoded MCC 9301596383...');
           
-          const hardcodedMCCResponse = await fetch(`https://googleads.googleapis.com/v18/customers/${cleanCustomerId}/googleAds:search`, {
+          const hardcodedMCCResponse = await fetch(`https://googleads.googleapis.com/v17/customers/${cleanCustomerId}/googleAds:search`, {
             method: "POST",
             headers: {
               "Authorization": `Bearer ${accessToken}`,

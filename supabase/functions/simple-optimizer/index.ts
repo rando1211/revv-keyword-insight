@@ -50,7 +50,7 @@ serve(async (req) => {
 
     // Fetch campaigns using the EXACT same query that was working
     const cleanCustomerId = customerId.replace('customers/', '');
-    const adsApiUrl = `https://googleads.googleapis.com/v18/customers/${cleanCustomerId}/googleAds:search`;
+    const adsApiUrl = `https://googleads.googleapis.com/v17/customers/${cleanCustomerId}/googleAds:search`;
 
     const headers = {
       'Authorization': `Bearer ${access_token}`,

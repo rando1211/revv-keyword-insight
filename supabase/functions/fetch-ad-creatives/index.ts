@@ -169,7 +169,7 @@ serve(async (req) => {
     console.log(`📨 Request headers: ${JSON.stringify(headers)}`);
 
     // Make the request to Google Ads API
-    const apiUrl = `https://googleads.googleapis.com/v18/customers/${cleanCustomerId}/googleAds:search`;
+    const apiUrl = `https://googleads.googleapis.com/v17/customers/${cleanCustomerId}/googleAds:search`;
     const response = await fetch(apiUrl, {
       method: 'POST',
       headers,

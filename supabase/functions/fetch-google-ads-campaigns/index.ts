@@ -133,7 +133,7 @@ serve(async (req) => {
     `;
 
     try {
-      const apiUrl = `https://googleads.googleapis.com/v18/customers/${cleanCustomerId}/googleAds:search`;
+      const apiUrl = `https://googleads.googleapis.com/v17/customers/${cleanCustomerId}/googleAds:search`;
       
       console.log("🚀 Final API URL:", apiUrl);
       console.log("🚀 Customer ID being used:", cleanCustomerId);

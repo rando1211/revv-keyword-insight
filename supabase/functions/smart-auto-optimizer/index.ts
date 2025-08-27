@@ -51,7 +51,7 @@ serve(async (req) => {
     console.log('✅ Fresh access token obtained');
 
     const cleanCustomerId = customerId.replace('customers/', '');
-    const adsApiUrl = `https://googleads.googleapis.com/v18/customers/${cleanCustomerId}/googleAds:search`;
+    const adsApiUrl = `https://googleads.googleapis.com/v17/customers/${cleanCustomerId}/googleAds:search`;
 
     const headers = {
       'Authorization': `Bearer ${access_token}`,
@@ -179,7 +179,7 @@ serve(async (req) => {
         actionType: 'negative_keywords',
         keywords: topWasteTerms,
         executed: false,
-        apiEndpoint: `https://googleads.googleapis.com/v18/customers/${cleanCustomerId}/campaignCriteria:mutate`,
+        apiEndpoint: `https://googleads.googleapis.com/v17/customers/${cleanCustomerId}/campaignCriteria:mutate`,
         method: 'POST',
         payload: {
           operations: topWasteTerms.slice(0, 5).map(term => ({
@@ -212,7 +212,7 @@ serve(async (req) => {
         actionType: 'bid_increase',
         keywords: goodTerms.slice(0, 8),
         executed: false,
-        apiEndpoint: `https://googleads.googleapis.com/v18/customers/${cleanCustomerId}/adGroupCriteria:mutate`,
+        apiEndpoint: `https://googleads.googleapis.com/v17/customers/${cleanCustomerId}/adGroupCriteria:mutate`,
         method: 'POST',
         payload: {
           operations: goodTerms.slice(0, 5).map(term => ({
@@ -242,7 +242,7 @@ serve(async (req) => {
         actionType: 'budget_reallocation',
         campaigns: campaignIds.slice(0, 5),
         executed: false,
-        apiEndpoint: `https://googleads.googleapis.com/v18/customers/${cleanCustomerId}/campaigns:mutate`,
+        apiEndpoint: `https://googleads.googleapis.com/v17/customers/${cleanCustomerId}/campaigns:mutate`,
         method: 'POST',
         payload: {
           operations: campaignIds.slice(0, 3).map(campaignId => ({

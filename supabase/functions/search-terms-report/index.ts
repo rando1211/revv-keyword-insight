@@ -48,7 +48,7 @@ serve(async (req) => {
     const { access_token } = oauthData;
 
     const cleanCustomerId = customerId.replace('customers/', '');
-    const adsApiUrl = `https://googleads.googleapis.com/v18/customers/${cleanCustomerId}/googleAds:search`;
+    const adsApiUrl = `https://googleads.googleapis.com/v17/customers/${cleanCustomerId}/googleAds:search`;
 
     const headers = {
       'Authorization': `Bearer ${access_token}`,

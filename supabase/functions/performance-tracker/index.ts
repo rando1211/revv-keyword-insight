@@ -57,7 +57,7 @@ serve(async (req) => {
     const cleanCustomerId = customerId.replace('customers/', '');
 
     // Fetch current campaign performance
-    const apiUrl = `https://googleads.googleapis.com/v18/customers/${cleanCustomerId}/googleAds:search`;
+    const adsApiUrl = `https://googleads.googleapis.com/v17/customers/${cleanCustomerId}/googleAds:search`;
     
     const performanceQuery = `
       SELECT

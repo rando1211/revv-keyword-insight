@@ -80,7 +80,7 @@ serve(async (req) => {
     console.log('📅 Time windows:', windows);
 
     const cleanCustomerId = customerId.replace('customers/', '');
-    const apiUrl = `https://googleads.googleapis.com/v18/customers/${cleanCustomerId}/googleAds:search`;
+    const apiUrl = `https://googleads.googleapis.com/v17/customers/${cleanCustomerId}/googleAds:search`;
     
     const headers = {
       'Authorization': `Bearer ${access_token}`,

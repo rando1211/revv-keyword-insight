@@ -84,7 +84,7 @@ serve(async (req) => {
     console.log('🔍 Primary Customer ID:', primaryCustomerId);
 
     // Query accessible customers from the primary account
-    const accessibleResponse = await fetch(`https://googleads.googleapis.com/v18/customers/${primaryCustomerId}/googleAds:search`, {
+    const accessibleResponse = await fetch(`https://googleads.googleapis.com/v17/customers/${primaryCustomerId}/googleAds:search`, {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${accessToken}`,
@@ -167,7 +167,7 @@ serve(async (req) => {
       if (record.manager_customer_id) {
         // Test if this MCC relationship actually works
         try {
-          const testResponse = await fetch(`https://googleads.googleapis.com/v18/customers/${record.customer_id}/googleAds:search`, {
+          const testResponse = await fetch(`https://googleads.googleapis.com/v17/customers/${record.customer_id}/googleAds:search`, {
             method: "POST",
             headers: {
               "Authorization": `Bearer ${accessToken}`,

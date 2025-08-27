@@ -201,7 +201,7 @@ Due to timeout in Step 2, providing basic optimization template:
 \`\`\`javascript
 // Basic bid adjustment function
 const adjustBids = async (customerId, campaignId, bidAdjustment) => {
-  const response = await fetch(\`https://googleads.googleapis.com/v18/customers/\${customerId}/campaigns/\${campaignId}:mutate\`, {
+  const response = await fetch(\`https://googleads.googleapis.com/v17/customers/\${customerId}/campaigns/\${campaignId}:mutate\`, {
     method: 'POST',
     headers: {
       'Authorization': \`Bearer \${accessToken}\`,
