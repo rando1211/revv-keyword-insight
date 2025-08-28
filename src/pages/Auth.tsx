@@ -179,63 +179,37 @@ export default function Auth() {
             </TabsContent>
             
             <TabsContent value="signup">
-              <form onSubmit={handleSignUp} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="signup-email">Email</Label>
-                  <Input
-                    id="signup-email"
-                    type="email"
-                    placeholder="Enter your email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="signup-password">Password</Label>
-                  <Input
-                    id="signup-password"
-                    type="password"
-                    placeholder="Create a password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                  />
-                </div>
-                {error && (
-                  <Alert variant="destructive">
-                    <AlertDescription>{error}</AlertDescription>
-                  </Alert>
-                )}
-                <Button type="submit" className="w-full" disabled={loading}>
-                  {loading ? 'Deploying DEXTRUM...' : 'Deploy DEXTRUM'}
-                </Button>
-                
-                <div className="relative">
-                  <div className="absolute inset-0 flex items-center">
-                    <span className="w-full border-t" />
+              <div className="space-y-6 text-center">
+                <div className="space-y-3">
+                  <div className="bg-muted/30 p-6 rounded-lg">
+                    <h3 className="text-xl font-semibold mb-2">Beta Access Only</h3>
+                    <p className="text-muted-foreground text-sm leading-relaxed">
+                      DEXTRUM is currently in closed beta. New registrations are invite-only as we refine our tactical optimization protocols.
+                    </p>
                   </div>
-                  <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-background px-2 text-muted-foreground">Or continue with</span>
+                  
+                  <div className="bg-gradient-to-r from-destructive/10 to-destructive/5 p-4 rounded-lg border border-destructive/20">
+                    <h4 className="font-medium text-destructive mb-1">Coming Soon</h4>
+                    <p className="text-sm text-muted-foreground">
+                      Public access will be available once beta testing is complete. Join our waitlist for early access.
+                    </p>
                   </div>
                 </div>
-                
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full"
-                  onClick={handleGoogleSignIn}
-                  disabled={loading}
+
+                <Button 
+                  variant="outline" 
+                  className="w-full" 
+                  disabled
                 >
-                  🔗 Continue with Google
+                  Sign Up - Coming Soon
                 </Button>
                 
-                <p className="text-sm text-muted-foreground text-center">
-                  Elite optimization protocols await deployment
+                <p className="text-xs text-muted-foreground">
+                  Already have beta access? Switch to Sign In
                 </p>
                 
                 {/* Performance Tracker Access */}
-                <div className="mt-4 pt-4 border-t border-muted">
+                <div className="mt-6 pt-4 border-t border-muted">
                   <Button
                     onClick={() => {
                       localStorage.setItem('bypass-auth', 'true');
@@ -250,7 +224,7 @@ export default function Auth() {
                     Click to access dashboard with performance tracking tools
                   </p>
                 </div>
-              </form>
+              </div>
             </TabsContent>
           </Tabs>
         </CardContent>
