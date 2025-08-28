@@ -147,20 +147,23 @@ const Landing = () => {
 
       {/* Header */}
       <header className="border-b border-border/20 backdrop-blur-md bg-background/80 sticky top-0 z-50">
-        <div className="container mx-auto px-6 py-4">
+        <div className="container mx-auto px-4 sm:px-6 py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="bg-gradient-primary text-primary-foreground rounded-xl p-3 font-bold text-xl tracking-wider shadow-glow">
+            <div className="flex items-center space-x-2 sm:space-x-3">
+              <div className="bg-gradient-primary text-primary-foreground rounded-xl p-2 sm:p-3 font-bold text-lg sm:text-xl tracking-wider shadow-glow">
                 DEXTRUM
               </div>
-              <span className="text-sm font-medium text-muted-foreground">AI Optimization Butler</span>
+              <span className="hidden sm:block text-sm font-medium text-muted-foreground">AI Optimization Butler</span>
             </div>
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2 sm:space-x-4">
               <Link to="/auth">
-                <Button variant="ghost" className="font-medium hover:bg-primary/10 transition-colors">Command Center</Button>
+                <Button variant="ghost" size="sm" className="hidden sm:inline-flex font-medium hover:bg-primary/10 transition-colors">Command Center</Button>
               </Link>
               <Link to="/auth">
-                <Button className="font-medium bg-gradient-primary hover:opacity-90 shadow-card transition-all">Deploy DEXTRUM</Button>
+                <Button size="sm" className="font-medium bg-gradient-primary hover:opacity-90 shadow-card transition-all">
+                  <span className="hidden sm:inline">Deploy DEXTRUM</span>
+                  <span className="sm:hidden">Deploy</span>
+                </Button>
               </Link>
             </div>
           </div>
@@ -168,56 +171,58 @@ const Landing = () => {
       </header>
 
       {/* Hero Section */}
-      <section className="py-24 px-6 relative">
+      <section className="py-12 sm:py-16 md:py-24 px-4 sm:px-6 relative">
         <div className="container mx-auto text-center max-w-6xl relative z-10">
-          <Badge className="mb-8 text-sm font-medium bg-gradient-primary border-primary/20 shadow-glow animate-pulse">
+          <Badge className="mb-6 sm:mb-8 text-xs sm:text-sm font-medium bg-gradient-primary border-primary/20 shadow-glow animate-pulse">
             🚀 TACTICAL OPS READY
           </Badge>
-          <h1 className="text-7xl lg:text-8xl font-bold mb-8 bg-gradient-hero bg-clip-text text-transparent leading-tight tracking-tight">
+          <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-bold mb-6 sm:mb-8 bg-gradient-hero bg-clip-text text-transparent leading-tight tracking-tight">
             Meet DEXTRUM
           </h1>
-          <h2 className="text-3xl lg:text-4xl font-semibold mb-8 text-foreground/90">
+          <h2 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-semibold mb-6 sm:mb-8 text-foreground/90">
             Your Tactical Optimization Butler
           </h2>
-          <p className="text-xl lg:text-2xl text-muted-foreground mb-12 max-w-4xl mx-auto font-medium leading-relaxed">
+          <p className="text-base sm:text-lg md:text-xl lg:text-2xl text-muted-foreground mb-8 sm:mb-12 max-w-4xl mx-auto font-medium leading-relaxed">
             While others analyze, DEXTRUM executes. Precision automation that eliminates inefficiencies and neutralizes wasted spend with military-grade precision.
           </p>
-          <div className="flex flex-col sm:flex-row gap-6 justify-center mb-16">
-            <Link to="/auth">
-              <Button size="lg" className="text-xl px-12 py-4 font-semibold bg-gradient-primary hover:opacity-90 shadow-elevation transform hover:scale-105 transition-all">
+          <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 justify-center mb-12 sm:mb-16">
+            <Link to="/auth" className="w-full sm:w-auto">
+              <Button size="lg" className="w-full sm:w-auto text-lg sm:text-xl px-8 sm:px-12 py-3 sm:py-4 font-semibold bg-gradient-primary hover:opacity-90 shadow-elevation transform hover:scale-105 transition-all">
                 🎯 Initiate Protocol
               </Button>
             </Link>
             <Button 
               size="lg" 
               variant="outline" 
-              className="text-xl px-12 py-4 font-semibold group border-primary/20 hover:bg-primary/5 hover:border-primary/40 transition-all transform hover:scale-105"
+              className="w-full sm:w-auto text-lg sm:text-xl px-8 sm:px-12 py-3 sm:py-4 font-semibold group border-primary/20 hover:bg-primary/5 hover:border-primary/40 transition-all transform hover:scale-105"
               onClick={runOptimizationDemo}
               disabled={isRunningDemo}
             >
-              <Zap className="mr-3 h-6 w-6 group-hover:text-primary transition-colors" />
-              {isRunningDemo ? "⚡ Running Protocol..." : "⚡ Live Demo"}
+              <Zap className="mr-2 sm:mr-3 h-5 w-5 sm:h-6 sm:w-6 group-hover:text-primary transition-colors" />
+              <span className="hidden sm:inline">{isRunningDemo ? "⚡ Running Protocol..." : "⚡ Live Demo"}</span>
+              <span className="sm:hidden">{isRunningDemo ? "Running..." : "Demo"}</span>
             </Button>
           </div>
 
           {/* Interactive Demo Dashboard */}
-          <div className="max-w-7xl mx-auto mt-20">
+          <div className="max-w-7xl mx-auto mt-12 sm:mt-20">
             <Card className="bg-gradient-card backdrop-blur-md border-border/30 shadow-elevation overflow-hidden">
-              <CardHeader className="pb-6 bg-gradient-to-r from-primary/5 to-accent/5 border-b border-border/20">
-                <div className="flex items-center justify-between">
+              <CardHeader className="pb-4 sm:pb-6 bg-gradient-to-r from-primary/5 to-accent/5 border-b border-border/20">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                   <div>
-                    <CardTitle className="text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent">
+                    <CardTitle className="text-xl sm:text-2xl md:text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent">
                       ⚡ DEXTRUM Live Command Center
                     </CardTitle>
-                    <p className="text-muted-foreground text-lg mt-2">Watch AI optimization execute in real-time</p>
+                    <p className="text-muted-foreground text-sm sm:text-base md:text-lg mt-2">Watch AI optimization execute in real-time</p>
                   </div>
-                  <div className="flex items-center gap-3">
-                    {isRunningDemo && <div className="h-3 w-3 bg-primary rounded-full animate-pulse shadow-glow"></div>}
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    {isRunningDemo && <div className="h-2 w-2 sm:h-3 sm:w-3 bg-primary rounded-full animate-pulse shadow-glow"></div>}
                     <Badge 
                       variant={isRunningDemo ? "default" : "secondary"}
-                      className={isRunningDemo ? "bg-gradient-primary shadow-glow animate-pulse" : ""}
+                      className={`text-xs sm:text-sm ${isRunningDemo ? "bg-gradient-primary shadow-glow animate-pulse" : ""}`}
                     >
-                      {isRunningDemo ? "🔥 OPTIMIZING" : "⚡ READY TO DEPLOY"}
+                      <span className="hidden sm:inline">{isRunningDemo ? "🔥 OPTIMIZING" : "⚡ READY TO DEPLOY"}</span>
+                      <span className="sm:hidden">{isRunningDemo ? "🔥 OPT" : "⚡ RDY"}</span>
                     </Badge>
                   </div>
                 </div>
@@ -236,15 +241,18 @@ const Landing = () => {
               </CardHeader>
               <CardContent>
                 <Tabs value={activeDemo} onValueChange={setActiveDemo} className="w-full">
-                  <TabsList className="grid w-full grid-cols-3 mb-8 bg-secondary/50 p-1 rounded-xl">
-                    <TabsTrigger value="performance" className="data-[state=active]:bg-gradient-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-card transition-all font-semibold">
-                      📊 Performance Impact
+                  <TabsList className="grid w-full grid-cols-3 mb-6 sm:mb-8 bg-secondary/50 p-1 rounded-xl">
+                    <TabsTrigger value="performance" className="data-[state=active]:bg-gradient-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-card transition-all font-semibold text-xs sm:text-sm">
+                      <span className="hidden sm:inline">📊 Performance Impact</span>
+                      <span className="sm:hidden">📊 Perf</span>
                     </TabsTrigger>
-                    <TabsTrigger value="campaigns" className="data-[state=active]:bg-gradient-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-card transition-all font-semibold">
-                      🎯 Campaign Analysis
+                    <TabsTrigger value="campaigns" className="data-[state=active]:bg-gradient-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-card transition-all font-semibold text-xs sm:text-sm">
+                      <span className="hidden sm:inline">🎯 Campaign Analysis</span>
+                      <span className="sm:hidden">🎯 Camp</span>
                     </TabsTrigger>
-                    <TabsTrigger value="search-terms" className="data-[state=active]:bg-gradient-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-card transition-all font-semibold">
-                      🔍 Search Terms
+                    <TabsTrigger value="search-terms" className="data-[state=active]:bg-gradient-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-card transition-all font-semibold text-xs sm:text-sm">
+                      <span className="hidden sm:inline">🔍 Search Terms</span>
+                      <span className="sm:hidden">🔍 Terms</span>
                     </TabsTrigger>
                   </TabsList>
 
@@ -258,60 +266,60 @@ const Landing = () => {
                         <p className="text-muted-foreground">Real-time performance metrics and optimization impact</p>
                       </CardHeader>
                       <CardContent>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-6">
                           {/* Before Metrics */}
                           <div className="space-y-3">
-                            <h4 className="font-medium text-muted-foreground">Current Performance</h4>
+                            <h4 className="font-medium text-muted-foreground text-sm sm:text-base">Current Performance</h4>
                             <div className="space-y-2">
                               <div className="flex justify-between">
-                                <span className="text-sm">CTR</span>
-                                <span className="font-medium">3.2%</span>
+                                <span className="text-xs sm:text-sm">CTR</span>
+                                <span className="font-medium text-sm sm:text-base">3.2%</span>
                               </div>
                               <div className="flex justify-between">
-                                <span className="text-sm">CPA</span>
-                                <span className="font-medium">$85</span>
+                                <span className="text-xs sm:text-sm">CPA</span>
+                                <span className="font-medium text-sm sm:text-base">$85</span>
                               </div>
                               <div className="flex justify-between">
-                                <span className="text-sm">Wasted Spend</span>
-                                <span className="font-medium text-destructive">12%</span>
+                                <span className="text-xs sm:text-sm">Wasted Spend</span>
+                                <span className="font-medium text-destructive text-sm sm:text-base">12%</span>
                               </div>
                             </div>
                           </div>
 
                           {/* After Metrics */}
                           <div className="space-y-3">
-                            <h4 className="font-medium text-success">After Optimization</h4>
+                            <h4 className="font-medium text-success text-sm sm:text-base">After Optimization</h4>
                             <div className="space-y-2">
                               <div className="flex justify-between">
-                                <span className="text-sm">CTR</span>
-                                <span className="font-medium text-success">4.8%</span>
+                                <span className="text-xs sm:text-sm">CTR</span>
+                                <span className="font-medium text-success text-sm sm:text-base">4.8%</span>
                               </div>
                               <div className="flex justify-between">
-                                <span className="text-sm">CPA</span>
-                                <span className="font-medium text-success">$62</span>
+                                <span className="text-xs sm:text-sm">CPA</span>
+                                <span className="font-medium text-success text-sm sm:text-base">$62</span>
                               </div>
                               <div className="flex justify-between">
-                                <span className="text-sm">Wasted Spend</span>
-                                <span className="font-medium text-success">3%</span>
+                                <span className="text-xs sm:text-sm">Wasted Spend</span>
+                                <span className="font-medium text-success text-sm sm:text-base">3%</span>
                               </div>
                             </div>
                           </div>
 
                           {/* Projected Savings */}
-                          <div className="space-y-3">
-                            <h4 className="font-medium text-primary">Monthly Impact</h4>
+                          <div className="space-y-3 sm:col-span-2 lg:col-span-1">
+                            <h4 className="font-medium text-primary text-sm sm:text-base">Monthly Impact</h4>
                             <div className="space-y-2">
                               <div className="flex justify-between">
-                                <span className="text-sm">Cost Savings</span>
-                                <span className="font-medium text-success">${demoData.metrics.wastedSpend > 0 ? demoData.metrics.wastedSpend.toLocaleString() : '2,840'}</span>
+                                <span className="text-xs sm:text-sm">Cost Savings</span>
+                                <span className="font-medium text-success text-sm sm:text-base">${demoData.metrics.wastedSpend > 0 ? demoData.metrics.wastedSpend.toLocaleString() : '2,840'}</span>
                               </div>
                               <div className="flex justify-between">
-                                <span className="text-sm">ROI Improvement</span>
-                                <span className="font-medium text-success">+{demoData.metrics.roasImprovement || 27}%</span>
+                                <span className="text-xs sm:text-sm">ROI Improvement</span>
+                                <span className="font-medium text-success text-sm sm:text-base">+{demoData.metrics.roasImprovement || 27}%</span>
                               </div>
                               <div className="flex justify-between">
-                                <span className="text-sm">Optimizations</span>
-                                <span className="font-medium">47 Applied</span>
+                                <span className="text-xs sm:text-sm">Optimizations</span>
+                                <span className="font-medium text-sm sm:text-base">47 Applied</span>
                               </div>
                             </div>
                           </div>
@@ -329,7 +337,7 @@ const Landing = () => {
                   </TabsContent>
 
                   <TabsContent value="campaigns" className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                       {demoData.campaigns.map((campaign, index) => (
                         <Card key={campaign.name} className="bg-card/50 backdrop-blur-sm border-white/10 hover:shadow-elevation transition-shadow">
                           <CardHeader className="pb-3">
@@ -490,14 +498,14 @@ const Landing = () => {
       </section>
 
       {/* Features Grid */}
-      <section className="py-20 px-6 bg-muted/30">
+      <section className="py-12 sm:py-16 md:py-20 px-4 sm:px-6 bg-muted/30">
         <div className="container mx-auto max-w-7xl">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold mb-4">Tactical Operations Suite</h2>
-            <p className="text-muted-foreground text-lg">Elite-level automation protocols for campaign domination</p>
+          <div className="text-center mb-12 sm:mb-16">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-4">Tactical Operations Suite</h2>
+            <p className="text-muted-foreground text-base sm:text-lg">Elite-level automation protocols for campaign domination</p>
           </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
             <Card className="p-8 hover:shadow-xl transition-all duration-300 border-border/50 group">
               <div className="flex items-center mb-6">
                 <div className="bg-destructive/10 p-4 rounded-xl mr-4 group-hover:bg-destructive/20 transition-colors">
@@ -592,49 +600,49 @@ const Landing = () => {
       </section>
 
       {/* Impact Metrics */}
-      <section className="py-20 px-6">
+      <section className="py-12 sm:py-16 md:py-20 px-4 sm:px-6">
         <div className="container mx-auto max-w-6xl">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold mb-4">Mission Impact Metrics</h2>
-            <p className="text-muted-foreground text-lg">Verified results from tactical optimization protocols</p>
+          <div className="text-center mb-12 sm:mb-16">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-4">Mission Impact Metrics</h2>
+            <p className="text-muted-foreground text-base sm:text-lg">Verified results from tactical optimization protocols</p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8 mb-16">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 sm:gap-8 mb-12 sm:mb-16">
             <div className="text-center">
-              <div className="text-6xl font-bold text-destructive mb-4">$1.2M</div>
-              <p className="text-xl font-semibold mb-2">Wasted Spend Neutralized</p>
-              <p className="text-muted-foreground">Across agencies worldwide</p>
+              <div className="text-4xl sm:text-5xl md:text-6xl font-bold text-destructive mb-4">$1.2M</div>
+              <p className="text-lg sm:text-xl font-semibold mb-2">Wasted Spend Neutralized</p>
+              <p className="text-muted-foreground text-sm sm:text-base">Across agencies worldwide</p>
             </div>
             <div className="text-center">
-              <div className="text-6xl font-bold text-destructive mb-4">340%</div>
-              <p className="text-xl font-semibold mb-2">Average ROI Improvement</p>
-              <p className="text-muted-foreground">Within 30 days deployment</p>
+              <div className="text-4xl sm:text-5xl md:text-6xl font-bold text-destructive mb-4">340%</div>
+              <p className="text-lg sm:text-xl font-semibold mb-2">Average ROI Improvement</p>
+              <p className="text-muted-foreground text-sm sm:text-base">Within 30 days deployment</p>
             </div>
-            <div className="text-center">
-              <div className="text-6xl font-bold text-destructive mb-4">89%</div>
-              <p className="text-xl font-semibold mb-2">Manual Tasks Eliminated</p>
-              <p className="text-muted-foreground">Time returned to strategy</p>
+            <div className="text-center sm:col-span-2 md:col-span-1">
+              <div className="text-4xl sm:text-5xl md:text-6xl font-bold text-destructive mb-4">89%</div>
+              <p className="text-lg sm:text-xl font-semibold mb-2">Manual Tasks Eliminated</p>
+              <p className="text-muted-foreground text-sm sm:text-base">Time returned to strategy</p>
             </div>
           </div>
 
-          <div className="bg-gradient-to-br from-destructive/5 to-muted/50 p-12 rounded-2xl text-center">
-            <blockquote className="text-2xl font-medium mb-6 italic">
+          <div className="bg-gradient-to-br from-destructive/5 to-muted/50 p-6 sm:p-8 md:p-12 rounded-2xl text-center">
+            <blockquote className="text-lg sm:text-xl md:text-2xl font-medium mb-4 sm:mb-6 italic">
               "Efficiency is not a luxury. It's a protocol."
             </blockquote>
-            <cite className="text-muted-foreground">— DEXTRUM Operating Philosophy</cite>
+            <cite className="text-muted-foreground text-sm sm:text-base">— DEXTRUM Operating Philosophy</cite>
           </div>
         </div>
       </section>
 
       {/* Benefits Section */}
-      <section className="py-20 px-6 bg-muted/30">
+      <section className="py-12 sm:py-16 md:py-20 px-4 sm:px-6 bg-muted/30">
         <div className="container mx-auto max-w-6xl">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold mb-4">The DEXTRUM Advantage</h2>
-            <p className="text-muted-foreground text-lg">Your tactical edge in campaign optimization</p>
+          <div className="text-center mb-12 sm:mb-16">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-4">The DEXTRUM Advantage</h2>
+            <p className="text-muted-foreground text-base sm:text-lg">Your tactical edge in campaign optimization</p>
           </div>
 
-          <div className="grid md:grid-cols-2 gap-12 items-center">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 sm:gap-12 items-center">
             <div className="space-y-8">
               <div className="flex items-start">
                 <div className="bg-destructive/10 p-3 rounded-lg mr-4 mt-1">
@@ -703,21 +711,23 @@ const Landing = () => {
       </section>
 
       {/* CTA Section */}
-      <section className="py-20 px-6 bg-destructive text-destructive-foreground">
+      <section className="py-12 sm:py-16 md:py-20 px-4 sm:px-6 bg-destructive text-destructive-foreground">
         <div className="container mx-auto text-center max-w-5xl">
-          <h2 className="text-5xl font-bold mb-6">Deploy DEXTRUM to Your Operations</h2>
-          <p className="text-xl opacity-90 mb-12 max-w-3xl mx-auto">
+          <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-6">Deploy DEXTRUM to Your Operations</h2>
+          <p className="text-base sm:text-lg md:text-xl opacity-90 mb-8 sm:mb-12 max-w-3xl mx-auto">
             Automate your Google Ads operations with elite-level precision. Allow DEXTRUM to streamline your campaigns while you focus on strategy.
           </p>
-          <div className="flex flex-col sm:flex-row gap-6 justify-center">
-            <Link to="/auth">
-              <Button size="lg" variant="secondary" className="text-lg px-10 py-4 font-semibold group">
-                Eliminate Inefficiencies Now
-                <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
+          <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 justify-center">
+            <Link to="/auth" className="w-full sm:w-auto">
+              <Button size="lg" variant="secondary" className="w-full sm:w-auto text-base sm:text-lg px-8 sm:px-10 py-3 sm:py-4 font-semibold group">
+                <span className="hidden sm:inline">Eliminate Inefficiencies Now</span>
+                <span className="sm:hidden">Get Started</span>
+                <ArrowRight className="ml-2 h-4 w-4 sm:h-5 sm:w-5 group-hover:translate-x-1 transition-transform" />
               </Button>
             </Link>
-            <Button size="lg" variant="outline" className="text-lg px-10 py-4 font-semibold border-destructive-foreground text-destructive-foreground hover:bg-destructive-foreground hover:text-destructive">
-              Request Tactical Briefing
+            <Button size="lg" variant="outline" className="w-full sm:w-auto text-base sm:text-lg px-8 sm:px-10 py-3 sm:py-4 font-semibold border-destructive-foreground text-destructive-foreground hover:bg-destructive-foreground hover:text-destructive">
+              <span className="hidden sm:inline">Request Tactical Briefing</span>
+              <span className="sm:hidden">Learn More</span>
             </Button>
           </div>
         </div>
