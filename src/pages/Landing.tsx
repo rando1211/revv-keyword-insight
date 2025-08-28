@@ -790,7 +790,7 @@ const Landing = () => {
               <span className="text-lg font-medium text-muted-foreground">AI-Powered Google Ads Intelligence</span>
             </div>
             <p className="text-muted-foreground">
-              © 2024 DEXTRUM. Elite optimization protocols deployed globally.
+              © 2025 DEXTRUM. Elite optimization protocols deployed globally.
             </p>
           </div>
         </div>
