@@ -153,7 +153,7 @@ const Landing = () => {
               <div className="bg-gradient-primary text-primary-foreground rounded-xl p-2 sm:p-3 font-bold text-lg sm:text-xl tracking-wider shadow-glow">
                 DEXTRUM
               </div>
-              <span className="hidden sm:block text-sm font-medium text-muted-foreground">AI Optimization Butler</span>
+              <span className="hidden sm:block text-sm font-medium text-muted-foreground">AI-Powered Google Ads Intelligence</span>
             </div>
             <div className="flex items-center space-x-2 sm:space-x-4">
               <Link to="/auth">
@@ -174,21 +174,21 @@ const Landing = () => {
       <section className="py-12 sm:py-16 md:py-24 px-4 sm:px-6 relative">
         <div className="container mx-auto text-center max-w-6xl relative z-10">
           <Badge className="mb-6 sm:mb-8 text-xs sm:text-sm font-medium bg-gradient-primary border-primary/20 shadow-glow animate-pulse">
-            🚀 TACTICAL OPS READY
+            🤖 FIRST AI-NATIVE GOOGLE ADS ANALYZER
           </Badge>
           <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-bold mb-6 sm:mb-8 bg-gradient-hero bg-clip-text text-transparent leading-tight tracking-tight">
             Meet DEXTRUM
           </h1>
           <h2 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-semibold mb-6 sm:mb-8 text-foreground/90">
-            Your Tactical Optimization Butler
+            The First AI That Speaks Google Ads Fluently
           </h2>
           <p className="text-base sm:text-lg md:text-xl lg:text-2xl text-muted-foreground mb-8 sm:mb-12 max-w-4xl mx-auto font-medium leading-relaxed">
-            While others analyze, DEXTRUM executes. Precision automation that eliminates inefficiencies and neutralizes wasted spend with military-grade precision.
+            Unlike basic reporting tools, DEXTRUM uses advanced AI to directly communicate with Google Ads API, uncovering hidden insights and performance patterns that traditional analytics miss entirely.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 justify-center mb-12 sm:mb-16">
             <Link to="/auth" className="w-full sm:w-auto">
               <Button size="lg" className="w-full sm:w-auto text-lg sm:text-xl px-8 sm:px-12 py-3 sm:py-4 font-semibold bg-gradient-primary hover:opacity-90 shadow-elevation transform hover:scale-105 transition-all">
-                🎯 Initiate Protocol
+                🧠 Analyze My Google Ads
               </Button>
             </Link>
             <Button 
@@ -199,8 +199,8 @@ const Landing = () => {
               disabled={isRunningDemo}
             >
               <Zap className="mr-2 sm:mr-3 h-5 w-5 sm:h-6 sm:w-6 group-hover:text-primary transition-colors" />
-              <span className="hidden sm:inline">{isRunningDemo ? "⚡ Running Protocol..." : "⚡ Live Demo"}</span>
-              <span className="sm:hidden">{isRunningDemo ? "Running..." : "Demo"}</span>
+              <span className="hidden sm:inline">{isRunningDemo ? "🤖 AI Analyzing..." : "🤖 See AI Analysis"}</span>
+              <span className="sm:hidden">{isRunningDemo ? "Analyzing..." : "Demo"}</span>
             </Button>
           </div>
 
@@ -211,9 +211,9 @@ const Landing = () => {
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                   <div>
                     <CardTitle className="text-xl sm:text-2xl md:text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-                      ⚡ DEXTRUM Live Command Center
+                      🤖 DEXTRUM AI Analysis Engine
                     </CardTitle>
-                    <p className="text-muted-foreground text-sm sm:text-base md:text-lg mt-2">Watch AI optimization execute in real-time</p>
+                    <p className="text-muted-foreground text-sm sm:text-base md:text-lg mt-2">AI communicating directly with Google Ads API for deeper insights</p>
                   </div>
                   <div className="flex items-center gap-2 sm:gap-3">
                     {isRunningDemo && <div className="h-2 w-2 sm:h-3 sm:w-3 bg-primary rounded-full animate-pulse shadow-glow"></div>}
@@ -221,8 +221,8 @@ const Landing = () => {
                       variant={isRunningDemo ? "default" : "secondary"}
                       className={`text-xs sm:text-sm ${isRunningDemo ? "bg-gradient-primary shadow-glow animate-pulse" : ""}`}
                     >
-                      <span className="hidden sm:inline">{isRunningDemo ? "🔥 OPTIMIZING" : "⚡ READY TO DEPLOY"}</span>
-                      <span className="sm:hidden">{isRunningDemo ? "🔥 OPT" : "⚡ RDY"}</span>
+                      <span className="hidden sm:inline">{isRunningDemo ? "🤖 AI ANALYZING" : "🧠 READY TO ANALYZE"}</span>
+                      <span className="sm:hidden">{isRunningDemo ? "🤖 AI" : "🧠 RDY"}</span>
                     </Badge>
                   </div>
                 </div>
@@ -230,11 +230,11 @@ const Landing = () => {
                   <div className="mt-6 space-y-3">
                     <Progress value={(demoStep / 5) * 100} className="h-3 bg-secondary" />
                     <p className="text-sm text-muted-foreground font-mono bg-muted/50 px-3 py-2 rounded border-l-4 border-primary">
-                      {demoStep === 1 && "🔍 Scanning 47 campaigns..."}
-                      {demoStep === 2 && "🧠 Analyzing 12,847 search terms..."}
-                      {demoStep === 3 && "⚠️ Identifying wasted spend..."}
-                      {demoStep === 4 && "🚀 Executing optimizations..."}
-                      {demoStep === 5 && "✅ Optimization complete. $2,840 waste eliminated."}
+                      {demoStep === 1 && "🔍 AI scanning Google Ads API endpoints..."}
+                      {demoStep === 2 && "🧠 Deep learning analysis of search terms..."}
+                      {demoStep === 3 && "⚠️ AI identifying hidden performance patterns..."}
+                      {demoStep === 4 && "🚀 Generating intelligent optimization recommendations..."}
+                      {demoStep === 5 && "✅ AI analysis complete. Advanced insights discovered."}
                     </p>
                   </div>
                 )}
@@ -243,16 +243,16 @@ const Landing = () => {
                 <Tabs value={activeDemo} onValueChange={setActiveDemo} className="w-full">
                   <TabsList className="grid w-full grid-cols-3 mb-6 sm:mb-8 bg-secondary/50 p-1 rounded-xl">
                     <TabsTrigger value="performance" className="data-[state=active]:bg-gradient-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-card transition-all font-semibold text-xs sm:text-sm">
-                      <span className="hidden sm:inline">📊 Performance Impact</span>
-                      <span className="sm:hidden">📊 Perf</span>
+                      <span className="hidden sm:inline">📊 AI Insights</span>
+                      <span className="sm:hidden">📊 Insights</span>
                     </TabsTrigger>
                     <TabsTrigger value="campaigns" className="data-[state=active]:bg-gradient-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-card transition-all font-semibold text-xs sm:text-sm">
-                      <span className="hidden sm:inline">🎯 Campaign Analysis</span>
-                      <span className="sm:hidden">🎯 Camp</span>
+                      <span className="hidden sm:inline">🎯 Smart Analysis</span>
+                      <span className="sm:hidden">🎯 Analysis</span>
                     </TabsTrigger>
                     <TabsTrigger value="search-terms" className="data-[state=active]:bg-gradient-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-card transition-all font-semibold text-xs sm:text-sm">
-                      <span className="hidden sm:inline">🔍 Search Terms</span>
-                      <span className="sm:hidden">🔍 Terms</span>
+                      <span className="hidden sm:inline">🔍 AI Discovery</span>
+                      <span className="sm:hidden">🔍 Discovery</span>
                     </TabsTrigger>
                   </TabsList>
 
@@ -261,9 +261,9 @@ const Landing = () => {
                       <CardHeader>
                         <CardTitle className="flex items-center gap-2">
                           <Gauge className="h-5 w-5 text-success" />
-                          Performance Impact Score
+                          AI Performance Intelligence
                         </CardTitle>
-                        <p className="text-muted-foreground">Real-time performance metrics and optimization impact</p>
+                        <p className="text-muted-foreground">Advanced AI analysis reveals insights Google Ads interface cannot show</p>
                       </CardHeader>
                       <CardContent>
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-6">
@@ -501,8 +501,8 @@ const Landing = () => {
       <section className="py-12 sm:py-16 md:py-20 px-4 sm:px-6 bg-muted/30">
         <div className="container mx-auto max-w-7xl">
           <div className="text-center mb-12 sm:mb-16">
-            <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-4">Tactical Operations Suite</h2>
-            <p className="text-muted-foreground text-base sm:text-lg">Elite-level automation protocols for campaign domination</p>
+            <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-4">AI-Powered Google Ads Intelligence</h2>
+            <p className="text-muted-foreground text-base sm:text-lg">Advanced AI capabilities that transform how you understand your campaigns</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
@@ -512,12 +512,12 @@ const Landing = () => {
                   <Search className="h-8 w-8 text-destructive" />
                 </div>
                 <div>
-                  <h3 className="text-xl font-bold">Search Term Annihilation</h3>
-                  <Badge variant="secondary" className="mt-1 text-xs">TACTICAL BENEFIT</Badge>
+                  <h3 className="text-xl font-bold">AI Search Term Intelligence</h3>
+                  <Badge variant="secondary" className="mt-1 text-xs">API-POWERED</Badge>
                 </div>
               </div>
               <p className="text-muted-foreground leading-relaxed">
-                AI-powered search terms analysis with automated negative keyword deployment. DEXTRUM identifies and neutralizes wasteful spend in real-time.
+                AI directly accesses Google Ads API to analyze search term performance patterns humans can't detect. Automatically identifies wasteful terms and optimization opportunities.
               </p>
             </Card>
 
@@ -527,12 +527,12 @@ const Landing = () => {
                   <FileEdit className="h-8 w-8 text-destructive" />
                 </div>
                 <div>
-                  <h3 className="text-xl font-bold">RSA Rewrite Recon</h3>
-                  <Badge variant="secondary" className="mt-1 text-xs">TACTICAL BENEFIT</Badge>
+                  <h3 className="text-xl font-bold">AI Creative Analysis</h3>
+                  <Badge variant="secondary" className="mt-1 text-xs">API-POWERED</Badge>
                 </div>
               </div>
               <p className="text-muted-foreground leading-relaxed">
-                Tactical AI rewrite suggestions for RSA ad copy optimization. Precision adjustments that align with high-converting intent patterns.
+                AI reads performance data directly from Google Ads to suggest RSA improvements based on actual conversion patterns, not just click data.
               </p>
             </Card>
 
@@ -542,12 +542,12 @@ const Landing = () => {
                   <Eye className="h-8 w-8 text-destructive" />
                 </div>
                 <div>
-                  <h3 className="text-xl font-bold">Competitor Intelligence</h3>
-                  <Badge variant="secondary" className="mt-1 text-xs">TACTICAL BENEFIT</Badge>
+                  <h3 className="text-xl font-bold">Deep Performance Analysis</h3>
+                  <Badge variant="secondary" className="mt-1 text-xs">API-POWERED</Badge>
                 </div>
               </div>
               <p className="text-muted-foreground leading-relaxed">
-                Monitor competitor ad strategies and landing page intelligence. Real-time reconnaissance for tactical advantage in your market.
+                AI pulls detailed performance data from Google Ads API that standard dashboards don't show. Uncovers hidden insights about campaign effectiveness.
               </p>
             </Card>
 
@@ -557,12 +557,12 @@ const Landing = () => {
                   <Globe className="h-8 w-8 text-destructive" />
                 </div>
                 <div>
-                  <h3 className="text-xl font-bold">Landing Page Builder</h3>
-                  <Badge variant="secondary" className="mt-1 text-xs">TACTICAL BENEFIT</Badge>
+                  <h3 className="text-xl font-bold">Smart Bidding Intelligence</h3>
+                  <Badge variant="secondary" className="mt-1 text-xs">API-POWERED</Badge>
                 </div>
               </div>
               <p className="text-muted-foreground leading-relaxed">
-                Automated landing page construction that aligns perfectly with ad intent. DEXTRUM ensures seamless message-to-conversion flow.
+                AI communicates with Google Ads API to understand bidding performance at keyword level. Provides insights traditional analytics tools cannot access.
               </p>
             </Card>
 
@@ -572,12 +572,12 @@ const Landing = () => {
                   <BarChart3 className="h-8 w-8 text-destructive" />
                 </div>
                 <div>
-                  <h3 className="text-xl font-bold">Tactical Efficiency Score</h3>
-                  <Badge variant="secondary" className="mt-1 text-xs">TACTICAL BENEFIT</Badge>
+                  <h3 className="text-xl font-bold">AI Account Auditing</h3>
+                  <Badge variant="secondary" className="mt-1 text-xs">API-POWERED</Badge>
                 </div>
               </div>
               <p className="text-muted-foreground leading-relaxed">
-                Full account audits with DEXTRUM's proprietary efficiency scoring. Comprehensive assessment with actionable optimization protocols.
+                AI systematically scans your entire Google Ads account through API access, analyzing thousands of data points to identify optimization opportunities human analysts miss.
               </p>
             </Card>
 
@@ -587,12 +587,12 @@ const Landing = () => {
                   <Zap className="h-8 w-8 text-destructive" />
                 </div>
                 <div>
-                  <h3 className="text-xl font-bold">Direct API Execution</h3>
-                  <Badge variant="secondary" className="mt-1 text-xs">TACTICAL BENEFIT</Badge>
+                  <h3 className="text-xl font-bold">Direct Google Ads API Integration</h3>
+                  <Badge variant="secondary" className="mt-1 text-xs">API-POWERED</Badge>
                 </div>
               </div>
               <p className="text-muted-foreground leading-relaxed">
-                DEXTRUM executes optimizations instantly through direct API integration. No manual intervention required—precision automation at scale.
+                Unlike other tools that just display data, DEXTRUM's AI communicates directly with Google Ads API to read, analyze, and execute changes with unprecedented depth and accuracy.
               </p>
             </Card>
           </div>
@@ -741,7 +741,7 @@ const Landing = () => {
               <div className="bg-destructive text-destructive-foreground rounded-lg p-3 font-bold text-xl tracking-wider">
                 DEXTRUM
               </div>
-              <span className="text-lg font-medium text-muted-foreground">AI Optimization Butler</span>
+              <span className="text-lg font-medium text-muted-foreground">AI-Powered Google Ads Intelligence</span>
             </div>
             <p className="text-muted-foreground">
               © 2024 DEXTRUM. Elite optimization protocols deployed globally.
