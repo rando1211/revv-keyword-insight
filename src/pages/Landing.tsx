@@ -183,7 +183,7 @@ const Landing = () => {
             The First AI That Speaks Google Ads Fluently
           </h2>
           <p className="text-base sm:text-lg md:text-xl lg:text-2xl text-muted-foreground mb-8 sm:mb-12 max-w-4xl mx-auto font-medium leading-relaxed">
-            Unlike basic reporting tools, DEXTRUM uses advanced AI to directly communicate with Google Ads API, uncovering hidden insights and performance patterns that traditional analytics miss entirely.
+            Unlike basic reporting tools, DEXTRUM combines <span className="text-primary font-semibold">OpenAI's GPT-5 models</span> with direct Google Ads API integration to analyze campaign data with human-level intelligence, uncovering hidden insights and performance patterns that traditional analytics miss entirely.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 justify-center mb-12 sm:mb-16">
             <Link to="/auth" className="w-full sm:w-auto">
@@ -213,7 +213,7 @@ const Landing = () => {
                     <CardTitle className="text-xl sm:text-2xl md:text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent">
                       🤖 DEXTRUM AI Analysis Engine
                     </CardTitle>
-                    <p className="text-muted-foreground text-sm sm:text-base md:text-lg mt-2">AI communicating directly with Google Ads API for deeper insights</p>
+                    <p className="text-muted-foreground text-sm sm:text-base md:text-lg mt-2">OpenAI GPT-5 models processing Google Ads API data for unprecedented campaign intelligence</p>
                   </div>
                   <div className="flex items-center gap-2 sm:gap-3">
                     {isRunningDemo && <div className="h-2 w-2 sm:h-3 sm:w-3 bg-primary rounded-full animate-pulse shadow-glow"></div>}
@@ -263,7 +263,7 @@ const Landing = () => {
                           <Gauge className="h-5 w-5 text-success" />
                           AI Performance Intelligence
                         </CardTitle>
-                        <p className="text-muted-foreground">Advanced AI analysis reveals insights Google Ads interface cannot show</p>
+                        <p className="text-muted-foreground">OpenAI GPT-5 models analyze Google Ads API data to reveal insights the standard interface cannot show</p>
                       </CardHeader>
                       <CardContent>
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-6">
