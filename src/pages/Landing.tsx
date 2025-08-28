@@ -26,7 +26,8 @@ import {
   Settings,
   MoreVertical,
   TrendingDown,
-  AlertTriangle
+  AlertTriangle,
+  Users
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Link } from "react-router-dom";
@@ -512,12 +513,12 @@ const Landing = () => {
                   <Search className="h-8 w-8 text-destructive" />
                 </div>
                 <div>
-                  <h3 className="text-xl font-bold">AI Search Term Intelligence</h3>
-                  <Badge variant="secondary" className="mt-1 text-xs">API-POWERED</Badge>
+                  <h3 className="text-xl font-bold">AI Search Terms Analysis</h3>
+                  <Badge variant="secondary" className="mt-1 text-xs">AUTOMATED</Badge>
                 </div>
               </div>
               <p className="text-muted-foreground leading-relaxed">
-                AI directly accesses Google Ads API to analyze search term performance patterns humans can't detect. Automatically identifies wasteful terms and optimization opportunities.
+                Advanced AI analyzes search term reports to identify waste patterns and automatically suggests negative keywords and bid adjustments on your desired schedule.
               </p>
             </Card>
 
@@ -527,42 +528,12 @@ const Landing = () => {
                   <FileEdit className="h-8 w-8 text-destructive" />
                 </div>
                 <div>
-                  <h3 className="text-xl font-bold">AI Creative Analysis</h3>
-                  <Badge variant="secondary" className="mt-1 text-xs">API-POWERED</Badge>
+                  <h3 className="text-xl font-bold">Creative Performance Analysis</h3>
+                  <Badge variant="secondary" className="mt-1 text-xs">AI-POWERED</Badge>
                 </div>
               </div>
               <p className="text-muted-foreground leading-relaxed">
-                AI reads performance data directly from Google Ads to suggest RSA improvements based on actual conversion patterns, not just click data.
-              </p>
-            </Card>
-
-            <Card className="p-8 hover:shadow-xl transition-all duration-300 border-border/50 group">
-              <div className="flex items-center mb-6">
-                <div className="bg-destructive/10 p-4 rounded-xl mr-4 group-hover:bg-destructive/20 transition-colors">
-                  <Eye className="h-8 w-8 text-destructive" />
-                </div>
-                <div>
-                  <h3 className="text-xl font-bold">Deep Performance Analysis</h3>
-                  <Badge variant="secondary" className="mt-1 text-xs">API-POWERED</Badge>
-                </div>
-              </div>
-              <p className="text-muted-foreground leading-relaxed">
-                AI pulls detailed performance data from Google Ads API that standard dashboards don't show. Uncovers hidden insights about campaign effectiveness.
-              </p>
-            </Card>
-
-            <Card className="p-8 hover:shadow-xl transition-all duration-300 border-border/50 group">
-              <div className="flex items-center mb-6">
-                <div className="bg-destructive/10 p-4 rounded-xl mr-4 group-hover:bg-destructive/20 transition-colors">
-                  <Globe className="h-8 w-8 text-destructive" />
-                </div>
-                <div>
-                  <h3 className="text-xl font-bold">Smart Bidding Intelligence</h3>
-                  <Badge variant="secondary" className="mt-1 text-xs">API-POWERED</Badge>
-                </div>
-              </div>
-              <p className="text-muted-foreground leading-relaxed">
-                AI communicates with Google Ads API to understand bidding performance at keyword level. Provides insights traditional analytics tools cannot access.
+                AI analyzes RSA and ad creative performance data to identify top-performing assets and suggest improvements for headlines and descriptions.
               </p>
             </Card>
 
@@ -572,27 +543,102 @@ const Landing = () => {
                   <BarChart3 className="h-8 w-8 text-destructive" />
                 </div>
                 <div>
-                  <h3 className="text-xl font-bold">AI Account Auditing</h3>
-                  <Badge variant="secondary" className="mt-1 text-xs">API-POWERED</Badge>
+                  <h3 className="text-xl font-bold">Enterprise Account Auditing</h3>
+                  <Badge variant="secondary" className="mt-1 text-xs">COMPREHENSIVE</Badge>
                 </div>
               </div>
               <p className="text-muted-foreground leading-relaxed">
-                AI systematically scans your entire Google Ads account through API access, analyzing thousands of data points to identify optimization opportunities human analysts miss.
+                Complete account structure analysis with AI recommendations for campaign optimization, keyword expansion, and budget allocation across multiple accounts.
               </p>
             </Card>
 
             <Card className="p-8 hover:shadow-xl transition-all duration-300 border-border/50 group">
               <div className="flex items-center mb-6">
                 <div className="bg-destructive/10 p-4 rounded-xl mr-4 group-hover:bg-destructive/20 transition-colors">
-                  <Zap className="h-8 w-8 text-destructive" />
+                  <Eye className="h-8 w-8 text-destructive" />
                 </div>
                 <div>
-                  <h3 className="text-xl font-bold">Direct Google Ads API Integration</h3>
-                  <Badge variant="secondary" className="mt-1 text-xs">API-POWERED</Badge>
+                  <h3 className="text-xl font-bold">Competitor Intelligence</h3>
+                  <Badge variant="secondary" className="mt-1 text-xs">AI-DRIVEN</Badge>
                 </div>
               </div>
               <p className="text-muted-foreground leading-relaxed">
-                Unlike other tools that just display data, DEXTRUM's AI communicates directly with Google Ads API to read, analyze, and execute changes with unprecedented depth and accuracy.
+                Monitor competitor ad strategies, identify market gaps, and receive AI-powered recommendations for competitive positioning and keyword opportunities.
+              </p>
+            </Card>
+
+            <Card className="p-8 hover:shadow-xl transition-all duration-300 border-border/50 group">
+              <div className="flex items-center mb-6">
+                <div className="bg-destructive/10 p-4 rounded-xl mr-4 group-hover:bg-destructive/20 transition-colors">
+                  <Settings className="h-8 w-8 text-destructive" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold">Automated Optimization Execution</h3>
+                  <Badge variant="secondary" className="mt-1 text-xs">SCHEDULED</Badge>
+                </div>
+              </div>
+              <p className="text-muted-foreground leading-relaxed">
+                Execute AI recommendations automatically on your preferred schedule - daily, weekly, or custom frequencies. Changes are applied directly to Google Ads campaigns.
+              </p>
+            </Card>
+
+            <Card className="p-8 hover:shadow-xl transition-all duration-300 border-border/50 group">
+              <div className="flex items-center mb-6">
+                <div className="bg-destructive/10 p-4 rounded-xl mr-4 group-hover:bg-destructive/20 transition-colors">
+                  <Globe className="h-8 w-8 text-destructive" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold">MCC & Multi-Account Management</h3>
+                  <Badge variant="secondary" className="mt-1 text-xs">SCALABLE</Badge>
+                </div>
+              </div>
+              <p className="text-muted-foreground leading-relaxed">
+                Manage multiple Google Ads accounts and MCC hierarchies from a single dashboard with AI insights and optimizations applied across your entire portfolio.
+              </p>
+            </Card>
+
+            <Card className="p-8 hover:shadow-xl transition-all duration-300 border-border/50 group">
+              <div className="flex items-center mb-6">
+                <div className="bg-destructive/10 p-4 rounded-xl mr-4 group-hover:bg-destructive/20 transition-colors">
+                  <Target className="h-8 w-8 text-destructive" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold">Campaign Builder Wizard</h3>
+                  <Badge variant="secondary" className="mt-1 text-xs">AI-ASSISTED</Badge>
+                </div>
+              </div>
+              <p className="text-muted-foreground leading-relaxed">
+                Build complete Google Ads campaigns with AI-powered keyword research, ad copy generation, and campaign structure recommendations based on your business goals.
+              </p>
+            </Card>
+
+            <Card className="p-8 hover:shadow-xl transition-all duration-300 border-border/50 group">
+              <div className="flex items-center mb-6">
+                <div className="bg-destructive/10 p-4 rounded-xl mr-4 group-hover:bg-destructive/20 transition-colors">
+                  <TrendingUp className="h-8 w-8 text-destructive" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold">Performance Tracking Dashboard</h3>
+                  <Badge variant="secondary" className="mt-1 text-xs">REAL-TIME</Badge>
+                </div>
+              </div>
+              <p className="text-muted-foreground leading-relaxed">
+                Track campaign performance with AI-powered insights, optimization scores, and next-best-action recommendations updated in real-time from Google Ads API.
+              </p>
+            </Card>
+
+            <Card className="p-8 hover:shadow-xl transition-all duration-300 border-border/50 group">
+              <div className="flex items-center mb-6">
+                <div className="bg-destructive/10 p-4 rounded-xl mr-4 group-hover:bg-destructive/20 transition-colors">
+                  <Users className="h-8 w-8 text-destructive" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold">Team Access Management</h3>
+                  <Badge variant="secondary" className="mt-1 text-xs">ENTERPRISE</Badge>
+                </div>
+              </div>
+              <p className="text-muted-foreground leading-relaxed">
+                Share account access with team members, set permissions, and collaborate on campaign optimization with shared Google Ads credentials and approval workflows.
               </p>
             </Card>
           </div>
