@@ -95,19 +95,58 @@ serve(async (req) => {
 
     const accessToken = tokenData.access_token;
 
-    // Step 1: Detect if we need login-customer-id (for MCC accounts)
-    console.log("🔍 STEP 1: Checking if this is an MCC account that needs login-customer-id");
+    // Step 1: First try to determine if this account has child accounts by querying accessible customers
+    console.log("🔍 STEP 1: Checking if this account has child accounts (is a true MCC)");
     
     let loginCustomerId = null;
+    let hasChildAccounts = false;
     
-    // Check if the current customer ID is the known MCC
+    // First, try to get accessible customers to see if this is an MCC with children
+    try {
+      const accessibleCustomersUrl = `https://googleads.googleapis.com/v17/customers:listAccessibleCustomers`;
+      const accessibleResponse = await fetch(accessibleCustomersUrl, {
+        method: "GET",
+        headers: {
+          "Authorization": `Bearer ${accessToken}`,
+          "developer-token": DEVELOPER_TOKEN,
+        },
+      });
+
+      if (accessibleResponse.ok) {
+        const accessibleData = await accessibleResponse.json();
+        const resourceNames = accessibleData.resourceNames || [];
+        console.log("🔍 Accessible customers:", resourceNames);
+        
+        // Extract customer IDs from resource names (format: customers/1234567890)
+        const customerIds = resourceNames.map((name: string) => name.replace('customers/', ''));
+        
+        // If we have multiple customer IDs, this might be an MCC
+        if (customerIds.length > 1) {
+          hasChildAccounts = true;
+          console.log("✅ Detected MCC with multiple accessible customers:", customerIds);
+        } else {
+          console.log("ℹ️ Only one accessible customer, treating as regular account");
+        }
+      } else {
+        console.log("⚠️ Could not fetch accessible customers, proceeding as regular account");
+      }
+    } catch (error) {
+      console.log("⚠️ Error checking accessible customers:", error.message);
+      console.log("ℹ️ Proceeding as regular account");
+    }
+    
+    // If this account has child accounts and we're querying the MCC itself, return error
+    if (hasChildAccounts && cleanCustomerId === "9301596383") {
+      throw new Error("Cannot query campaigns directly on MCC account. Please select a child account from your account list.");
+    }
+    
+    // If querying a child account under an MCC, use the MCC as login-customer-id
     const MCC_CUSTOMER_ID = "9301596383";
-    if (cleanCustomerId !== MCC_CUSTOMER_ID) {
-      // This is a child account, so we need to use the MCC as login-customer-id
+    if (hasChildAccounts && cleanCustomerId !== MCC_CUSTOMER_ID) {
       loginCustomerId = MCC_CUSTOMER_ID;
-      console.log("✅ This is a child account, using MCC as login-customer-id:", loginCustomerId);
+      console.log("✅ Using MCC as login-customer-id for child account:", loginCustomerId);
     } else {
-      console.log("ℹ️ This is the MCC account itself, no login-customer-id needed");
+      console.log("ℹ️ Querying regular account, no login-customer-id needed");
     }
     
     console.log("🔍 STEP 2: Making campaign query with login-customer-id:", loginCustomerId);
