@@ -323,10 +323,52 @@ export const AccountSelection = () => {
             <div className="text-center py-8 text-muted-foreground">
               No Google Ads accounts found in your MCC. Check your API connection.
               <br />
-              <Button variant="outline" onClick={loadAccounts} className="mt-4">
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Retry Connection
-              </Button>
+              <div className="flex justify-center gap-4 mt-4">
+                <Button variant="outline" onClick={loadAccounts}>
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Retry Connection
+                </Button>
+                <Button 
+                  variant="secondary" 
+                  onClick={async () => {
+                    try {
+                      toast({
+                        title: "Running Google Ads API Diagnostics...",
+                        description: "Testing API access and connectivity",
+                      });
+                      
+                      const { data, error } = await supabase.functions.invoke('test-google-ads-api');
+                      
+                      if (error) throw error;
+                      
+                      console.log('🧪 API Test Results:', data);
+                      
+                      // Show results in toast
+                      if (data.tests?.customerInfo?.success) {
+                        toast({
+                          title: "✅ API Access Working",
+                          description: "Google Ads API is accessible for your account",
+                        });
+                      } else {
+                        toast({
+                          title: "❌ API Access Issue",
+                          description: "Check console for detailed diagnostics",
+                          variant: "destructive",
+                        });
+                      }
+                    } catch (error) {
+                      console.error('API test failed:', error);
+                      toast({
+                        title: "Diagnostic Test Failed",
+                        description: `Error: ${error.message}`,
+                        variant: "destructive",
+                      });
+                    }
+                  }}
+                >
+                  🔧 Debug API
+                </Button>
+              </div>
             </div>
           )}
         </CardContent>
