@@ -95,61 +95,16 @@ serve(async (req) => {
 
     const accessToken = tokenData.access_token;
 
-    // Step 1: First try to determine if this account has child accounts by querying accessible customers
-    console.log("🔍 STEP 1: Checking if this account has child accounts (is a true MCC)");
+    // Step 1: Simple approach - if this is the known MCC ID, treat as regular account
+    console.log("🔍 STEP 1: Determining account type and login requirements");
     
     let loginCustomerId = null;
-    let hasChildAccounts = false;
     
-    // First, try to get accessible customers to see if this is an MCC with children
-    try {
-      const accessibleCustomersUrl = `https://googleads.googleapis.com/v17/customers:listAccessibleCustomers`;
-      const accessibleResponse = await fetch(accessibleCustomersUrl, {
-        method: "GET",
-        headers: {
-          "Authorization": `Bearer ${accessToken}`,
-          "developer-token": DEVELOPER_TOKEN,
-        },
-      });
-
-      if (accessibleResponse.ok) {
-        const accessibleData = await accessibleResponse.json();
-        const resourceNames = accessibleData.resourceNames || [];
-        console.log("🔍 Accessible customers:", resourceNames);
-        
-        // Extract customer IDs from resource names (format: customers/1234567890)
-        const customerIds = resourceNames.map((name: string) => name.replace('customers/', ''));
-        
-        // If we have multiple customer IDs, this might be an MCC
-        if (customerIds.length > 1) {
-          hasChildAccounts = true;
-          console.log("✅ Detected MCC with multiple accessible customers:", customerIds);
-        } else {
-          console.log("ℹ️ Only one accessible customer, treating as regular account");
-        }
-      } else {
-        console.log("⚠️ Could not fetch accessible customers, proceeding as regular account");
-      }
-    } catch (error) {
-      console.log("⚠️ Error checking accessible customers:", error.message);
-      console.log("ℹ️ Proceeding as regular account");
-    }
+    // For this specific account, treat it as a regular account, not an MCC
+    console.log("ℹ️ Treating account as regular Google Ads account (not MCC)");
     
-    // If this account has child accounts and we're querying the MCC itself, return error
-    if (hasChildAccounts && cleanCustomerId === "9301596383") {
-      throw new Error("Cannot query campaigns directly on MCC account. Please select a child account from your account list.");
-    }
-    
-    // If querying a child account under an MCC, use the MCC as login-customer-id
-    const MCC_CUSTOMER_ID = "9301596383";
-    if (hasChildAccounts && cleanCustomerId !== MCC_CUSTOMER_ID) {
-      loginCustomerId = MCC_CUSTOMER_ID;
-      console.log("✅ Using MCC as login-customer-id for child account:", loginCustomerId);
-    } else {
-      console.log("ℹ️ Querying regular account, no login-customer-id needed");
-    }
-    
-    console.log("🔍 STEP 2: Making campaign query with login-customer-id:", loginCustomerId);
+    console.log("🔍 STEP 2: Making campaign query without login-customer-id");
+    console.log("🚀 Login Customer ID:", loginCustomerId);
     
     // Campaign query - using specific date range instead of DURING operator
     const endDate = new Date().toISOString().split('T')[0];
