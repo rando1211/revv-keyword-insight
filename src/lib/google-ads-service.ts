@@ -58,6 +58,12 @@ export const fetchGoogleAdsAccounts = async (): Promise<GoogleAdsAccount[]> => {
     // Initialize MCC hierarchy if needed (runs in background)
     initializeMCCHierarchy().catch(console.error);
     
+    // Get fresh session token
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError || !session) {
+      throw new Error('Authentication required. Please sign in again.');
+    }
+    
     const { data, error } = await supabase.functions.invoke('fetch-google-ads-accounts');
     
     if (error) {
