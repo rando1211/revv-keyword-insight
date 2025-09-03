@@ -236,9 +236,21 @@ serve(async (req) => {
       })
     ]);
 
+    console.log('📊 Response statuses:', {
+      campaign: campaignResponse.status,
+      baseline: baselineResponse.status,
+      searchTerms: searchTermsResponse.status,
+      keywords: keywordsResponse.status
+    });
+
+    if (!campaignResponse.ok) {
+      const errorText = await campaignResponse.text();
+      console.log('❌ Campaign API Error:', errorText);
+    }
+
     const [campaignData, baselineCampaignData, searchTermsData, keywordsData] = await Promise.all([
-      campaignResponse.json(),
-      baselineResponse.json(),
+      campaignResponse.ok ? campaignResponse.json() : { results: [] },
+      baselineResponse.ok ? baselineResponse.json() : { results: [] },
       searchTermsResponse.ok ? searchTermsResponse.json() : { results: [] },
       keywordsResponse.ok ? keywordsResponse.json() : { results: [] }
     ]);
