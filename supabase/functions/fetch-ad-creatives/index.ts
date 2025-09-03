@@ -11,22 +11,13 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  // Declare environment variables at top level for error handling access
   const DEVELOPER_TOKEN = Deno.env.get("Developer Token");
   const CLIENT_ID = Deno.env.get("Client ID");
   const CLIENT_SECRET = Deno.env.get("Secret");
   const REFRESH_TOKEN = Deno.env.get("Refresh token");
 
   try {
-    // Parse request body first
-    let requestBody;
-    try {
-      requestBody = await req.json();
-    } catch (e) {
-      throw new Error('Invalid JSON in request body');
-    }
-    
-    const { customerId, campaignIds, timeframe, includeConversions, includeQualityScore } = requestBody;
+    const { customerId, campaignIds, timeframe } = await req.json();
     
     if (!customerId) {
       throw new Error('customerId is required in request body');
@@ -48,24 +39,12 @@ serve(async (req) => {
       throw new Error('Invalid user token');
     }
 
-    console.log('🎨 Fetching ad creatives for customer:', customerId);
-    console.log('🔍 DEBUG: Available env vars:', {
-      hasDevToken: !!DEVELOPER_TOKEN,
-      hasClientId: !!CLIENT_ID, 
-      hasClientSecret: !!CLIENT_SECRET,
-      hasRefreshToken: !!REFRESH_TOKEN
-    });
+    console.log('🎨 Fetching ad creatives for MCC:', customerId);
 
-    // Handle different customer ID formats
-    let cleanCustomerId;
-    if (typeof customerId === 'string') {
-      // Remove "customers/" prefix and dashes from customer ID for API call
-      cleanCustomerId = customerId.replace(/^customers\//, '').replace(/-/g, '');
-    } else {
-      throw new Error('Invalid customerId format');
-    }
+    // Clean MCC ID
+    const mccId = customerId.replace(/^customers\//, '').replace(/-/g, '');
 
-    // Get access token using shared credentials
+    // Get OAuth token
     const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -78,149 +57,114 @@ serve(async (req) => {
     });
 
     const tokenData = await tokenResponse.json();
-    console.log('✅ Fresh access token obtained');
-    
     if (!tokenResponse.ok) {
       throw new Error(`OAuth token error: ${JSON.stringify(tokenData)}`);
     }
 
     const accessToken = tokenData.access_token;
+    console.log('✅ Fresh access token obtained');
 
-    // Set up timeframe
+    // Step 1: Get client accounts under this MCC (no metrics here)
+    console.log('📋 Step 1: Getting client accounts under MCC:', mccId);
+    
+    const clientsQuery = `
+      SELECT
+        customer_client.id,
+        customer_client.descriptive_name,
+        customer_client.manager,
+        customer_client.level,
+        customer_client.status
+      FROM customer_client
+      WHERE customer_client.level = 1
+      AND customer_client.status = 'ENABLED'
+    `;
+
+    const clientsResponse = await fetch(`https://googleads.googleapis.com/v20/customers/${mccId}/googleAds:search`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'developer-token': DEVELOPER_TOKEN,
+        'Content-Type': 'application/json',
+        // No login-customer-id when querying MCC itself for client list
+      },
+      body: JSON.stringify({ query: clientsQuery }),
+    });
+
+    if (!clientsResponse.ok) {
+      const errorText = await clientsResponse.text();
+      console.log(`❌ Failed to get client accounts: ${errorText}`);
+      throw new Error(`Failed to get client accounts: ${clientsResponse.status} - ${errorText}`);
+    }
+
+    const clientsData = await clientsResponse.json();
+    const clients = clientsData.results || [];
+    console.log(`📊 Found ${clients.length} client accounts under MCC`);
+    
+    if (clients.length === 0) {
+      throw new Error('No client accounts found under this MCC. Make sure this is a manager account.');
+    }
+
+    // Use the first active client account (could be enhanced to let user choose)
+    const clientAccount = clients[0];
+    const clientId = clientAccount.customerClient.id;
+    console.log(`🎯 Using client account: ${clientId} (${clientAccount.customerClient.descriptiveName})`);
+
+    // Step 2: Query ad creatives against the client account (with MCC in header)
+    console.log('📋 Step 2: Querying ad creatives from client account...');
+
+    // Set up filters
     const selectedTimeframe = timeframe || 'LAST_30_DAYS';
     let dateFilter = '';
     if (selectedTimeframe === 'LAST_7_DAYS') {
-      const endDate = new Date().toISOString().split('T')[0];
-      const startDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-      dateFilter = `AND segments.date BETWEEN '${startDate}' AND '${endDate}'`;
+      dateFilter = `AND segments.date DURING LAST_7_DAYS`;
     } else if (selectedTimeframe === 'LAST_30_DAYS') {
-      const endDate = new Date().toISOString().split('T')[0];
-      const startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-      dateFilter = `AND segments.date BETWEEN '${startDate}' AND '${endDate}'`;
+      dateFilter = `AND segments.date DURING LAST_30_DAYS`;
     }
 
-    // Campaign filter
     let campaignFilter = '';
     if (campaignIds && campaignIds.length > 0) {
       const campaignIdList = campaignIds.map(id => `'${id}'`).join(',');
       campaignFilter = `AND campaign.id IN (${campaignIdList})`;
     }
 
-    // Build a simplified Google Ads API query - start with basic ad data
-    // Use same pattern as working functions but for ads instead of search terms
-    const adLimit = campaignIds && campaignIds.length > 0 ? Math.min(campaignIds.length * 10, 30) : 15;
+    const adLimit = campaignIds && campaignIds.length > 0 ? Math.min(campaignIds.length * 10, 30) : 20;
     
+    // Query for Search RSA creatives with proper structure
     const adQuery = `
       SELECT 
-        ad_group_ad.ad.id,
-        ad_group_ad.ad.type,
-        ad_group_ad.status,
-        ad_group.id,
-        ad_group.name,
-        campaign.id,
-        campaign.name,
-        metrics.clicks,
-        metrics.impressions,
-        metrics.ctr,
-        metrics.cost_micros,
-        metrics.conversions
-      FROM ad_group_ad 
-      WHERE ad_group_ad.status = 'ENABLED'
-      AND ad_group.status = 'ENABLED'
-      AND campaign.status = 'ENABLED'
-      AND metrics.impressions > 0
-      ${dateFilter}
-      ${campaignFilter}
+        campaign.id, campaign.name,
+        ad_group.id, ad_group.name,
+        ad_group_ad.ad.id, ad_group_ad.ad.type,
+        ad_group_ad.ad.final_urls,
+        ad_group_ad.ad.responsive_search_ad.headlines,
+        ad_group_ad.ad.responsive_search_ad.descriptions,
+        metrics.impressions, metrics.clicks, metrics.cost_micros,
+        metrics.conversions, metrics.ctr,
+        segments.date
+      FROM ad_group_ad
+      WHERE campaign.advertising_channel_type = SEARCH
+        AND ad_group_ad.status != REMOVED
+        AND campaign.status = 'ENABLED'
+        AND ad_group.status = 'ENABLED'
+        AND metrics.impressions > 0
+        ${dateFilter}
+        ${campaignFilter}
       ORDER BY metrics.impressions DESC
       LIMIT ${adLimit}
     `;
 
-    console.log(`🔍 Fetching TOP ${adLimit} performing ads from ${campaignIds && campaignIds.length > 0 ? campaignIds.length + ' selected campaigns' : 'all campaigns'}...`);
-    console.log(`🎯 Applied filters: Campaign IDs: ${campaignIds ? JSON.stringify(campaignIds) : 'none'}, Timeframe: ${selectedTimeframe}`);
+    console.log(`🔍 Fetching TOP ${adLimit} performing Search ads from client ${clientId}...`);
+    console.log(`🎯 Applied filters: Campaign IDs: ${campaignIds || 'all'}, Timeframe: ${selectedTimeframe}`);
 
-    // Get accessible customers to find correct manager (same pattern as smart-auto-optimizer)
-    console.log('🔍 Starting manager detection for customer:', cleanCustomerId);
-    const accessibleCustomersResponse = await fetch('https://googleads.googleapis.com/v20/customers:listAccessibleCustomers', {
-      method: 'GET',
+    // CLIENT ID in URL, MCC ID in login-customer-id header
+    const response = await fetch(`https://googleads.googleapis.com/v20/customers/${clientId}/googleAds:search`, {
+      method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
         'developer-token': DEVELOPER_TOKEN,
-        'Content-Type': 'application/json'
-      }
-    });
-    
-    if (!accessibleCustomersResponse.ok) {
-      console.error('❌ Failed to get accessible customers:', accessibleCustomersResponse.status);
-      throw new Error(`Failed to get accessible customers: ${accessibleCustomersResponse.status}`);
-    }
-    
-    const accessibleData = await accessibleCustomersResponse.json();
-    console.log('✅ Accessible customers response:', accessibleData);
-    
-    const accessibleIds = accessibleData.resourceNames?.map((name: string) => name.replace('customers/', '')) || [];
-    console.log('📊 Accessible IDs:', accessibleIds);
-    
-    // Check if target customer is directly accessible
-    const isDirectlyAccessible = accessibleIds.includes(cleanCustomerId);
-    console.log('🎯 Is target directly accessible?', isDirectlyAccessible);
-    
-    let loginCustomerId = cleanCustomerId; // Default to self
-    
-    if (!isDirectlyAccessible) {
-      // Find a manager that can access this customer
-      console.log('🔄 Searching for manager that can access this customer...');
-      for (const managerId of accessibleIds) {
-        console.log(`🔍 Checking if ${managerId} manages ${cleanCustomerId}...`);
-        
-        try {
-          const customerResponse = await fetch(`https://googleads.googleapis.com/v20/customers/${managerId}/customers:listAccessibleCustomers`, {
-            method: 'GET',
-            headers: {
-              'Authorization': `Bearer ${accessToken}`,
-              'developer-token': DEVELOPER_TOKEN,
-              'login-customer-id': managerId,
-              'Content-Type': 'application/json'
-            }
-          });
-          
-          if (customerResponse.ok) {
-            const customerData = await customerResponse.json();
-            const managedIds = customerData.resourceNames?.map((name: string) => name.replace('customers/', '')) || [];
-            console.log(`📊 Manager ${managerId} manages:`, managedIds);
-            
-            if (managedIds.includes(cleanCustomerId)) {
-              loginCustomerId = managerId;
-              console.log(`✅ Found correct manager: ${managerId} manages ${cleanCustomerId}`);
-              break;
-            }
-          } else {
-            console.log(`⚠️ Manager ${managerId} request failed:`, customerResponse.status);
-          }
-        } catch (error) {
-          console.log(`⚠️ Error checking manager ${managerId}:`, error.message);
-          continue;
-        }
-      }
-    }
-    
-    console.log(`🔑 Using login-customer-id: ${loginCustomerId}`);
-
-    // Build headers
-    const headers = {
-      'Authorization': `Bearer ${accessToken}`,
-      'developer-token': DEVELOPER_TOKEN,
-      'Content-Type': 'application/json',
-      'login-customer-id': loginCustomerId
-    };
-
-    console.log(`✅ Added login-customer-id header: ${loginCustomerId}`);
-    console.log(`📨 Request headers: ${JSON.stringify(headers)}`);
-
-    // Make the request to Google Ads API
-    const apiUrl = `https://googleads.googleapis.com/v20/customers/${cleanCustomerId}/googleAds:search`;
-    const response = await fetch(apiUrl, {
-      method: 'POST',
-      headers,
+        'Content-Type': 'application/json',
+        'login-customer-id': mccId  // MCC in header
+      },
       body: JSON.stringify({ query: adQuery }),
     });
 
@@ -230,18 +174,10 @@ serve(async (req) => {
       throw new Error(`Google Ads API Error: ${response.status} - ${errorText}`);
     }
 
-    let apiData;
-    try {
-      apiData = await response.json();
-    } catch (error) {
-      console.error('Failed to parse Google Ads API response as JSON:', error);
-      const textResponse = await response.text();
-      console.error('API response text:', textResponse);
-      throw new Error('Invalid Google Ads API response format');
-    }
-    console.log(`✅ Processed ${apiData.results?.length || 0} ads from Google Ads API`);
+    const apiData = await response.json();
+    console.log(`✅ Processed ${apiData.results?.length || 0} ads from client ${clientId}`);
 
-    // Process the ad data - simplified approach for basic ad information
+    // Process the ad creatives data
     const adCreatives = [];
     const campaignSet = new Set();
 
@@ -250,31 +186,60 @@ serve(async (req) => {
         const ad = result.adGroupAd?.ad;
         const metrics = result.metrics;
 
-        if (ad) {
+        if (ad && ad.responsiveSearchAd) {
+          const rsa = ad.responsiveSearchAd;
           campaignSet.add(result.campaign.name);
 
-          // Create a basic ad record with available metrics
-          adCreatives.push({
-            id: ad.id,
-            adId: ad.id,
-            campaignId: result.campaign.id,
-            adGroupId: result.adGroup.id,
-            type: ad.type || 'UNKNOWN',
-            status: result.adGroupAd.status,
-            campaign: result.campaign.name,
-            adGroup: result.adGroup.name,
-            clicks: parseInt(metrics?.clicks || '0'),
-            impressions: parseInt(metrics?.impressions || '0'),
-            ctr: metrics?.ctr || 0,
-            conversions: parseFloat(metrics?.conversions || '0'),
-            cost: (metrics?.costMicros || 0) / 1000000,
-            performanceLabel: 'PENDING' // Simplified approach
-          });
+          // Process headlines
+          if (rsa.headlines) {
+            rsa.headlines.forEach((headline, index) => {
+              adCreatives.push({
+                id: `${ad.id}_headline_${index}`,
+                adId: ad.id,
+                campaignId: result.campaign.id,
+                adGroupId: result.adGroup.id,
+                type: 'headline',
+                text: headline.text,
+                pinnedField: headline.pinnedField || 'UNSPECIFIED',
+                campaign: result.campaign.name,
+                adGroup: result.adGroup.name,
+                clicks: parseInt(metrics?.clicks || '0'),
+                impressions: parseInt(metrics?.impressions || '0'),
+                ctr: parseFloat(metrics?.ctr || '0'),
+                conversions: parseFloat(metrics?.conversions || '0'),
+                cost: (parseInt(metrics?.costMicros || '0')) / 1000000,
+                performanceLabel: 'PENDING'
+              });
+            });
+          }
+
+          // Process descriptions
+          if (rsa.descriptions) {
+            rsa.descriptions.forEach((description, index) => {
+              adCreatives.push({
+                id: `${ad.id}_description_${index}`,
+                adId: ad.id,
+                campaignId: result.campaign.id,
+                adGroupId: result.adGroup.id,
+                type: 'description',
+                text: description.text,
+                pinnedField: description.pinnedField || 'UNSPECIFIED',
+                campaign: result.campaign.name,
+                adGroup: result.adGroup.name,
+                clicks: parseInt(metrics?.clicks || '0'),
+                impressions: parseInt(metrics?.impressions || '0'),
+                ctr: parseFloat(metrics?.ctr || '0'),
+                conversions: parseFloat(metrics?.conversions || '0'),
+                cost: (parseInt(metrics?.costMicros || '0')) / 1000000,
+                performanceLabel: 'PENDING'
+              });
+            });
+          }
         }
       }
     }
 
-    console.log(`✅ Processed ${adCreatives.length} individual ad assets from ${apiData.results?.length || 0} actual ads`);
+    console.log(`✅ Extracted ${adCreatives.length} individual ad assets from ${apiData.results?.length || 0} Search ads`);
 
     // Calculate performance metrics
     const totalClicks = adCreatives.reduce((sum, creative) => sum + creative.clicks, 0);
@@ -286,6 +251,10 @@ serve(async (req) => {
       totalAssets: adCreatives.length,
       totalAds: apiData.results?.length || 0,
       campaigns: campaignSet.size,
+      clientAccount: {
+        id: clientId,
+        name: clientAccount.customerClient.descriptiveName
+      },
       performance: {
         totalClicks,
         totalImpressions,
