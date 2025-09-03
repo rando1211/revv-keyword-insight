@@ -360,6 +360,8 @@ Provide your analysis in the following structured format. Return ONLY valid JSON
   ]
 }`;
 
+    console.log('🤖 Calling OpenAI API for search terms analysis...');
+    
     const openAIResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -367,7 +369,7 @@ Provide your analysis in the following structured format. Return ONLY valid JSON
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'gpt-5-mini-2025-08-07',
         messages: [
           { 
             role: 'system', 
@@ -378,13 +380,14 @@ Provide your analysis in the following structured format. Return ONLY valid JSON
             content: `${aiPrompt}\n\n🔒 CUSTOMER ISOLATION: Analyze ONLY this customer's data: ${customerId}\n\nDATA TO ANALYZE:\n${JSON.stringify(structuredData, null, 2)}` 
           }
         ],
-        temperature: 0.1,
-        max_tokens: 4000
+        max_completion_tokens: 4000
       }),
     });
 
     if (!openAIResponse.ok) {
-      throw new Error(`OpenAI API failed: ${openAIResponse.status}`);
+      const errorText = await openAIResponse.text();
+      console.error('🚨 OpenAI API Error:', errorText);
+      throw new Error(`OpenAI API failed: ${openAIResponse.status} - ${errorText}`);
     }
 
     const openAIData = await openAIResponse.json();
@@ -431,7 +434,7 @@ Provide your analysis in the following structured format. Return ONLY valid JSON
         analysisDate: new Date().toISOString(),
         campaignGoal,
         campaignContext,
-        model: 'gpt-4.1-2025-04-14'
+        model: 'gpt-5-mini-2025-08-07'
       }
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
