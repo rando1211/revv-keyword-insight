@@ -25,6 +25,8 @@ interface AuthContextType {
   subscription: SubscriptionInfo | null;
   checkSubscription: () => Promise<void>;
   checkUserRole: () => Promise<void>;
+  validateSession: (session: Session | null) => Promise<boolean>;
+  refreshSession: () => Promise<Session | null>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -45,10 +47,69 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [userRole, setUserRole] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
 
+  const validateSession = async (currentSession: Session | null): Promise<boolean> => {
+    if (!currentSession) return false;
+    
+    try {
+      const { data: { user }, error } = await supabase.auth.getUser();
+      if (error || !user) {
+        console.log('🔧 Session validation failed:', error?.message);
+        return false;
+      }
+      return true;
+    } catch (error) {
+      console.error('🔧 Error validating session:', error);
+      return false;
+    }
+  };
+
+  const refreshSession = async (): Promise<Session | null> => {
+    try {
+      const { data: { session }, error } = await supabase.auth.refreshSession();
+      if (error) {
+        console.log('🔧 Session refresh failed:', error.message);
+        return null;
+      }
+      console.log('🔧 Session refreshed successfully');
+      return session;
+    } catch (error) {
+      console.error('🔧 Error refreshing session:', error);
+      return null;
+    }
+  };
+
+  const handleSessionExpiry = async () => {
+    console.log('🔧 Handling session expiry...');
+    
+    // Try to refresh the session first
+    const newSession = await refreshSession();
+    if (newSession) {
+      setSession(newSession);
+      setUser(newSession.user);
+      return;
+    }
+    
+    // If refresh fails, sign out and redirect
+    console.log('🔧 Session refresh failed, signing out');
+    await supabase.auth.signOut();
+    setSession(null);
+    setUser(null);
+    setSubscription(null);
+    setUserRole(null);
+    setIsAdmin(false);
+  };
+
   const checkUserRole = async () => {
     if (!session) {
       setUserRole(null);
       setIsAdmin(false);
+      return;
+    }
+    
+    // Validate session before making API calls
+    const isValid = await validateSession(session);
+    if (!isValid) {
+      await handleSessionExpiry();
       return;
     }
     
@@ -60,6 +121,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .maybeSingle();
       
       if (error) {
+        // Check if it's an authentication error
+        if (error.message?.includes('Invalid user token') || error.message?.includes('JWT')) {
+          await handleSessionExpiry();
+          return;
+        }
         console.error('Error fetching user role:', error);
         setUserRole('user');
         setIsAdmin(false);
@@ -79,6 +145,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const checkSubscription = async () => {
     if (!session) return;
     
+    // Validate session before making API calls
+    const isValid = await validateSession(session);
+    if (!isValid) {
+      await handleSessionExpiry();
+      return;
+    }
+    
     try {
       const { data, error } = await supabase.functions.invoke('check-subscription', {
         headers: {
@@ -86,7 +159,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         },
       });
       
-      if (error) throw error;
+      if (error) {
+        // Check if it's an authentication error
+        if (error.message?.includes('Invalid user token') || error.message?.includes('JWT')) {
+          await handleSessionExpiry();
+          return;
+        }
+        throw error;
+      }
       setSubscription(data);
     } catch (error) {
       console.error('Error checking subscription:', error);
@@ -225,6 +305,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     subscription,
     checkSubscription,
     checkUserRole,
+    validateSession,
+    refreshSession,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

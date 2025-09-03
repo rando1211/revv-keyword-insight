@@ -1,5 +1,31 @@
 import { supabase } from '@/integrations/supabase/client';
 import { detectMCCHierarchy, getLoginCustomerId, hasMCCHierarchy } from "./mcc-detection-service";
+import { toast } from '@/hooks/use-toast';
+
+const handleApiError = async (error: any, retryFn?: () => Promise<any>) => {
+  if (error?.message?.includes('Invalid user token') || error?.message?.includes('JWT')) {
+    toast({
+      title: "Session Expired",
+      description: "Your session has expired. Please sign in again.",
+      variant: "destructive",
+    });
+    
+    // Try to refresh session if possible
+    try {
+      const { data: { session }, error: refreshError } = await supabase.auth.refreshSession();
+      if (!refreshError && session && retryFn) {
+        return await retryFn();
+      }
+    } catch (refreshError) {
+      console.error('Session refresh failed:', refreshError);
+    }
+    
+    // If refresh fails, sign out
+    await supabase.auth.signOut();
+    throw new Error('Authentication failed. Please sign in again.');
+  }
+  throw error;
+};
 
 // Google Ads API Service with real Supabase integration
 export interface Campaign {
@@ -52,13 +78,22 @@ export const initializeMCCHierarchy = async (): Promise<boolean> => {
 
 // Fetch accounts from MCC using Google Ads API
 export const fetchGoogleAdsAccounts = async (): Promise<GoogleAdsAccount[]> => {
-  try {
+  const fetchAccounts = async (): Promise<GoogleAdsAccount[]> => {
     console.log('Fetching Google Ads accounts from API...');
     
     // Initialize MCC hierarchy if needed (runs in background)
     initializeMCCHierarchy().catch(console.error);
     
-    const { data, error } = await supabase.functions.invoke('fetch-google-ads-accounts');
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      throw new Error('No active session');
+    }
+    
+    const { data, error } = await supabase.functions.invoke('fetch-google-ads-accounts', {
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+      }
+    });
     
     if (error) {
       console.error('Supabase function error:', error);
@@ -72,24 +107,33 @@ export const fetchGoogleAdsAccounts = async (): Promise<GoogleAdsAccount[]> => {
     
     console.log('Successfully fetched accounts:', data.accounts);
     return data.accounts || [];
-    
+  };
+
+  try {
+    return await fetchAccounts();
   } catch (error) {
     console.error('Error fetching Google Ads accounts:', error);
-    // Re-throw the error with better context
-    if (error.message.includes('shared API credentials')) {
-      throw new Error(`Permission Issue: ${error.message}`);
-    }
-    throw error;
+    
+    // Handle session expiry gracefully
+    return await handleApiError(error, fetchAccounts);
   }
 };
 
 // Fetch campaigns for a specific customer using Google Ads API
 export const fetchTopSpendingCampaigns = async (customerId: string, limit: number = 10): Promise<Campaign[]> => {
-  try {
+  const fetchCampaigns = async (): Promise<Campaign[]> => {
     console.log('Fetching campaigns from Google Ads API for customer:', customerId);
     
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      throw new Error('No active session');
+    }
+    
     const { data, error } = await supabase.functions.invoke('fetch-google-ads-campaigns', {
-      body: { customerId, limit }
+      body: { customerId, limit },
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+      }
     });
     
     if (error) {
@@ -104,10 +148,13 @@ export const fetchTopSpendingCampaigns = async (customerId: string, limit: numbe
     
     console.log('Successfully fetched campaigns:', data.campaigns);
     return data.campaigns || [];
+  };
 
+  try {
+    return await fetchCampaigns();
   } catch (error) {
     console.error('Google Ads API Error:', error);
-    throw error;
+    return await handleApiError(error, fetchCampaigns);
   }
 };
 
