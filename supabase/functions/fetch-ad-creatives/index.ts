@@ -238,7 +238,15 @@ serve(async (req) => {
       throw new Error(`Google Ads API Error: ${response.status} - ${errorText}`);
     }
 
-    const apiData = await response.json();
+    let apiData;
+    try {
+      apiData = await response.json();
+    } catch (error) {
+      console.error('Failed to parse Google Ads API response as JSON:', error);
+      const textResponse = await response.text();
+      console.error('API response text:', textResponse);
+      throw new Error('Invalid Google Ads API response format');
+    }
     console.log(`✅ Processed ${apiData.results?.length || 0} ads from Google Ads API`);
 
     // Process the ad creatives data

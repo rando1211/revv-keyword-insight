@@ -193,7 +193,15 @@ serve(async (req) => {
       throw new Error(`Google Ads API failed: ${searchTermsResponse.status} - ${errorText}`);
     }
 
-    const searchTermsData = await searchTermsResponse.json();
+    let searchTermsData;
+    try {
+      searchTermsData = await searchTermsResponse.json();
+    } catch (error) {
+      console.error('Failed to parse Google Ads API response as JSON:', error);
+      const textResponse = await searchTermsResponse.text();
+      console.error('API response text:', textResponse);
+      throw new Error('Invalid Google Ads API response format');
+    }
     console.log('📊 Raw API Response Sample:', JSON.stringify(searchTermsData.results?.slice(0, 2), null, 2));
     
     const searchTerms = searchTermsData.results || [];

@@ -18,14 +18,14 @@ serve(async (req) => {
     console.log('Customer ID:', customerId);
     console.log('Campaign ID:', campaignId);
     
-    // Get credentials
-    const GOOGLE_CLIENT_ID = Deno.env.get('Client ID');
-    const GOOGLE_CLIENT_SECRET = Deno.env.get('Secret');
-    const GOOGLE_REFRESH_TOKEN = Deno.env.get('Refresh token');
-    const DEVELOPER_TOKEN = Deno.env.get('Developer Token');
+    // Get credentials - using exact same names as working functions
+    const DEVELOPER_TOKEN = Deno.env.get("Developer Token");
+    const CLIENT_ID = Deno.env.get("Client ID");
+    const CLIENT_SECRET = Deno.env.get("Secret");
+    const REFRESH_TOKEN = Deno.env.get("Refresh token");
     
-    if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET || !GOOGLE_REFRESH_TOKEN || !DEVELOPER_TOKEN) {
-      throw new Error('Missing credentials');
+    if (!CLIENT_ID || !CLIENT_SECRET || !REFRESH_TOKEN || !DEVELOPER_TOKEN) {
+      throw new Error('Missing Google Ads API credentials');
     }
     
     // Get access token
@@ -33,27 +33,121 @@ serve(async (req) => {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
-        client_id: GOOGLE_CLIENT_ID,
-        client_secret: GOOGLE_CLIENT_SECRET,
-        refresh_token: GOOGLE_REFRESH_TOKEN,
+        client_id: CLIENT_ID,
+        client_secret: CLIENT_SECRET,
+        refresh_token: REFRESH_TOKEN,
         grant_type: 'refresh_token',
       }),
     });
 
-    const oauthData = await oauthResponse.json();
+    let oauthData;
+    try {
+      oauthData = await oauthResponse.json();
+    } catch (error) {
+      console.error('Failed to parse OAuth response as JSON:', error);
+      const textResponse = await oauthResponse.text();
+      console.error('OAuth response text:', textResponse);
+      throw new Error('Invalid OAuth response format');
+    }
+    
     if (!oauthResponse.ok) {
       throw new Error(`OAuth failed: ${oauthData.error}`);
     }
     
     const { access_token } = oauthData;
+    console.log('✅ Fresh access token obtained');
 
     const cleanCustomerId = customerId.replace('customers/', '');
-    const adsApiUrl = `https://googleads.googleapis.com/v17/customers/${cleanCustomerId}/googleAds:search`;
+    
+    // Get accessible customers to find correct manager (same pattern as enterprise-audit)
+    console.log('🔍 Starting manager detection for customer:', cleanCustomerId);
+    const accessibleCustomersResponse = await fetch('https://googleads.googleapis.com/v20/customers:listAccessibleCustomers', {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${access_token}`,
+        'developer-token': DEVELOPER_TOKEN,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (!accessibleCustomersResponse.ok) {
+      console.error('❌ Failed to get accessible customers:', accessibleCustomersResponse.status);
+      throw new Error(`Failed to get accessible customers: ${accessibleCustomersResponse.status}`);
+    }
+    
+    let accessibleData;
+    try {
+      accessibleData = await accessibleCustomersResponse.json();
+    } catch (error) {
+      console.error('Failed to parse accessible customers response as JSON:', error);
+      const textResponse = await accessibleCustomersResponse.text();
+      console.error('Accessible customers response text:', textResponse);
+      throw new Error('Invalid accessible customers response format');
+    }
+    
+    console.log('✅ Accessible customers response:', accessibleData);
+    
+    const accessibleIds = accessibleData.resourceNames?.map((name: string) => name.replace('customers/', '')) || [];
+    console.log('📊 Accessible IDs:', accessibleIds);
+    
+    // Check if target customer is directly accessible
+    const isDirectlyAccessible = accessibleIds.includes(cleanCustomerId);
+    console.log('🎯 Is target directly accessible?', isDirectlyAccessible);
+    
+    let loginCustomerId = cleanCustomerId; // Default to self
+    
+    if (!isDirectlyAccessible) {
+      // Find a manager that can access this customer
+      console.log('🔄 Searching for manager that can access this customer...');
+      for (const managerId of accessibleIds) {
+        console.log(`🔍 Checking if ${managerId} manages ${cleanCustomerId}...`);
+        
+        try {
+          const customerResponse = await fetch(`https://googleads.googleapis.com/v20/customers/${managerId}/customers:listAccessibleCustomers`, {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${access_token}`,
+              'developer-token': DEVELOPER_TOKEN,
+              'login-customer-id': managerId,
+              'Content-Type': 'application/json'
+            }
+          });
+          
+          if (customerResponse.ok) {
+            let customerData;
+            try {
+              customerData = await customerResponse.json();
+            } catch (error) {
+              console.log(`⚠️ Failed to parse manager ${managerId} response as JSON:`, error.message);
+              continue;
+            }
+            
+            const managedIds = customerData.resourceNames?.map((name: string) => name.replace('customers/', '')) || [];
+            console.log(`📊 Manager ${managerId} manages:`, managedIds);
+            
+            if (managedIds.includes(cleanCustomerId)) {
+              loginCustomerId = managerId;
+              console.log(`✅ Found correct manager: ${managerId} manages ${cleanCustomerId}`);
+              break;
+            }
+          } else {
+            console.log(`⚠️ Manager ${managerId} request failed:`, customerResponse.status);
+          }
+        } catch (error) {
+          console.log(`⚠️ Error checking manager ${managerId}:`, error.message);
+          continue;
+        }
+      }
+    }
+    
+    console.log(`🔑 Using login-customer-id: ${loginCustomerId}`);
+
+    const adsApiUrl = `https://googleads.googleapis.com/v20/customers/${cleanCustomerId}/googleAds:search`;
 
     const headers = {
       'Authorization': `Bearer ${access_token}`,
       'developer-token': DEVELOPER_TOKEN,
-      'login-customer-id': '9301596383',
+      'login-customer-id': loginCustomerId,
       'Content-Type': 'application/json',
     };
 
