@@ -109,34 +109,50 @@ serve(async (req) => {
     let loginCustomerId = cleanCustomerId; // Default to self
     
     if (!isDirectlyAccessible) {
-      // Find a manager that can access this customer
-      for (const managerId of accessibleIds) {
-        console.log(`🔍 Checking if ${managerId} manages ${cleanCustomerId}...`);
+      // Try each accessible account as potential manager (SAME LOGIC AS WORKING CREATIVES FUNCTION)
+      for (const potentialManagerId of accessibleIds) {
+        console.log(`🔍 Checking if ${potentialManagerId} manages ${cleanCustomerId}...`);
         
         try {
-          const customerResponse = await fetch(`https://googleads.googleapis.com/v20/customers/${managerId}/customers:listAccessibleCustomers`, {
-            method: 'GET',
-            headers: {
-              'Authorization': `Bearer ${access_token}`,
-              'developer-token': developerToken,
-              'login-customer-id': managerId,
-              'Content-Type': 'application/json'
+          const clientsRes = await fetch(
+            `https://googleads.googleapis.com/v20/customers/${potentialManagerId}/googleAds:search`,
+            {
+              method: "POST",
+              headers: {
+                "Authorization": `Bearer ${access_token}`,
+                "developer-token": developerToken,
+                "login-customer-id": potentialManagerId,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                query: `
+                  SELECT
+                    customer_client.id,
+                    customer_client.manager,
+                    customer_client.level,
+                    customer_client.status
+                  FROM customer_client
+                `
+              }),
             }
-          });
+          );
           
-          if (customerResponse.ok) {
-            const customerData = await customerResponse.json();
-            const managedIds = customerData.resourceNames?.map((name: string) => name.replace('customers/', '')) || [];
-            console.log(`📊 Manager ${managerId} manages:`, managedIds);
+          if (clientsRes.ok) {
+            const clientsData = await clientsRes.json();
+            const managedClients = clientsData.results?.map((r: any) => 
+              r.customerClient.id?.replace(/-/g, '')
+            ) || [];
             
-            if (managedIds.includes(cleanCustomerId)) {
-              loginCustomerId = managerId;
-              console.log(`✅ Found correct manager: ${managerId} manages ${cleanCustomerId}`);
+            console.log(`📊 Manager ${potentialManagerId} manages:`, managedClients);
+            
+            if (managedClients.includes(cleanCustomerId)) {
+              loginCustomerId = potentialManagerId;
+              console.log(`✅ Found correct manager: ${potentialManagerId} manages ${cleanCustomerId}`);
               break;
             }
           }
         } catch (error) {
-          console.log(`⚠️ Error checking manager ${managerId}:`, error.message);
+          console.log(`⚠️ Error checking ${potentialManagerId}:`, error.message);
           continue;
         }
       }
