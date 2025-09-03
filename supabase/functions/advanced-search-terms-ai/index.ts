@@ -76,8 +76,8 @@ serve(async (req) => {
     // Fetch search terms data using Google Ads API
     const apiUrl = `https://googleads.googleapis.com/v20/customers/${cleanCustomerId}/googleAds:search`;
     
-    // Build campaign filter if selectedCampaignIds are provided
     // Get accessible customers to find correct manager (same pattern as other functions)
+    console.log('🔍 Starting manager detection for customer:', cleanCustomerId);
     const accessibleCustomersResponse = await fetch('https://googleads.googleapis.com/v20/customers:listAccessibleCustomers', {
       method: 'GET',
       headers: {
@@ -88,20 +88,28 @@ serve(async (req) => {
     });
     
     if (!accessibleCustomersResponse.ok) {
+      console.error('❌ Failed to get accessible customers:', accessibleCustomersResponse.status);
       throw new Error(`Failed to get accessible customers: ${accessibleCustomersResponse.status}`);
     }
     
     const accessibleData = await accessibleCustomersResponse.json();
+    console.log('✅ Accessible customers response:', accessibleData);
+    
     const accessibleIds = accessibleData.resourceNames?.map((name: string) => name.replace('customers/', '')) || [];
+    console.log('📊 Accessible IDs:', accessibleIds);
     
     // Check if target customer is directly accessible
     const isDirectlyAccessible = accessibleIds.includes(cleanCustomerId);
+    console.log('🎯 Is target directly accessible?', isDirectlyAccessible);
     
     let loginCustomerId = cleanCustomerId; // Default to self
     
     if (!isDirectlyAccessible) {
       // Find a manager that can access this customer
+      console.log('🔄 Searching for manager that can access this customer...');
       for (const managerId of accessibleIds) {
+        console.log(`🔍 Checking if ${managerId} manages ${cleanCustomerId}...`);
+        
         try {
           const customerResponse = await fetch(`https://googleads.googleapis.com/v20/customers/${managerId}/customers:listAccessibleCustomers`, {
             method: 'GET',
@@ -116,12 +124,15 @@ serve(async (req) => {
           if (customerResponse.ok) {
             const customerData = await customerResponse.json();
             const managedIds = customerData.resourceNames?.map((name: string) => name.replace('customers/', '')) || [];
+            console.log(`📊 Manager ${managerId} manages:`, managedIds);
             
             if (managedIds.includes(cleanCustomerId)) {
               loginCustomerId = managerId;
               console.log(`✅ Found correct manager: ${managerId} manages ${cleanCustomerId}`);
               break;
             }
+          } else {
+            console.log(`⚠️ Manager ${managerId} request failed:`, customerResponse.status);
           }
         } catch (error) {
           console.log(`⚠️ Error checking manager ${managerId}:`, error.message);
@@ -129,6 +140,8 @@ serve(async (req) => {
         }
       }
     }
+    
+    console.log(`🔑 Using login-customer-id: ${loginCustomerId}`);
     
     let campaignFilter = '';
     if (selectedCampaignIds && selectedCampaignIds.length > 0) {

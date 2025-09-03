@@ -147,6 +147,7 @@ serve(async (req) => {
     console.log(`🎯 Applied filters: Campaign IDs: ${campaignIds ? JSON.stringify(campaignIds) : 'none'}, Timeframe: ${selectedTimeframe}`);
 
     // Get accessible customers to find correct manager (same pattern as smart-auto-optimizer)
+    console.log('🔍 Starting manager detection for customer:', cleanCustomerId);
     const accessibleCustomersResponse = await fetch('https://googleads.googleapis.com/v20/customers:listAccessibleCustomers', {
       method: 'GET',
       headers: {
@@ -157,11 +158,12 @@ serve(async (req) => {
     });
     
     if (!accessibleCustomersResponse.ok) {
+      console.error('❌ Failed to get accessible customers:', accessibleCustomersResponse.status);
       throw new Error(`Failed to get accessible customers: ${accessibleCustomersResponse.status}`);
     }
     
     const accessibleData = await accessibleCustomersResponse.json();
-    console.log('✅ Accessible customers:', accessibleData);
+    console.log('✅ Accessible customers response:', accessibleData);
     
     const accessibleIds = accessibleData.resourceNames?.map((name: string) => name.replace('customers/', '')) || [];
     console.log('📊 Accessible IDs:', accessibleIds);
@@ -174,6 +176,7 @@ serve(async (req) => {
     
     if (!isDirectlyAccessible) {
       // Find a manager that can access this customer
+      console.log('🔄 Searching for manager that can access this customer...');
       for (const managerId of accessibleIds) {
         console.log(`🔍 Checking if ${managerId} manages ${cleanCustomerId}...`);
         
@@ -198,6 +201,8 @@ serve(async (req) => {
               console.log(`✅ Found correct manager: ${managerId} manages ${cleanCustomerId}`);
               break;
             }
+          } else {
+            console.log(`⚠️ Manager ${managerId} request failed:`, customerResponse.status);
           }
         } catch (error) {
           console.log(`⚠️ Error checking manager ${managerId}:`, error.message);
@@ -205,6 +210,8 @@ serve(async (req) => {
         }
       }
     }
+    
+    console.log(`🔑 Using login-customer-id: ${loginCustomerId}`);
 
     // Build headers
     const headers = {
