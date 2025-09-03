@@ -26,18 +26,7 @@ serve(async (req) => {
 
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
-      console.error('Auth error:', authError);
-      return new Response(
-        JSON.stringify({ 
-          error: 'Authentication required. Please sign in again.',
-          success: false,
-          needsAuth: true
-        }),
-        { 
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-          status: 401 
-        }
-      );
+      throw new Error('Invalid user token');
     }
 
     // Get user's Customer ID

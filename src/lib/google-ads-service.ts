@@ -58,12 +58,6 @@ export const fetchGoogleAdsAccounts = async (): Promise<GoogleAdsAccount[]> => {
     // Initialize MCC hierarchy if needed (runs in background)
     initializeMCCHierarchy().catch(console.error);
     
-    // Get fresh session token
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-    if (sessionError || !session) {
-      throw new Error('Authentication required. Please sign in again.');
-    }
-    
     const { data, error } = await supabase.functions.invoke('fetch-google-ads-accounts');
     
     if (error) {
@@ -73,14 +67,6 @@ export const fetchGoogleAdsAccounts = async (): Promise<GoogleAdsAccount[]> => {
     
     if (!data.success) {
       console.error('API response error:', data);
-      
-      // Handle auth required case
-      if (data.needsAuth) {
-        // Force page reload to trigger auth check
-        window.location.reload();
-        return [];
-      }
-      
       throw new Error(data.error || 'Failed to fetch accounts');
     }
     
@@ -113,13 +99,6 @@ export const fetchTopSpendingCampaigns = async (customerId: string, limit: numbe
     
     if (!data?.success) {
       console.error('API response error:', data);
-      
-      // Handle auth required case
-      if (data?.needsAuth) {
-        window.location.reload();
-        return [];
-      }
-      
       throw new Error(data?.error || 'Failed to fetch campaigns');
     }
     
