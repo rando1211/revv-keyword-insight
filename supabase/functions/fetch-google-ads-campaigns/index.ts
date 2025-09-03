@@ -11,25 +11,11 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  // Declare environment variables at top level for error handling access
-  const DEVELOPER_TOKEN = Deno.env.get("Developer Token");
-  const CLIENT_ID = Deno.env.get("Client ID");
-  const CLIENT_SECRET = Deno.env.get("Secret");
-  const REFRESH_TOKEN = Deno.env.get("Refresh token");
-
   try {
-    // Parse request body first
-    let requestBody;
-    try {
-      requestBody = await req.json();
-    } catch (e) {
-      throw new Error('Invalid JSON in request body');
-    }
-    
-    const { customerId } = requestBody;
+    const { customerId } = await req.json();
     
     if (!customerId) {
-      throw new Error('customerId is required in request body');
+      throw new Error('customerId is required');
     }
     
     // Get user from JWT token
@@ -48,32 +34,17 @@ serve(async (req) => {
       throw new Error('Invalid user token');
     }
 
-    console.log('🔍 DEBUG: Starting fetch-google-ads-campaigns function');
-    console.log('🔍 DEBUG: User ID:', user.id);
-    console.log('🔍 DEBUG: User email:', user.email);
-    console.log('🔍 DEBUG: Received customerId:', customerId);
+    console.log('🔍 Starting fetch campaigns for customer:', customerId);
     
-    // Handle different customer ID formats
-    let cleanCustomerId;
-    if (typeof customerId === 'string') {
-      // Remove "customers/" prefix and dashes from customer ID for API call
-      cleanCustomerId = customerId.replace(/^customers\//, '').replace(/-/g, '');
-    } else {
-      throw new Error('Invalid customerId format');
-    }
+    // Clean customer ID
+    const cleanCustomerId = customerId.replace(/^customers\//, '').replace(/-/g, '');
     
-    console.log('Clean customerId:', cleanCustomerId);
-    console.log('Is MCC account?', cleanCustomerId === "9301596383");
-    
-    console.log('🔍 DEBUG: Getting access token using shared credentials');
-    console.log('🔍 DEBUG: Available env vars:', {
-      hasDevToken: !!DEVELOPER_TOKEN,
-      hasClientId: !!CLIENT_ID, 
-      hasClientSecret: !!CLIENT_SECRET,
-      hasRefreshToken: !!REFRESH_TOKEN
-    });
-
     // Get access token using shared credentials
+    const DEVELOPER_TOKEN = Deno.env.get("Developer Token");
+    const CLIENT_ID = Deno.env.get("Client ID");
+    const CLIENT_SECRET = Deno.env.get("Secret");
+    const REFRESH_TOKEN = Deno.env.get("Refresh token");
+
     const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -86,27 +57,13 @@ serve(async (req) => {
     });
 
     const tokenData = await tokenResponse.json();
-    console.log('🔍 DEBUG: OAuth response status:', tokenResponse.status);
-    console.log('🔍 DEBUG: OAuth response:', tokenData);
     
     if (!tokenResponse.ok) {
       throw new Error(`OAuth token error: ${JSON.stringify(tokenData)}`);
     }
 
     const accessToken = tokenData.access_token;
-
-    // Step 1: Simple approach - if this is the known MCC ID, treat as regular account
-    console.log("🔍 STEP 1: Determining account type and login requirements");
-    
-    let loginCustomerId = null;
-    
-    // For this specific account, treat it as a regular account, not an MCC
-    console.log("ℹ️ Treating account as regular Google Ads account (not MCC)");
-    
-    console.log("🔍 STEP 2: Making campaign query without login-customer-id");
-    console.log("🚀 Login Customer ID:", loginCustomerId);
-    
-    // Campaign query - using specific date range instead of DURING operator
+    // Simple campaigns query
     const endDate = new Date().toISOString().split('T')[0];
     const startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
     
@@ -126,145 +83,68 @@ serve(async (req) => {
       LIMIT 50
     `;
 
-    try {
-      const apiUrl = `https://googleads.googleapis.com/v17/customers/${cleanCustomerId}/googleAds:search`;
-      
-      console.log("🚀 Final API URL:", apiUrl);
-      console.log("🚀 Customer ID being used:", cleanCustomerId);
-      console.log("🚀 Login Customer ID:", loginCustomerId);
+    const apiUrl = `https://googleads.googleapis.com/v17/customers/${cleanCustomerId}/googleAds:search`;
+    
+    console.log("🚀 Making API request to:", apiUrl);
 
-    // Build headers - include login-customer-id if we found an MCC
-      const headers = {
-        "Authorization": `Bearer ${accessToken}`,
-        "developer-token": DEVELOPER_TOKEN,
-        "Content-Type": "application/json"
-      };
-      
-      // Add login-customer-id header if we detected an MCC
-      if (loginCustomerId) {
-        headers["login-customer-id"] = loginCustomerId;
-        console.log("✅ Added login-customer-id header:", loginCustomerId);
-      }
+    const headers = {
+      "Authorization": `Bearer ${accessToken}`,
+      "developer-token": DEVELOPER_TOKEN,
+      "Content-Type": "application/json"
+    };
 
-      const requestBody = JSON.stringify({ query });
+    const apiResponse = await fetch(apiUrl, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ query }),
+    });
 
-      console.log("🚀 API URL:", apiUrl);
-      console.log("📨 Request Headers:", headers);
-      console.log("🧾 Request Body:", requestBody);
+    const responseText = await apiResponse.text();
+    console.log("📋 Response Status:", apiResponse.status);
 
-      const apiResponse = await fetch(apiUrl, {
-        method: "POST",
-        headers: {
-          ...headers,
-          'Accept': 'application/json'
-        },
-        body: requestBody,
-      });
-
-      console.log("📋 Response Status:", apiResponse.status);
-      console.log("📋 Response Headers:", Object.fromEntries(apiResponse.headers.entries()));
-      
-      const responseText = await apiResponse.text();
-      console.log("📋 Raw Response Text (first 1000 chars):", responseText.substring(0, 1000));
-
-      if (!apiResponse.ok) {
-        console.error("❌ API Response Status:", apiResponse.status);
-        console.error("❌ API Response Text:", responseText);
-        throw new Error(`Google Ads API error: ${responseText}`);
-      }
-
-      // Check if response is JSON before parsing
-      const contentType = apiResponse.headers.get("Content-Type");
-      console.log("📋 Content-Type:", contentType);
-      
-      if (!contentType?.includes("application/json")) {
-        console.error("❌ Expected JSON but got Content-Type:", contentType);
-        console.error("❌ Response body:", responseText);
-        throw new Error(`Expected JSON response but got Content-Type: ${contentType}. Response: ${responseText.substring(0, 500)}`);
-      }
-
-      console.log("✅ API Response OK, parsing JSON...");
-      
-      // Parse the successful response
-      let apiData;
-      try {
-        apiData = JSON.parse(responseText);
-        console.log("✅ Successfully parsed JSON response");
-      } catch (parseError) {
-        console.error("❌ Failed to parse JSON. Raw response was:", responseText);
-        throw new Error(`Failed to parse JSON response: ${parseError.message}. Raw response: ${responseText.substring(0, 500)}`);
-      }
-      console.log("🔍 DEBUG: Parsed API data:", JSON.stringify(apiData, null, 2));
-      
-      // Process and format the response with actual campaign data
-      const campaigns = apiData.results?.map((result: any) => ({
-        id: result.campaign?.id || 'unknown',
-        name: result.campaign?.name || 'Unknown Campaign',
-        status: result.campaign?.status || 'UNKNOWN',
-        cost_micros: parseInt(result.metrics?.costMicros || "0"),
-        cost: parseInt(result.metrics?.costMicros || "0") / 1000000, // Convert to dollars
-        clicks: parseInt(result.metrics?.clicks || "0"),
-        impressions: parseInt(result.metrics?.impressions || "0"),
-        ctr: parseFloat(result.metrics?.ctr || "0"),
-      })) || [];
-
-      console.log(`🔍 DEBUG: Processed ${campaigns.length} campaigns from API response`);
-      console.log("🔍 DEBUG: Final campaigns array:", JSON.stringify(campaigns, null, 2));
-
-      return new Response(
-        JSON.stringify({ 
-          success: true, 
-          campaigns,
-          total: campaigns.length,
-          customerId: cleanCustomerId
-        }),
-        { 
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-          status: 200 
-        }
-      );
-
-    } catch (err) {
-      console.error("🔥 Caught Error:", err.message || err);
-      return new Response(
-        JSON.stringify({ 
-          error: "Google Ads Campaigns API Error: " + err.message,
-          success: false
-        }),
-        { 
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-          status: 500 
-        }
-      );
+    if (!apiResponse.ok) {
+      console.error("❌ API Response:", responseText);
+      throw new Error(`Google Ads API error: ${responseText}`);
     }
+
+    const apiData = JSON.parse(responseText);
+    
+    // Process and format the response
+    const campaigns = apiData.results?.map((result: any) => ({
+      id: result.campaign?.id || 'unknown',
+      name: result.campaign?.name || 'Unknown Campaign',
+      status: result.campaign?.status || 'UNKNOWN',
+      cost_micros: parseInt(result.metrics?.costMicros || "0"),
+      cost: parseInt(result.metrics?.costMicros || "0") / 1000000,
+      clicks: parseInt(result.metrics?.clicks || "0"),
+      impressions: parseInt(result.metrics?.impressions || "0"),
+      ctr: parseFloat(result.metrics?.ctr || "0"),
+    })) || [];
+
+    console.log(`✅ Processed ${campaigns.length} campaigns`);
+
+    return new Response(
+      JSON.stringify({ 
+        success: true, 
+        campaigns,
+        total: campaigns.length,
+        customerId: cleanCustomerId
+      }),
+      { 
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200 
+      }
+    );
     
   } catch (error) {
     console.error("🔥 Function Error:", error);
-    console.error("🔥 Error stack:", error.stack);
-    console.error("🔥 Error name:", error.name);
-    console.error("🔥 Error message:", error.message);
-    
-    // Return more specific error information
-    const errorResponse = {
-      error: error.message || 'Unknown error occurred',
-      success: false,
-      timestamp: new Date().toISOString(),
-      function: 'fetch-google-ads-campaigns',
-      errorType: error.name || 'UnknownError',
-      details: {
-        hasCredentials: {
-          hasDevToken: !!DEVELOPER_TOKEN,
-          hasClientId: !!CLIENT_ID,
-          hasClientSecret: !!CLIENT_SECRET,
-          hasRefreshToken: !!REFRESH_TOKEN
-        }
-      }
-    };
-    
-    console.log("🔥 Returning error response:", errorResponse);
     
     return new Response(
-      JSON.stringify(errorResponse),
+      JSON.stringify({
+        error: error.message || 'Unknown error occurred',
+        success: false,
+        timestamp: new Date().toISOString()
+      }),
       { 
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 500 
