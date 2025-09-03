@@ -12,7 +12,10 @@ serve(async (req) => {
   }
 
   try {
+    console.log('🚀 Starting campaign creation...');
+    
     const authHeader = req.headers.get('Authorization')!;
+    console.log('📝 Auth header present:', !!authHeader);
     
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -21,13 +24,18 @@ serve(async (req) => {
     );
 
     const { data: { user }, error: authError } = await supabase.auth.getUser();
+    console.log('👤 User authentication result:', { user: user?.id, error: authError?.message });
+    
     if (authError || !user) {
+      console.error('❌ Authentication failed:', authError?.message);
       throw new Error('Invalid user token');
     }
 
     const { customerId, campaignData } = await req.json();
+    console.log('📊 Request data:', { customerId: !!customerId, campaignData: !!campaignData });
     
     if (!customerId || !campaignData) {
+      console.error('❌ Missing required data:', { customerId, campaignData });
       throw new Error('Missing customerId or campaignData');
     }
 
@@ -40,7 +48,15 @@ serve(async (req) => {
     const CLIENT_SECRET = Deno.env.get('Secret');
     const REFRESH_TOKEN = Deno.env.get('Refresh token');
 
+    console.log('🔑 Credentials check:', {
+      DEVELOPER_TOKEN: !!DEVELOPER_TOKEN,
+      CLIENT_ID: !!CLIENT_ID,
+      CLIENT_SECRET: !!CLIENT_SECRET,
+      REFRESH_TOKEN: !!REFRESH_TOKEN,
+    });
+
     if (!DEVELOPER_TOKEN || !CLIENT_ID || !CLIENT_SECRET || !REFRESH_TOKEN) {
+      console.error('❌ Missing Google Ads API credentials');
       throw new Error('Missing Google Ads API credentials');
     }
 
@@ -252,11 +268,14 @@ serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('Campaign creation error:', error);
+    console.error('❌ Campaign creation error:', error);
+    console.error('❌ Error stack:', error.stack);
+    
     return new Response(
       JSON.stringify({
         success: false,
-        error: error.message,
+        error: error.message || 'Unknown error occurred',
+        details: error.stack || 'No stack trace available',
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

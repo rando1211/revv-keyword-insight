@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useAuthError } from '@/hooks/useAuthError';
 import { toast } from '@/hooks/use-toast';
 
 interface CampaignReviewPanelProps {
@@ -26,6 +27,7 @@ export const CampaignReviewPanel: React.FC<CampaignReviewPanelProps> = ({
   const [isLaunching, setIsLaunching] = useState(false);
   const [launchResult, setLaunchResult] = useState<any>(null);
   const { session } = useAuth();
+  const { handleAuthError } = useAuthError();
 
   const handleLaunchCampaign = async () => {
     if (!settings?.customerId) {
@@ -73,15 +75,20 @@ export const CampaignReviewPanel: React.FC<CampaignReviewPanelProps> = ({
       }
     } catch (error) {
       console.error('Campaign launch error:', error);
-      setLaunchResult({
-        success: false,
-        error: error.message,
-      });
-      toast({
-        title: "Campaign Creation Failed",
-        description: error.message,
-        variant: "destructive",
-      });
+      
+      try {
+        await handleAuthError(error, () => handleLaunchCampaign());
+      } catch (handledError) {
+        setLaunchResult({
+          success: false,
+          error: handledError.message,
+        });
+        toast({
+          title: "Campaign Creation Failed",
+          description: handledError.message,
+          variant: "destructive",
+        });
+      }
     } finally {
       setIsLaunching(false);
     }
