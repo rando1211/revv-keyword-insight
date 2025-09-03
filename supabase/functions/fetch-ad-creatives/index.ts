@@ -106,16 +106,15 @@ serve(async (req) => {
       campaignFilter = `AND campaign.id IN (${campaignIdList})`;
     }
 
-    // Build the Google Ads API query for responsive search ads
-    // Limit based on campaign selection to avoid overwhelming data
+    // Build a simplified Google Ads API query - start with basic ad data
+    // Use same pattern as working functions but for ads instead of search terms
     const adLimit = campaignIds && campaignIds.length > 0 ? Math.min(campaignIds.length * 10, 30) : 15;
     
     const adQuery = `
       SELECT 
         ad_group_ad.ad.id,
-        ad_group_ad.ad.responsive_search_ad.headlines,
-        ad_group_ad.ad.responsive_search_ad.descriptions,
-        ad_group_ad.ad.final_urls,
+        ad_group_ad.ad.type,
+        ad_group_ad.status,
         ad_group.id,
         ad_group.name,
         campaign.id,
@@ -124,19 +123,12 @@ serve(async (req) => {
         metrics.impressions,
         metrics.ctr,
         metrics.cost_micros,
-        metrics.conversions,
-        metrics.conversions_value,
-        metrics.view_through_conversions,
-        metrics.cost_per_conversion,
-        metrics.average_cpc,
-        segments.device,
-        segments.day_of_week
+        metrics.conversions
       FROM ad_group_ad 
-      WHERE ad_group_ad.ad.type = 'RESPONSIVE_SEARCH_AD'
-      AND ad_group_ad.status = 'ENABLED'
+      WHERE ad_group_ad.status = 'ENABLED'
       AND ad_group.status = 'ENABLED'
       AND campaign.status = 'ENABLED'
-      AND metrics.impressions > 10
+      AND metrics.impressions > 0
       ${dateFilter}
       ${campaignFilter}
       ORDER BY metrics.impressions DESC
@@ -249,78 +241,35 @@ serve(async (req) => {
     }
     console.log(`✅ Processed ${apiData.results?.length || 0} ads from Google Ads API`);
 
-    // Process the ad creatives data
+    // Process the ad data - simplified approach for basic ad information
     const adCreatives = [];
-    const brandSet = new Set();
     const campaignSet = new Set();
 
     if (apiData.results) {
       for (const result of apiData.results) {
         const ad = result.adGroupAd?.ad;
         const metrics = result.metrics;
-        const segments = result.segments;
 
-        if (ad?.responsiveSearchAd) {
-          const rsa = ad.responsiveSearchAd;
+        if (ad) {
           campaignSet.add(result.campaign.name);
 
-          // Process headlines
-          if (rsa.headlines) {
-            rsa.headlines.forEach((headline, index) => {
-              adCreatives.push({
-                id: `${ad.id}_headline_${index}`,
-                adId: ad.id,
-                campaignId: result.campaign.id,
-                adGroupId: result.adGroup.id,
-                type: 'headline',
-                text: headline.text,
-                pinnedField: headline.pinnedField,
-                campaign: result.campaign.name,
-                adGroup: result.adGroup.name,
-                clicks: parseInt(metrics?.clicks || '0'),
-                impressions: parseInt(metrics?.impressions || '0'),
-                ctr: metrics?.ctr || 0,
-                conversions: parseFloat(metrics?.conversions || '0'),
-                conversionsValue: parseFloat(metrics?.conversionsValue || '0'),
-                viewThroughConversions: parseFloat(metrics?.viewThroughConversions || '0'),
-                cost: (metrics?.costMicros || 0) / 1000000,
-                costPerConversion: parseFloat(metrics?.costPerConversion || '0') / 1000000,
-                averageCpc: (metrics?.averageCpc || 0) / 1000000,
-                device: segments?.device,
-                dayOfWeek: segments?.dayOfWeek,
-                performanceLabel: 'PENDING' // Default value since asset_performance_label not available in API
-              });
-            });
-          }
-
-          // Process descriptions
-          if (rsa.descriptions) {
-            rsa.descriptions.forEach((description, index) => {
-              adCreatives.push({
-                id: `${ad.id}_description_${index}`,
-                adId: ad.id,
-                campaignId: result.campaign.id,
-                adGroupId: result.adGroup.id,
-                type: 'description',
-                text: description.text,
-                pinnedField: description.pinnedField,
-                campaign: result.campaign.name,
-                adGroup: result.adGroup.name,
-                clicks: parseInt(metrics?.clicks || '0'),
-                impressions: parseInt(metrics?.impressions || '0'),
-                ctr: metrics?.ctr || 0,
-                conversions: parseFloat(metrics?.conversions || '0'),
-                conversionsValue: parseFloat(metrics?.conversionsValue || '0'),
-                viewThroughConversions: parseFloat(metrics?.viewThroughConversions || '0'),
-                cost: (metrics?.costMicros || 0) / 1000000,
-                costPerConversion: parseFloat(metrics?.costPerConversion || '0') / 1000000,
-                averageCpc: (metrics?.averageCpc || 0) / 1000000,
-                device: segments?.device,
-                dayOfWeek: segments?.dayOfWeek,
-                performanceLabel: 'PENDING' // Default value since asset_performance_label not available in API
-              });
-            });
-          }
+          // Create a basic ad record with available metrics
+          adCreatives.push({
+            id: ad.id,
+            adId: ad.id,
+            campaignId: result.campaign.id,
+            adGroupId: result.adGroup.id,
+            type: ad.type || 'UNKNOWN',
+            status: result.adGroupAd.status,
+            campaign: result.campaign.name,
+            adGroup: result.adGroup.name,
+            clicks: parseInt(metrics?.clicks || '0'),
+            impressions: parseInt(metrics?.impressions || '0'),
+            ctr: metrics?.ctr || 0,
+            conversions: parseFloat(metrics?.conversions || '0'),
+            cost: (metrics?.costMicros || 0) / 1000000,
+            performanceLabel: 'PENDING' // Simplified approach
+          });
         }
       }
     }
@@ -337,7 +286,6 @@ serve(async (req) => {
       totalAssets: adCreatives.length,
       totalAds: apiData.results?.length || 0,
       campaigns: campaignSet.size,
-      brands: Array.from(brandSet),
       performance: {
         totalClicks,
         totalImpressions,
