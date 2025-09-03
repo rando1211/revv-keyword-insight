@@ -72,31 +72,48 @@ serve(async (req) => {
     
     const accessibleData = await accessibleCustomersResponse.json();
     const accessibleIds = accessibleData.resourceNames?.map((name: string) => name.replace('customers/', '')) || [];
+    console.log('📊 Accessible IDs:', accessibleIds);
     
     // Check if target customer is directly accessible
     const isDirectlyAccessible = accessibleIds.includes(cleanCustomerId);
+    console.log('🎯 Is target directly accessible?', isDirectlyAccessible);
     
     let loginCustomerId = cleanCustomerId; // Default to self
     
     if (!isDirectlyAccessible) {
-      // Find a manager that can access this customer
+      // Find a manager that can access this customer using customer_client table
       for (const managerId of accessibleIds) {
+        console.log(`🔍 Checking if ${managerId} manages ${cleanCustomerId}...`);
+        
         try {
-          const customerResponse = await fetch(`https://googleads.googleapis.com/v20/customers/${managerId}/customers:listAccessibleCustomers`, {
-            method: 'GET',
+          const customerClientQuery = `
+            SELECT customer_client.client_customer 
+            FROM customer_client 
+            WHERE customer_client.client_customer = '${cleanCustomerId}'
+          `;
+          
+          const managerResponse = await fetch(`https://googleads.googleapis.com/v20/customers/${managerId}/googleAds:search`, {
+            method: 'POST',
             headers: {
               'Authorization': `Bearer ${access_token}`,
               'developer-token': developerToken,
               'login-customer-id': managerId,
               'Content-Type': 'application/json'
-            }
+            },
+            body: JSON.stringify({
+              query: customerClientQuery
+            })
           });
           
-          if (customerResponse.ok) {
-            const customerData = await customerResponse.json();
-            const managedIds = customerData.resourceNames?.map((name: string) => name.replace('customers/', '')) || [];
+          if (managerResponse.ok) {
+            const managerData = await managerResponse.json();
+            const managedCustomers = managerData.results?.map((result: any) => 
+              result.customerClient?.clientCustomer?.replace('customers/', '')
+            ) || [];
             
-            if (managedIds.includes(cleanCustomerId)) {
+            console.log(`📊 Manager ${managerId} manages:`, managedCustomers.slice(0, 20));
+            
+            if (managedCustomers.includes(cleanCustomerId)) {
               loginCustomerId = managerId;
               console.log(`✅ Found correct manager: ${managerId} manages ${cleanCustomerId}`);
               break;
