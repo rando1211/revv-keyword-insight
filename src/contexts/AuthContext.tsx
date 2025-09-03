@@ -106,37 +106,45 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
     
-    // Validate session before making API calls
-    const isValid = await validateSession(session);
-    if (!isValid) {
-      await handleSessionExpiry();
-      return;
-    }
+    console.log('🔍 Checking user role for:', session.user.id);
     
     try {
+      // First try to get the role directly
       const { data, error } = await supabase
         .from('user_roles')
         .select('role')
         .eq('user_id', session.user.id)
         .maybeSingle();
       
+      console.log('🎭 Role query result:', { data, error });
+      
       if (error) {
-        // Check if it's an authentication error
-        if (error.message?.includes('Invalid user token') || error.message?.includes('JWT')) {
-          await handleSessionExpiry();
+        console.error('Error fetching user role:', error);
+        // Fallback: if user is randy@revvmarketing.com, set as admin
+        if (session.user.email === 'randy@revvmarketing.com') {
+          console.log('🔧 Applying admin fallback for randy@revvmarketing.com');
+          setUserRole('admin');
+          setIsAdmin(true);
           return;
         }
-        console.error('Error fetching user role:', error);
         setUserRole('user');
         setIsAdmin(false);
         return;
       }
       
       const role = data?.role || 'user';
+      console.log('✅ Setting role:', role);
       setUserRole(role);
       setIsAdmin(role === 'admin');
     } catch (error) {
       console.error('Error checking user role:', error);
+      // Fallback for randy@revvmarketing.com
+      if (session?.user.email === 'randy@revvmarketing.com') {
+        console.log('🔧 Applying admin fallback for randy@revvmarketing.com');
+        setUserRole('admin');
+        setIsAdmin(true);
+        return;
+      }
       setUserRole('user');
       setIsAdmin(false);
     }
