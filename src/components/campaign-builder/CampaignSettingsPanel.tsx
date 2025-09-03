@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ArrowLeft, ArrowRight, Settings, DollarSign, Target } from 'lucide-react';
 import { toast } from 'sonner';
+import { fetchGoogleAdsAccounts } from '@/lib/google-ads-service';
 
 interface AdGroup {
   name: string;
@@ -19,6 +20,7 @@ interface CampaignSettings {
   biddingStrategy: string;
   targetLocation: string;
   networkSettings: string[];
+  customerId?: string;
 }
 
 interface CampaignSettingsPanelProps {
@@ -41,10 +43,38 @@ export const CampaignSettingsPanel: React.FC<CampaignSettingsPanelProps> = ({
     targetLocation: 'United States',
     networkSettings: ['SEARCH']
   });
+  
+  const [accounts, setAccounts] = useState<any[]>([]);
+  const [loadingAccounts, setLoadingAccounts] = useState(true);
+
+  useEffect(() => {
+    const loadAccounts = async () => {
+      try {
+        const googleAdsAccounts = await fetchGoogleAdsAccounts();
+        setAccounts(googleAdsAccounts);
+        
+        // Auto-select first account if only one
+        if (googleAdsAccounts.length === 1) {
+          setSettings(prev => ({ ...prev, customerId: googleAdsAccounts[0].customerId }));
+        }
+      } catch (error) {
+        console.error('Error loading Google Ads accounts:', error);
+        toast.error('Failed to load Google Ads accounts');
+      } finally {
+        setLoadingAccounts(false);
+      }
+    };
+
+    loadAccounts();
+  }, []);
 
   const handleNext = () => {
     if (!settings.name.trim()) {
       toast.error('Campaign name is required');
+      return;
+    }
+    if (!settings.customerId) {
+      toast.error('Please select a Google Ads account');
       return;
     }
     onSettingsCreated(settings);
@@ -62,6 +92,34 @@ export const CampaignSettingsPanel: React.FC<CampaignSettingsPanelProps> = ({
           <CardDescription>Configure your campaign budget, bidding, and targeting</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
+          {/* Google Ads Account Selection */}
+          <div className="p-4 bg-accent/50 rounded-lg space-y-2">
+            <Label htmlFor="googleAdsAccount">Google Ads Account</Label>
+            {loadingAccounts ? (
+              <div className="text-sm text-muted-foreground">Loading accounts...</div>
+            ) : accounts.length > 0 ? (
+              <Select
+                value={settings.customerId}
+                onValueChange={(value) => setSettings(prev => ({ ...prev, customerId: value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select Google Ads account" />
+                </SelectTrigger>
+                <SelectContent>
+                  {accounts.map((account) => (
+                    <SelectItem key={account.customerId} value={account.customerId}>
+                      {account.name} ({account.customerId})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <div className="text-sm text-muted-foreground">
+                No Google Ads accounts found. Please set up your Google Ads credentials first.
+              </div>
+            )}
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
               <Label htmlFor="campaignName">Campaign Name</Label>
