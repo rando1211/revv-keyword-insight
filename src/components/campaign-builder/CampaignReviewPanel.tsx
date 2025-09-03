@@ -39,8 +39,19 @@ export const CampaignReviewPanel: React.FC<CampaignReviewPanelProps> = ({
       return;
     }
 
+    if (!session?.access_token) {
+      toast({
+        title: "Authentication Required",
+        description: "Please sign in again to create campaigns.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsLaunching(true);
     try {
+      console.log('🚀 Starting campaign creation with session:', !!session?.access_token);
+      
       const campaignData = {
         settings,
         adGroups,
@@ -52,9 +63,6 @@ export const CampaignReviewPanel: React.FC<CampaignReviewPanelProps> = ({
         body: {
           customerId: settings.customerId,
           campaignData,
-        },
-        headers: {
-          Authorization: `Bearer ${session?.access_token}`,
         },
       });
 
