@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,30 +7,34 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function ResetPassword() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [searchParams] = useSearchParams();
   const { toast } = useToast();
+  const { session } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Check if we have the necessary tokens for password reset
-    const accessToken = searchParams.get('access_token');
-    const refreshToken = searchParams.get('refresh_token');
-    
-    if (!accessToken || !refreshToken) {
-      toast({
-        title: "Invalid Reset Link",
-        description: "This password reset link is invalid or expired.",
-        variant: "destructive"
-      });
-      navigate('/auth');
-    }
-  }, [searchParams, navigate, toast]);
+    // Check for password recovery session
+    const checkSession = async () => {
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      
+      if (!currentSession) {
+        toast({
+          title: "Invalid Reset Session",
+          description: "Please request a new password reset link.",
+          variant: "destructive"
+        });
+        navigate('/auth');
+      }
+    };
+
+    checkSession();
+  }, [navigate, toast]);
 
   const handlePasswordUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -63,10 +67,13 @@ export default function ResetPassword() {
         });
       } else {
         toast({
-          title: "Password Updated",
-          description: "Your password has been successfully updated.",
+          title: "Password Updated Successfully!",
+          description: "Your password has been updated. You can now sign in with your new password.",
         });
-        navigate('/dashboard');
+        
+        // Sign out to force re-authentication with new password
+        await supabase.auth.signOut();
+        navigate('/auth');
       }
     } catch (e) {
       console.error('Password update error:', e);
