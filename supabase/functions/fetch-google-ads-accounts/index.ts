@@ -64,7 +64,7 @@ serve(async (req) => {
     const CLIENT_ID = Deno.env.get("Client ID");
     const CLIENT_SECRET = Deno.env.get("Secret");
     const REFRESH_TOKEN = Deno.env.get("Refresh token");
-    const API_VERSION = "v18";
+    const API_VERSION = "v20";
 
     // Check if user has Google OAuth session with Google Ads scope
     const { data: authData } = await supabase.auth.getUser();
@@ -128,7 +128,7 @@ serve(async (req) => {
         headers: {
           "Authorization": `Bearer ${accessToken}`,
           "developer-token": DEVELOPER_TOKEN,
-          ...(authData.user?.app_metadata?.provider !== 'google' ? { "login-customer-id": "9301596383" } : {}),
+          "login-customer-id": userCustomerId, // For MCC accounts, use the MCC ID as login customer
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ query: childAccountsQuery.trim() }),
@@ -137,6 +137,11 @@ serve(async (req) => {
 
     const childData = await childResponse.json();
     console.log('Child accounts query response status:', childResponse.status);
+    
+    if (!childResponse.ok) {
+      console.error('❌ Child accounts query failed:', childData);
+      console.error('❌ Query used:', childAccountsQuery.trim());
+    }
 
     // If we successfully got child accounts, return them
     if (childResponse.ok && childData.results && childData.results.length > 0) {
