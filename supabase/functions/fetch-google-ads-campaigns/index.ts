@@ -67,6 +67,98 @@ serve(async (req) => {
     }
 
     const accessToken = tokenData.access_token;
+    
+    // Step 1: List accessible customers to verify OAuth scope and access
+    console.log('📋 Step 1: Checking accessible customers...');
+    const accessibleRes = await fetch("https://googleads.googleapis.com/v20/customers:listAccessibleCustomers", {
+      headers: {
+        "Authorization": `Bearer ${accessToken}`,
+        "developer-token": DEVELOPER_TOKEN,
+      },
+    });
+    
+    if (!accessibleRes.ok) {
+      const accessibleError = await accessibleRes.text();
+      console.error('❌ Failed to list accessible customers:', accessibleError);
+      throw new Error(`Cannot list accessible customers: ${accessibleError}`);
+    }
+    
+    const accessibleData = await accessibleRes.json();
+    console.log('✅ Accessible customers:', accessibleData);
+    
+    // Extract customer IDs from resource names
+    const accessibleIds = accessibleData.resourceNames?.map((name: string) => 
+      name.replace('customers/', '')
+    ) || [];
+    console.log('📊 Accessible IDs:', accessibleIds);
+    
+    // Check if our target customer is directly accessible
+    const isDirectlyAccessible = accessibleIds.includes(cleanCustomerId);
+    console.log('🎯 Is target directly accessible?', isDirectlyAccessible);
+    
+    // Step 2: Find the right manager for login-customer-id
+    let correctManagerId = null;
+    
+    // Try each accessible account as potential manager
+    for (const potentialManagerId of accessibleIds) {
+      console.log(`🔍 Checking if ${potentialManagerId} manages ${cleanCustomerId}...`);
+      
+      try {
+        const clientsRes = await fetch(
+          `https://googleads.googleapis.com/v20/customers/${potentialManagerId}/googleAds:search`,
+          {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${accessToken}`,
+              "developer-token": DEVELOPER_TOKEN,
+              "login-customer-id": potentialManagerId,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              query: `
+                SELECT
+                  customer_client.id,
+                  customer_client.manager,
+                  customer_client.level,
+                  customer_client.status
+                FROM customer_client
+              `
+            }),
+          }
+        );
+        
+        if (clientsRes.ok) {
+          const clientsData = await clientsRes.json();
+          const managedClients = clientsData.results?.map((r: any) => 
+            r.customerClient.id?.replace(/-/g, '')
+          ) || [];
+          
+          console.log(`📊 Manager ${potentialManagerId} manages:`, managedClients);
+          
+          if (managedClients.includes(cleanCustomerId)) {
+            correctManagerId = potentialManagerId;
+            console.log(`✅ Found correct manager: ${correctManagerId} manages ${cleanCustomerId}`);
+            break;
+          }
+        }
+      } catch (error) {
+        console.log(`❌ ${potentialManagerId} is not a manager or error occurred:`, error.message);
+      }
+    }
+    
+    // If target is directly accessible, use it as its own login-customer-id
+    if (isDirectlyAccessible && !correctManagerId) {
+      correctManagerId = cleanCustomerId;
+      console.log(`✅ Using target as its own login-customer-id: ${correctManagerId}`);
+    }
+    
+    if (!correctManagerId) {
+      throw new Error(`No accessible manager found for customer ${cleanCustomerId}. Accessible accounts: ${accessibleIds.join(', ')}`);
+    }
+
+    // Step 3: Now fetch campaigns with correct two-ID pattern
+    console.log('🚀 Step 3: Fetching campaigns with correct authentication...');
+    console.log(`📋 Using pattern: URL=${cleanCustomerId}, login-customer-id=${correctManagerId}`);
     // Simple campaigns query
     const endDate = new Date().toISOString().split('T')[0];
     const startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
@@ -95,9 +187,7 @@ serve(async (req) => {
       "Authorization": `Bearer ${accessToken}`,
       "developer-token": DEVELOPER_TOKEN,
       "Content-Type": "application/json",
-      // Use a known working MCC ID for login-customer-id
-      // Based on the accounts response, use one of the MCC accounts as login-customer-id
-      "login-customer-id": "4605931780" // REVV NEW ACCOUNT (isManager: true)
+      "login-customer-id": correctManagerId // Use the dynamically found correct manager
     };
     
     console.log('🔧 Request headers:', { 
