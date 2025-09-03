@@ -65,6 +65,59 @@ serve(async (req) => {
     const cleanCustomerId = customerId.replace('customers/', '');
 
     // First, fetch campaigns to get campaign IDs for actions that need them
+    // Get accessible customers to find correct manager (same pattern as other functions)
+    const accessibleCustomersResponse = await fetch('https://googleads.googleapis.com/v20/customers:listAccessibleCustomers', {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${access_token}`,
+        'developer-token': developerToken,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (!accessibleCustomersResponse.ok) {
+      throw new Error(`Failed to get accessible customers: ${accessibleCustomersResponse.status}`);
+    }
+    
+    const accessibleData = await accessibleCustomersResponse.json();
+    const accessibleIds = accessibleData.resourceNames?.map((name: string) => name.replace('customers/', '')) || [];
+    
+    // Check if target customer is directly accessible
+    const isDirectlyAccessible = accessibleIds.includes(cleanCustomerId);
+    
+    let loginCustomerId = cleanCustomerId; // Default to self
+    
+    if (!isDirectlyAccessible) {
+      // Find a manager that can access this customer
+      for (const managerId of accessibleIds) {
+        try {
+          const customerResponse = await fetch(`https://googleads.googleapis.com/v20/customers/${managerId}/customers:listAccessibleCustomers`, {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${access_token}`,
+              'developer-token': developerToken,
+              'login-customer-id': managerId,
+              'Content-Type': 'application/json'
+            }
+          });
+          
+          if (customerResponse.ok) {
+            const customerData = await customerResponse.json();
+            const managedIds = customerData.resourceNames?.map((name: string) => name.replace('customers/', '')) || [];
+            
+            if (managedIds.includes(cleanCustomerId)) {
+              loginCustomerId = managerId;
+              console.log(`✅ Found correct manager: ${managerId} manages ${cleanCustomerId}`);
+              break;
+            }
+          }
+        } catch (error) {
+          console.log(`⚠️ Error checking manager ${managerId}:`, error.message);
+          continue;
+        }
+      }
+    }
+
     console.log('📊 Fetching campaigns for context...');
     const campaignsApiUrl = `https://googleads.googleapis.com/v20/customers/${cleanCustomerId}/googleAds:search`;
     
@@ -83,7 +136,7 @@ serve(async (req) => {
       headers: {
         'Authorization': `Bearer ${access_token}`,
         'developer-token': developerToken,
-        'login-customer-id': '9301596383',
+        'login-customer-id': loginCustomerId, // Use dynamic manager detection
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({ query: campaignsQuery })
@@ -134,7 +187,7 @@ serve(async (req) => {
             headers: {
               'Authorization': `Bearer ${access_token}`,
               'developer-token': developerToken,
-              'login-customer-id': '9301596383',
+              'login-customer-id': loginCustomerId,
               'Content-Type': 'application/json'
             },
             body: JSON.stringify(negativeKeywordPayload)
@@ -179,7 +232,7 @@ serve(async (req) => {
             headers: {
               'Authorization': `Bearer ${access_token}`,
               'developer-token': developerToken,
-              'login-customer-id': '9301596383',
+              'login-customer-id': loginCustomerId,
               'Content-Type': 'application/json'
             },
             body: JSON.stringify({ query: adGroupsQuery })
@@ -217,7 +270,7 @@ serve(async (req) => {
               headers: {
                 'Authorization': `Bearer ${access_token}`,
                 'developer-token': developerToken,
-                'login-customer-id': '9301596383',
+                'login-customer-id': loginCustomerId,
                 'Content-Type': 'application/json'
               },
               body: JSON.stringify(keywordPayload)

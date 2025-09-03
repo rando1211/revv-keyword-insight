@@ -77,6 +77,59 @@ serve(async (req) => {
     const apiUrl = `https://googleads.googleapis.com/v20/customers/${cleanCustomerId}/googleAds:search`;
     
     // Build campaign filter if selectedCampaignIds are provided
+    // Get accessible customers to find correct manager (same pattern as other functions)
+    const accessibleCustomersResponse = await fetch('https://googleads.googleapis.com/v20/customers:listAccessibleCustomers', {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${access_token}`,
+        'developer-token': developerToken,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (!accessibleCustomersResponse.ok) {
+      throw new Error(`Failed to get accessible customers: ${accessibleCustomersResponse.status}`);
+    }
+    
+    const accessibleData = await accessibleCustomersResponse.json();
+    const accessibleIds = accessibleData.resourceNames?.map((name: string) => name.replace('customers/', '')) || [];
+    
+    // Check if target customer is directly accessible
+    const isDirectlyAccessible = accessibleIds.includes(cleanCustomerId);
+    
+    let loginCustomerId = cleanCustomerId; // Default to self
+    
+    if (!isDirectlyAccessible) {
+      // Find a manager that can access this customer
+      for (const managerId of accessibleIds) {
+        try {
+          const customerResponse = await fetch(`https://googleads.googleapis.com/v20/customers/${managerId}/customers:listAccessibleCustomers`, {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${access_token}`,
+              'developer-token': developerToken,
+              'login-customer-id': managerId,
+              'Content-Type': 'application/json'
+            }
+          });
+          
+          if (customerResponse.ok) {
+            const customerData = await customerResponse.json();
+            const managedIds = customerData.resourceNames?.map((name: string) => name.replace('customers/', '')) || [];
+            
+            if (managedIds.includes(cleanCustomerId)) {
+              loginCustomerId = managerId;
+              console.log(`✅ Found correct manager: ${managerId} manages ${cleanCustomerId}`);
+              break;
+            }
+          }
+        } catch (error) {
+          console.log(`⚠️ Error checking manager ${managerId}:`, error.message);
+          continue;
+        }
+      }
+    }
+    
     let campaignFilter = '';
     if (selectedCampaignIds && selectedCampaignIds.length > 0) {
       const campaignIdList = selectedCampaignIds.map((id: string) => `'${id}'`).join(', ');
@@ -115,7 +168,7 @@ serve(async (req) => {
       headers: {
         'Authorization': `Bearer ${access_token}`,
         'developer-token': developerToken,
-        'login-customer-id': '9301596383', // Use MCC ID as login customer
+        'login-customer-id': loginCustomerId, // Use dynamic manager detection
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({ query: searchTermsQuery })
