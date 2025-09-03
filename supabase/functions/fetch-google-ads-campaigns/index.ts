@@ -83,7 +83,7 @@ serve(async (req) => {
       LIMIT 50
     `;
 
-    const apiUrl = `https://googleads.googleapis.com/v17/customers/${cleanCustomerId}/googleAds:search`;
+    const apiUrl = `https://googleads.googleapis.com/v18/customers/${cleanCustomerId}/googleAds:search`;
     
     console.log("🚀 Making API request to:", apiUrl);
 
