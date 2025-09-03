@@ -39,6 +39,17 @@ serve(async (req) => {
     // Clean customer ID
     const cleanCustomerId = customerId.replace(/^customers\//, '').replace(/-/g, '');
     
+    // Get user's MCC ID from their credentials for proper login-customer-id header
+    const { data: credentials, error: credentialsError } = await supabase
+      .from('user_google_ads_credentials')
+      .select('customer_id')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    
+    const userMccId = credentials?.customer_id?.replace(/-/g, '') || null;
+    console.log('🏢 User MCC ID:', userMccId);
+    console.log('🎯 Target Customer ID:', cleanCustomerId);
+    
     // Get access token using shared credentials
     const DEVELOPER_TOKEN = Deno.env.get("Developer Token");
     const CLIENT_ID = Deno.env.get("Client ID");
@@ -90,8 +101,16 @@ serve(async (req) => {
     const headers = {
       "Authorization": `Bearer ${accessToken}`,
       "developer-token": DEVELOPER_TOKEN,
-      "Content-Type": "application/json"
+      "Content-Type": "application/json",
+      // If querying a client account under MCC, use MCC as login-customer-id
+      ...(userMccId && cleanCustomerId !== userMccId ? { "login-customer-id": userMccId } : {})
     };
+    
+    console.log('🔧 Request headers:', { 
+      hasAuth: !!headers.Authorization, 
+      hasDeveloperToken: !!headers["developer-token"],
+      loginCustomerId: headers["login-customer-id"] || "none"
+    });
 
     const apiResponse = await fetch(apiUrl, {
       method: "POST",
