@@ -73,6 +73,14 @@ export const fetchGoogleAdsAccounts = async (): Promise<GoogleAdsAccount[]> => {
     
     if (!data.success) {
       console.error('API response error:', data);
+      
+      // Handle auth required case
+      if (data.needsAuth) {
+        // Force page reload to trigger auth check
+        window.location.reload();
+        return [];
+      }
+      
       throw new Error(data.error || 'Failed to fetch accounts');
     }
     
@@ -105,6 +113,13 @@ export const fetchTopSpendingCampaigns = async (customerId: string, limit: numbe
     
     if (!data?.success) {
       console.error('API response error:', data);
+      
+      // Handle auth required case
+      if (data?.needsAuth) {
+        window.location.reload();
+        return [];
+      }
+      
       throw new Error(data?.error || 'Failed to fetch campaigns');
     }
     
