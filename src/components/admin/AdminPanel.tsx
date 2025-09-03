@@ -25,7 +25,7 @@ export const AdminPanel = () => {
   const [users, setUsers] = useState<UserWithRole[]>([]);
   const [loading, setLoading] = useState(true);
   const [newUserEmail, setNewUserEmail] = useState("");
-  const [newUserRole, setNewUserRole] = useState<'admin' | 'moderator' | 'user'>("user");
+  const [newUserRole, setNewUserRole] = useState<'admin' | 'moderator' | 'user' | 'beta'>("user");
 
   useEffect(() => {
     if (isAdmin) {
@@ -73,7 +73,7 @@ export const AdminPanel = () => {
     }
   };
 
-  const updateUserRole = async (userId: string, newRole: 'admin' | 'moderator' | 'user') => {
+  const updateUserRole = async (userId: string, newRole: 'admin' | 'moderator' | 'user' | 'beta') => {
     try {
       const { error } = await supabase
         .from('user_roles')
@@ -223,7 +223,7 @@ export const AdminPanel = () => {
             </div>
             <div className="w-32">
               <Label htmlFor="admin-role">Role</Label>
-              <Select value={newUserRole} onValueChange={(value) => setNewUserRole(value as 'admin' | 'moderator' | 'user')}>
+              <Select value={newUserRole} onValueChange={(value) => setNewUserRole(value as 'admin' | 'moderator' | 'user' | 'beta')}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -231,6 +231,7 @@ export const AdminPanel = () => {
                   <SelectItem value="admin">Admin</SelectItem>
                   <SelectItem value="moderator">Moderator</SelectItem>
                   <SelectItem value="user">User</SelectItem>
+                  <SelectItem value="beta">Beta</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -263,14 +264,15 @@ export const AdminPanel = () => {
                 <TableRow key={user.id}>
                   <TableCell className="font-medium">{user.email}</TableCell>
                   <TableCell>
-                    <Badge 
-                      variant={
-                        user.role === 'admin' ? 'default' : 
-                        user.role === 'moderator' ? 'secondary' : 
-                        'outline'
-                      }
-                      className="flex items-center gap-1 w-fit"
-                    >
+                     <Badge 
+                       variant={
+                         user.role === 'admin' ? 'default' : 
+                         user.role === 'moderator' ? 'secondary' : 
+                         user.role === 'beta' ? 'secondary' :
+                         'outline'
+                       }
+                       className="flex items-center gap-1 w-fit"
+                     >
                       {user.role === 'admin' && <Crown className="h-3 w-3" />}
                       {user.role === 'moderator' && <Shield className="h-3 w-3" />}
                       {user.role === 'user' && <UserIcon className="h-3 w-3" />}
@@ -284,7 +286,7 @@ export const AdminPanel = () => {
                     <div className="flex gap-2">
                       <Select
                         value={user.role}
-                        onValueChange={(value: 'admin' | 'moderator' | 'user') => updateUserRole(user.id, value)}
+                        onValueChange={(value: 'admin' | 'moderator' | 'user' | 'beta') => updateUserRole(user.id, value)}
                       >
                         <SelectTrigger className="w-32">
                           <SelectValue />
@@ -293,6 +295,7 @@ export const AdminPanel = () => {
                           <SelectItem value="admin">Admin</SelectItem>
                           <SelectItem value="moderator">Moderator</SelectItem>
                           <SelectItem value="user">User</SelectItem>
+                          <SelectItem value="beta">Beta</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
