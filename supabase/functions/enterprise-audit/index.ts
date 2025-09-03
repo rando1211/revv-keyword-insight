@@ -80,12 +80,72 @@ serve(async (req) => {
     console.log('📅 Time windows:', windows);
 
     const cleanCustomerId = customerId.replace('customers/', '');
-    const apiUrl = `https://googleads.googleapis.com/v17/customers/${cleanCustomerId}/googleAds:search`;
+    const apiUrl = `https://googleads.googleapis.com/v20/customers/${cleanCustomerId}/googleAds:search`;
+    
+    // Get accessible customers to find correct manager
+    const accessibleCustomersResponse = await fetch('https://googleads.googleapis.com/v20/customers:listAccessibleCustomers', {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${access_token}`,
+        'developer-token': developerToken,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (!accessibleCustomersResponse.ok) {
+      throw new Error(`Failed to get accessible customers: ${accessibleCustomersResponse.status}`);
+    }
+    
+    const accessibleData = await accessibleCustomersResponse.json();
+    console.log('✅ Accessible customers:', accessibleData);
+    
+    const accessibleIds = accessibleData.resourceNames?.map((name: string) => name.replace('customers/', '')) || [];
+    console.log('📊 Accessible IDs:', accessibleIds);
+    
+    // Check if target customer is directly accessible
+    const isDirectlyAccessible = accessibleIds.includes(cleanCustomerId);
+    console.log('🎯 Is target directly accessible?', isDirectlyAccessible);
+    
+    let loginCustomerId = cleanCustomerId; // Default to self
+    
+    if (!isDirectlyAccessible) {
+      // Find a manager that can access this customer
+      for (const managerId of accessibleIds) {
+        console.log(`🔍 Checking if ${managerId} manages ${cleanCustomerId}...`);
+        
+        try {
+          const customerResponse = await fetch(`https://googleads.googleapis.com/v20/customers/${managerId}/customers:listAccessibleCustomers`, {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${access_token}`,
+              'developer-token': developerToken,
+              'login-customer-id': managerId,
+              'Content-Type': 'application/json'
+            }
+          });
+          
+          if (customerResponse.ok) {
+            const customerData = await customerResponse.json();
+            const managedIds = customerData.resourceNames?.map((name: string) => name.replace('customers/', '')) || [];
+            console.log(`📊 Manager ${managerId} manages:`, managedIds);
+            
+            if (managedIds.includes(cleanCustomerId)) {
+              loginCustomerId = managerId;
+              console.log(`✅ Found correct manager: ${managerId} manages ${cleanCustomerId}`);
+              break;
+            }
+          }
+        } catch (error) {
+          console.log(`⚠️ Error checking manager ${managerId}:`, error.message);
+          continue;
+        }
+      }
+    }
     
     const headers = {
       'Authorization': `Bearer ${access_token}`,
       'developer-token': developerToken,
-      'login-customer-id': '9301596383',
+      'login-customer-id': loginCustomerId,
       'Content-Type': 'application/json'
     };
 

@@ -89,7 +89,7 @@ serve(async (req) => {
         // Build correct Google Ads API endpoints and payloads
         if (optimization.type === 'keyword_management') {
           // For negative keywords - use campaignCriteria:mutate with correct payload structure
-          apiEndpoint = `https://googleads.googleapis.com/v17/customers/${cleanCustomerId}/campaignCriteria:mutate`;
+          apiEndpoint = `https://googleads.googleapis.com/v20/customers/${cleanCustomerId}/campaignCriteria:mutate`;
           requestPayload = {
             operations: [{
               create: {
@@ -104,7 +104,7 @@ serve(async (req) => {
           };
         } else if (optimization.type === 'bid_adjustment') {
           // For bid adjustments - use campaigns:mutate
-          apiEndpoint = `https://googleads.googleapis.com/v17/customers/${cleanCustomerId}/campaigns:mutate`;
+          apiEndpoint = `https://googleads.googleapis.com/v20/customers/${cleanCustomerId}/campaigns:mutate`;
           requestPayload = {
             operations: [{
               update: {
@@ -118,7 +118,7 @@ serve(async (req) => {
           };
         } else if (optimization.type === 'budget_optimization') {
           // For budget changes - use campaigns:mutate  
-          apiEndpoint = `https://googleads.googleapis.com/v17/customers/${cleanCustomerId}/campaigns:mutate`;
+          apiEndpoint = `https://googleads.googleapis.com/v20/customers/${cleanCustomerId}/campaigns:mutate`;
           requestPayload = {
             operations: [{
               update: {

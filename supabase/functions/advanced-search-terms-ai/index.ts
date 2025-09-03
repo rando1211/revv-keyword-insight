@@ -74,7 +74,7 @@ serve(async (req) => {
     const cleanCustomerId = customerId.replace('customers/', '');
 
     // Fetch search terms data using Google Ads API
-    const apiUrl = `https://googleads.googleapis.com/v17/customers/${cleanCustomerId}/googleAds:search`;
+    const apiUrl = `https://googleads.googleapis.com/v20/customers/${cleanCustomerId}/googleAds:search`;
     
     // Build campaign filter if selectedCampaignIds are provided
     let campaignFilter = '';

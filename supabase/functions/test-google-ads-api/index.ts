@@ -47,7 +47,7 @@ serve(async (req) => {
 
     // Test 1: List accessible customers
     console.log('🧪 TEST 1: Listing accessible customers...');
-    const accessibleUrl = `https://googleads.googleapis.com/v17/customers:listAccessibleCustomers`;
+    const accessibleUrl = `https://googleads.googleapis.com/v20/customers:listAccessibleCustomers`;
     
     const accessibleResponse = await fetch(accessibleUrl, {
       method: "GET",
@@ -71,7 +71,7 @@ serve(async (req) => {
 
     // Test 2: Get customer info for the main account
     console.log('🧪 TEST 2: Getting customer info for 9301596383...');
-    const customerInfoUrl = `https://googleads.googleapis.com/v17/customers/9301596383/googleAds:search`;
+    const customerInfoUrl = `https://googleads.googleapis.com/v20/customers/9301596383/googleAds:search`;
     
     const customerQuery = {
       query: `

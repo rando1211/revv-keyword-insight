@@ -146,15 +146,64 @@ serve(async (req) => {
     console.log(`🔍 Fetching TOP ${adLimit} performing ads from ${campaignIds && campaignIds.length > 0 ? campaignIds.length + ' selected campaigns' : 'all campaigns'}...`);
     console.log(`🎯 Applied filters: Campaign IDs: ${campaignIds ? JSON.stringify(campaignIds) : 'none'}, Timeframe: ${selectedTimeframe}`);
 
-    // Try to get login customer ID, fall back if it fails
-    let loginCustomerId = '9301596383'; // fallback
-    try {
-      const { data: loginResponse } = await supabase.functions.invoke('get-login-customer-id');
-      if (loginResponse?.loginCustomerId) {
-        loginCustomerId = loginResponse.loginCustomerId;
+    // Get accessible customers to find correct manager (same pattern as smart-auto-optimizer)
+    const accessibleCustomersResponse = await fetch('https://googleads.googleapis.com/v20/customers:listAccessibleCustomers', {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'developer-token': DEVELOPER_TOKEN,
+        'Content-Type': 'application/json'
       }
-    } catch (error) {
-      console.log('⚠️ Login customer function failed, using fallback');
+    });
+    
+    if (!accessibleCustomersResponse.ok) {
+      throw new Error(`Failed to get accessible customers: ${accessibleCustomersResponse.status}`);
+    }
+    
+    const accessibleData = await accessibleCustomersResponse.json();
+    console.log('✅ Accessible customers:', accessibleData);
+    
+    const accessibleIds = accessibleData.resourceNames?.map((name: string) => name.replace('customers/', '')) || [];
+    console.log('📊 Accessible IDs:', accessibleIds);
+    
+    // Check if target customer is directly accessible
+    const isDirectlyAccessible = accessibleIds.includes(cleanCustomerId);
+    console.log('🎯 Is target directly accessible?', isDirectlyAccessible);
+    
+    let loginCustomerId = cleanCustomerId; // Default to self
+    
+    if (!isDirectlyAccessible) {
+      // Find a manager that can access this customer
+      for (const managerId of accessibleIds) {
+        console.log(`🔍 Checking if ${managerId} manages ${cleanCustomerId}...`);
+        
+        try {
+          const customerResponse = await fetch(`https://googleads.googleapis.com/v20/customers/${managerId}/customers:listAccessibleCustomers`, {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'developer-token': DEVELOPER_TOKEN,
+              'login-customer-id': managerId,
+              'Content-Type': 'application/json'
+            }
+          });
+          
+          if (customerResponse.ok) {
+            const customerData = await customerResponse.json();
+            const managedIds = customerData.resourceNames?.map((name: string) => name.replace('customers/', '')) || [];
+            console.log(`📊 Manager ${managerId} manages:`, managedIds);
+            
+            if (managedIds.includes(cleanCustomerId)) {
+              loginCustomerId = managerId;
+              console.log(`✅ Found correct manager: ${managerId} manages ${cleanCustomerId}`);
+              break;
+            }
+          }
+        } catch (error) {
+          console.log(`⚠️ Error checking manager ${managerId}:`, error.message);
+          continue;
+        }
+      }
     }
 
     // Build headers
@@ -169,7 +218,7 @@ serve(async (req) => {
     console.log(`📨 Request headers: ${JSON.stringify(headers)}`);
 
     // Make the request to Google Ads API
-    const apiUrl = `https://googleads.googleapis.com/v17/customers/${cleanCustomerId}/googleAds:search`;
+    const apiUrl = `https://googleads.googleapis.com/v20/customers/${cleanCustomerId}/googleAds:search`;
     const response = await fetch(apiUrl, {
       method: 'POST',
       headers,
