@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
-import { CheckCircle, AlertTriangle, XCircle, TrendingUp, TrendingDown, Activity, Target, DollarSign, BarChart3, Users, Zap, Calendar } from 'lucide-react';
+import { CheckCircle, AlertTriangle, XCircle, TrendingUp, TrendingDown, Activity, Target, DollarSign, BarChart3, Users, Zap, Calendar, Play, Loader2 } from 'lucide-react';
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { GoogleAdsAccount } from '@/lib/google-ads-service';
@@ -123,7 +123,11 @@ export const PowerAuditPanel = ({ selectedAccount }: PowerAuditPanelProps) => {
             </TabsContent>
 
             <TabsContent value="search-terms" className="space-y-4">
-              <SearchTermsTab searchTermsAnalysis={auditResults.search_terms_analysis} />
+              <SearchTermsTab 
+                searchTermsAnalysis={auditResults.search_terms_analysis} 
+                selectedAccount={selectedAccount}
+                supabase={supabase}
+              />
             </TabsContent>
 
             <TabsContent value="keywords" className="space-y-4">
@@ -482,8 +486,20 @@ const CampaignsTab = ({ campaigns }: { campaigns: any[] }) => (
   </div>
 );
 
-// Search Terms Tab Component
-const SearchTermsTab = ({ searchTermsAnalysis }: { searchTermsAnalysis: any }) => {
+// Enhanced Search Terms Tab Component with Execution Capabilities
+const SearchTermsTab = ({ 
+  searchTermsAnalysis, 
+  selectedAccount, 
+  supabase 
+}: { 
+  searchTermsAnalysis: any; 
+  selectedAccount: any; 
+  supabase: any; 
+}) => {
+  const [isExecuting, setIsExecuting] = useState<Record<string, boolean>>({});
+  const [executionResults, setExecutionResults] = useState<Record<string, any>>({});
+  const { toast } = useToast();
+  
   console.log('🔍 Search Terms Analysis data:', searchTermsAnalysis);
   
   if (!searchTermsAnalysis) {
@@ -500,6 +516,73 @@ const SearchTermsTab = ({ searchTermsAnalysis }: { searchTermsAnalysis: any }) =
   const highPerformingTerms = searchTermsAnalysis.high_performing_terms || [];
   const opportunityTerms = searchTermsAnalysis.opportunity_terms || [];
   const dfyRecommendations = searchTermsAnalysis.dfy_recommendations || {};
+
+  const executeOptimization = async (actionType: string, terms: any[]) => {
+    setIsExecuting(prev => ({ ...prev, [actionType]: true }));
+    
+    try {
+      console.log(`🚀 Executing ${actionType} optimization for terms:`, terms);
+      
+      // Convert audit findings to executable optimizations
+      const pendingActions = terms
+        .filter(term => term.search_term && term.campaign_id)
+        .map(term => ({
+          type: actionType === 'wasteful' ? 'add_negative_keyword' : 'add_positive_keyword',
+          searchTerm: term.search_term,
+          campaignId: term.campaign_id,
+          adGroupId: term.ad_group_id || term.campaign_id,
+          matchType: 'EXACT'
+        }));
+
+      console.log('🎯 Converted to pending actions:', pendingActions);
+
+      if (pendingActions.length === 0) {
+        throw new Error('No valid optimizations found to execute');
+      }
+
+      // Execute optimizations via edge function
+      const { data, error } = await supabase.functions.invoke('execute-search-terms-optimizations', {
+        body: {
+          customerId: selectedAccount.id,
+          pendingActions
+        }
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      console.log('✅ Optimization execution result:', data);
+      
+      setExecutionResults(prev => ({ 
+        ...prev, 
+        [actionType]: { success: true, data, timestamp: new Date() }
+      }));
+
+      toast({
+        title: "✅ Optimizations Executed Successfully",
+        description: `${pendingActions.length} optimizations have been applied to your Google Ads account`,
+        duration: 5000
+      });
+
+    } catch (error: any) {
+      console.error(`❌ Error executing ${actionType}:`, error);
+      
+      setExecutionResults(prev => ({ 
+        ...prev, 
+        [actionType]: { success: false, error: error.message, timestamp: new Date() }
+      }));
+
+      toast({
+        title: "❌ Execution Failed",
+        description: error.message || "Failed to execute optimizations",
+        variant: "destructive",
+        duration: 5000
+      });
+    } finally {
+      setIsExecuting(prev => ({ ...prev, [actionType]: false }));
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -574,21 +657,116 @@ const SearchTermsTab = ({ searchTermsAnalysis }: { searchTermsAnalysis: any }) =
         </Card>
       </div>
 
+      {/* Executive Action Panel - One-Click Optimization */}
+      {(wastefulTerms.length > 0 || highPerformingTerms.length > 0) && (
+        <Card className="border-purple-500 bg-gradient-to-r from-purple-50 to-blue-50">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-purple-700">
+              <Zap className="w-6 h-6" />
+              Done For You - One-Click Optimization
+            </CardTitle>
+            <CardDescription>
+              Automatically execute optimizations based on AI analysis. No manual work required.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4 md:grid-cols-2">
+              {wastefulTerms.length > 0 && (
+                <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <h4 className="font-semibold text-red-900">🚨 Stop Wasting Money</h4>
+                      <p className="text-sm text-red-700">Add {wastefulTerms.length} negative keywords</p>
+                    </div>
+                    <Button 
+                      variant="destructive" 
+                      size="sm"
+                      disabled={isExecuting.wasteful || !selectedAccount}
+                      onClick={() => executeOptimization('wasteful', wastefulTerms.slice(0, 20))}
+                    >
+                      {isExecuting.wasteful ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <Play className="h-4 w-4 mr-2" />
+                      )}
+                      {isExecuting.wasteful ? 'Executing...' : 'Execute Now'}
+                    </Button>
+                  </div>
+                  <p className="text-xs text-red-800 mb-2">
+                    Save ~${(wastefulTerms.reduce((sum: number, term: any) => sum + (term.cost || 0), 0)).toFixed(0)}/month
+                  </p>
+                  {executionResults.wasteful && (
+                    <div className={`p-2 rounded text-xs ${
+                      executionResults.wasteful.success 
+                        ? 'bg-green-100 text-green-800 border border-green-300' 
+                        : 'bg-red-100 text-red-800 border border-red-300'
+                    }`}>
+                      {executionResults.wasteful.success 
+                        ? '✅ Successfully executed! Negative keywords added.' 
+                        : `❌ ${executionResults.wasteful.error}`}
+                    </div>
+                  )}
+                </div>
+              )}
+              
+              {highPerformingTerms.length > 0 && (
+                <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <h4 className="font-semibold text-green-900">🚀 Scale Winners</h4>
+                      <p className="text-sm text-green-700">Add {highPerformingTerms.length} positive keywords</p>
+                    </div>
+                    <Button 
+                      variant="default" 
+                      size="sm"
+                      disabled={isExecuting.scaling || !selectedAccount}
+                      onClick={() => executeOptimization('scaling', highPerformingTerms.slice(0, 10))}
+                      className="bg-green-600 hover:bg-green-700"
+                    >
+                      {isExecuting.scaling ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <TrendingUp className="h-4 w-4 mr-2" />
+                      )}
+                      {isExecuting.scaling ? 'Executing...' : 'Scale Now'}
+                    </Button>
+                  </div>
+                  <p className="text-xs text-green-800 mb-2">
+                    Potential +{highPerformingTerms.length * 15}% more conversions
+                  </p>
+                  {executionResults.scaling && (
+                    <div className={`p-2 rounded text-xs ${
+                      executionResults.scaling.success 
+                        ? 'bg-green-100 text-green-800 border border-green-300' 
+                        : 'bg-red-100 text-red-800 border border-red-300'
+                    }`}>
+                      {executionResults.scaling.success 
+                        ? '✅ Successfully executed! Keywords added for scaling.' 
+                        : `❌ ${executionResults.scaling.error}`}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Done-For-You Action Plan */}
       {dfyRecommendations.immediate_actions && (
         <Card className="border-purple-200">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <CheckCircle className="w-5 h-5 text-purple-600" />
-              Your Done-For-You Action Plan
+              Your Action Plan Roadmap
             </CardTitle>
             <CardDescription>
-              Follow these steps to optimize your search terms and stop wasting money
+              Follow these steps after executing the automated optimizations above
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <h4 className="font-semibold text-red-600 mb-2">🚨 Do This Today (Immediate Actions)</h4>
+              <h4 className="font-semibold text-red-600 mb-2">🚨 Do This Today (Manual Follow-Up)</h4>
               <ul className="space-y-1">
                 {dfyRecommendations.immediate_actions?.map((action: string, index: number) => (
                   <li key={index} className="flex items-start gap-2 text-sm">
@@ -632,9 +810,9 @@ const SearchTermsTab = ({ searchTermsAnalysis }: { searchTermsAnalysis: any }) =
       {wastefulTerms.length > 0 && (
         <Card className="border-red-200">
           <CardHeader>
-            <CardTitle className="text-red-600">🔥 Stop Wasting Money - Fix These Terms Now</CardTitle>
+            <CardTitle className="text-red-600">🔥 Wasteful Terms Analysis</CardTitle>
             <CardDescription>
-              These search terms are costing you money without generating conversions. Take action immediately.
+              These terms were flagged for negative keyword addition. Use the "Execute Now" button above to auto-fix.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -659,7 +837,7 @@ const SearchTermsTab = ({ searchTermsAnalysis }: { searchTermsAnalysis: any }) =
                   </div>
                   
                   <div className="bg-white p-3 rounded border mt-2">
-                    <h5 className="font-semibold text-sm mb-2">What to do right now:</h5>
+                    <h5 className="font-semibold text-sm mb-2">Why this was flagged:</h5>
                     <ul className="space-y-1">
                       {term.action_steps?.map((step: string, stepIndex: number) => (
                         <li key={stepIndex} className="flex items-start gap-2 text-sm">
@@ -672,7 +850,7 @@ const SearchTermsTab = ({ searchTermsAnalysis }: { searchTermsAnalysis: any }) =
                     </ul>
                     {term.negative_keyword_suggestion && (
                       <div className="mt-2 p-2 bg-gray-100 rounded text-xs">
-                        <strong>Negative keyword to add:</strong> {term.negative_keyword_suggestion}
+                        <strong>Will be added as negative keyword:</strong> {term.negative_keyword_suggestion}
                       </div>
                     )}
                   </div>
@@ -685,7 +863,7 @@ const SearchTermsTab = ({ searchTermsAnalysis }: { searchTermsAnalysis: any }) =
                 <p className="text-sm text-orange-800">
                   <AlertTriangle className="w-4 h-4 inline mr-1" />
                   You have {wastefulTerms.length - 10} more wasteful terms. 
-                  Focus on fixing the top 10 first, then review the rest weekly.
+                  The auto-execution will handle up to 20 terms at once.
                 </p>
               </div>
             )}
@@ -697,9 +875,9 @@ const SearchTermsTab = ({ searchTermsAnalysis }: { searchTermsAnalysis: any }) =
       {highPerformingTerms.length > 0 && (
         <Card className="border-green-200">
           <CardHeader>
-            <CardTitle className="text-green-600">🚀 Scale These Winners</CardTitle>
+            <CardTitle className="text-green-600">🚀 High-Performance Terms</CardTitle>
             <CardDescription>
-              These terms are converting well. Expand them to get more customers.
+              These terms convert well and will be added as positive keywords for scaling.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -719,7 +897,7 @@ const SearchTermsTab = ({ searchTermsAnalysis }: { searchTermsAnalysis: any }) =
                   </div>
                   
                   <div className="bg-white p-3 rounded border mt-2">
-                    <h5 className="font-semibold text-sm mb-2">How to scale this term:</h5>
+                    <h5 className="font-semibold text-sm mb-2">Why this will be scaled:</h5>
                     <ul className="space-y-1">
                       {term.action_steps?.map((step: string, stepIndex: number) => (
                         <li key={stepIndex} className="flex items-start gap-2 text-sm">
@@ -738,39 +916,10 @@ const SearchTermsTab = ({ searchTermsAnalysis }: { searchTermsAnalysis: any }) =
         </Card>
       )}
 
-      {/* Opportunity Terms */}
-      {opportunityTerms.length > 0 && (
-        <Card className="border-blue-200">
-          <CardHeader>
-            <CardTitle className="text-blue-600">💡 Untapped Opportunities</CardTitle>
-            <CardDescription>
-              These terms show potential but need more investment to capture their value.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {opportunityTerms.slice(0, 5).map((term: any, index: number) => (
-                <div key={index} className="flex justify-between items-center p-3 bg-blue-50 rounded border border-blue-200">
-                  <div>
-                    <span className="font-medium">{term.search_term}</span>
-                    <div className="text-sm text-gray-600">{term.campaign_name}</div>
-                    <div className="text-sm text-blue-600">{term.opportunity}</div>
-                  </div>
-                  <div className="text-right text-sm">
-                    <div>CTR: {term.ctr}</div>
-                    <div className="text-gray-500">{term.clicks} clicks</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Summary with Next Steps */}
+      {/* Summary with Execution Status */}
       <Card>
         <CardHeader>
-          <CardTitle>📊 Summary & Priority Actions</CardTitle>
+          <CardTitle>📊 Execution Summary & Results</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
@@ -783,8 +932,10 @@ const SearchTermsTab = ({ searchTermsAnalysis }: { searchTermsAnalysis: any }) =
               <div className="text-red-600">Potential Monthly Savings</div>
             </div>
             <div className="text-center p-4 bg-green-50 rounded">
-              <div className="text-lg font-bold text-green-600">{searchTermsAnalysis.summary?.action_priority || 'Monitor'}</div>
-              <div className="text-green-600">Action Priority</div>
+              <div className="text-lg font-bold text-green-600">
+                {Object.keys(executionResults).filter(key => executionResults[key]?.success).length}
+              </div>
+              <div className="text-green-600">Optimizations Executed</div>
             </div>
           </div>
           
