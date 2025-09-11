@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
-import { CheckCircle, AlertTriangle, XCircle, TrendingUp, TrendingDown, Activity, Target, DollarSign, BarChart3, Users, Zap } from 'lucide-react';
+import { CheckCircle, AlertTriangle, XCircle, TrendingUp, TrendingDown, Activity, Target, DollarSign, BarChart3, Users, Zap, Calendar } from 'lucide-react';
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { GoogleAdsAccount } from '@/lib/google-ads-service';
@@ -496,117 +496,307 @@ const SearchTermsTab = ({ searchTermsAnalysis }: { searchTermsAnalysis: any }) =
     );
   }
 
+  const wastefulTerms = searchTermsAnalysis.wasteful_terms || [];
+  const highPerformingTerms = searchTermsAnalysis.high_performing_terms || [];
+  const opportunityTerms = searchTermsAnalysis.opportunity_terms || [];
+  const dfyRecommendations = searchTermsAnalysis.dfy_recommendations || {};
+
   return (
     <div className="space-y-6">
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm">Total Waste Identified</CardTitle>
+      {/* Header Cards with Key Metrics */}
+      <div className="grid gap-4 md:grid-cols-4">
+        <Card className="border-red-200">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-red-600" />
+              Total Waste Identified
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-red-600">
               ${(searchTermsAnalysis.total_waste_identified || 0).toLocaleString()}
             </div>
+            <p className="text-xs text-red-500 mt-1">
+              Monthly projection: ${(searchTermsAnalysis.monthly_waste_projection || 0).toLocaleString()}
+            </p>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm">Wasteful Terms</CardTitle>
+        
+        <Card className="border-orange-200">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <TrendingDown className="w-4 h-4 text-orange-600" />
+              Wasteful Terms
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {searchTermsAnalysis.wasteful_terms?.length || 0}
+            <div className="text-2xl font-bold text-orange-600">
+              {wastefulTerms.length}
             </div>
+            <p className="text-xs text-orange-500 mt-1">
+              Need immediate attention
+            </p>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm">High Performing Terms</CardTitle>
+
+        <Card className="border-green-200">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <TrendingUp className="w-4 h-4 text-green-600" />
+              High Performing Terms
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600">
-              {searchTermsAnalysis.high_performing_terms?.length || 0}
+              {highPerformingTerms.length}
             </div>
+            <p className="text-xs text-green-500 mt-1">
+              Expand these for growth
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-blue-200">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Target className="w-4 h-4 text-blue-600" />
+              Opportunity Terms
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-blue-600">
+              {opportunityTerms.length}
+            </div>
+            <p className="text-xs text-blue-500 mt-1">
+              Untapped potential
+            </p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Top Wasteful Terms */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Top Wasteful Search Terms</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {searchTermsAnalysis.wasteful_terms?.length > 0 ? (
-            <div className="space-y-2">
-              {searchTermsAnalysis.wasteful_terms.slice(0, 10).map((term: any, index: number) => (
-                <div key={index} className="flex justify-between items-center p-2 bg-red-50 rounded">
-                  <div>
-                    <span className="font-medium">{term.search_term}</span>
-                    <div className="text-sm text-muted-foreground">{term.campaign_name}</div>
+      {/* Done-For-You Action Plan */}
+      {dfyRecommendations.immediate_actions && (
+        <Card className="border-purple-200">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <CheckCircle className="w-5 h-5 text-purple-600" />
+              Your Done-For-You Action Plan
+            </CardTitle>
+            <CardDescription>
+              Follow these steps to optimize your search terms and stop wasting money
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <h4 className="font-semibold text-red-600 mb-2">🚨 Do This Today (Immediate Actions)</h4>
+              <ul className="space-y-1">
+                {dfyRecommendations.immediate_actions?.map((action: string, index: number) => (
+                  <li key={index} className="flex items-start gap-2 text-sm">
+                    <span className="bg-red-100 text-red-600 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold mt-0.5">
+                      {index + 1}
+                    </span>
+                    {action}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            
+            <div>
+              <h4 className="font-semibold text-orange-600 mb-2">📅 Weekly Tasks</h4>
+              <ul className="space-y-1">
+                {dfyRecommendations.weekly_tasks?.map((task: string, index: number) => (
+                  <li key={index} className="flex items-center gap-2 text-sm">
+                    <Calendar className="w-4 h-4 text-orange-500" />
+                    {task}
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div>
+              <h4 className="font-semibold text-green-600 mb-2">🎯 Monthly Goals</h4>
+              <ul className="space-y-1">
+                {dfyRecommendations.monthly_goals?.map((goal: string, index: number) => (
+                  <li key={index} className="flex items-center gap-2 text-sm">
+                    <Target className="w-4 h-4 text-green-500" />
+                    {goal}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Top Wasteful Terms with Action Steps */}
+      {wastefulTerms.length > 0 && (
+        <Card className="border-red-200">
+          <CardHeader>
+            <CardTitle className="text-red-600">🔥 Stop Wasting Money - Fix These Terms Now</CardTitle>
+            <CardDescription>
+              These search terms are costing you money without generating conversions. Take action immediately.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {wastefulTerms.slice(0, 10).map((term: any, index: number) => (
+                <div key={index} className="border border-red-200 rounded-lg p-4 bg-red-50">
+                  <div className="flex justify-between items-start mb-2">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <Badge variant={term.severity === 'high' ? 'destructive' : term.severity === 'medium' ? 'default' : 'secondary'}>
+                          {term.severity?.toUpperCase()} PRIORITY
+                        </Badge>
+                        <span className="font-medium text-gray-900">{term.search_term}</span>
+                      </div>
+                      <div className="text-sm text-gray-600 mt-1">{term.campaign_name}</div>
+                      <div className="text-sm text-red-600 font-medium mt-1">{term.waste_reason}</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-lg font-bold text-red-600">${term.cost?.toFixed(2)}</div>
+                      <div className="text-xs text-gray-500">{term.clicks} clicks • {term.ctr} CTR</div>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <div className="text-sm font-medium text-red-600">${term.cost?.toFixed(2) || '0.00'}</div>
-                    <div className="text-xs text-muted-foreground">{term.clicks || 0} clicks, 0 conv</div>
+                  
+                  <div className="bg-white p-3 rounded border mt-2">
+                    <h5 className="font-semibold text-sm mb-2">What to do right now:</h5>
+                    <ul className="space-y-1">
+                      {term.action_steps?.map((step: string, stepIndex: number) => (
+                        <li key={stepIndex} className="flex items-start gap-2 text-sm">
+                          <span className="bg-blue-100 text-blue-600 rounded-full w-4 h-4 flex items-center justify-center text-xs font-bold mt-0.5 flex-shrink-0">
+                            {stepIndex + 1}
+                          </span>
+                          {step}
+                        </li>
+                      ))}
+                    </ul>
+                    {term.negative_keyword_suggestion && (
+                      <div className="mt-2 p-2 bg-gray-100 rounded text-xs">
+                        <strong>Negative keyword to add:</strong> {term.negative_keyword_suggestion}
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
             </div>
-          ) : (
-            <p className="text-sm text-muted-foreground">No wasteful search terms identified</p>
+            
+            {wastefulTerms.length > 10 && (
+              <div className="mt-4 p-3 bg-orange-50 border border-orange-200 rounded">
+                <p className="text-sm text-orange-800">
+                  <AlertTriangle className="w-4 h-4 inline mr-1" />
+                  You have {wastefulTerms.length - 10} more wasteful terms. 
+                  Focus on fixing the top 10 first, then review the rest weekly.
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* High Performing Terms - Expansion Opportunities */}
+      {highPerformingTerms.length > 0 && (
+        <Card className="border-green-200">
+          <CardHeader>
+            <CardTitle className="text-green-600">🚀 Scale These Winners</CardTitle>
+            <CardDescription>
+              These terms are converting well. Expand them to get more customers.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {highPerformingTerms.slice(0, 8).map((term: any, index: number) => (
+                <div key={index} className="border border-green-200 rounded-lg p-4 bg-green-50">
+                  <div className="flex justify-between items-start mb-2">
+                    <div className="flex-1">
+                      <span className="font-medium text-gray-900">{term.search_term}</span>
+                      <div className="text-sm text-gray-600">{term.campaign_name}</div>
+                      <div className="text-sm text-green-600 font-medium">{term.potential_impact}</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-sm font-semibold text-green-600">{term.conversions} conversions</div>
+                      <div className="text-xs text-gray-500">${term.cost?.toFixed(2)} • {term.conversion_rate} CR</div>
+                    </div>
+                  </div>
+                  
+                  <div className="bg-white p-3 rounded border mt-2">
+                    <h5 className="font-semibold text-sm mb-2">How to scale this term:</h5>
+                    <ul className="space-y-1">
+                      {term.action_steps?.map((step: string, stepIndex: number) => (
+                        <li key={stepIndex} className="flex items-start gap-2 text-sm">
+                          <span className="bg-green-100 text-green-600 rounded-full w-4 h-4 flex items-center justify-center text-xs font-bold mt-0.5 flex-shrink-0">
+                            {stepIndex + 1}
+                          </span>
+                          {step}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Opportunity Terms */}
+      {opportunityTerms.length > 0 && (
+        <Card className="border-blue-200">
+          <CardHeader>
+            <CardTitle className="text-blue-600">💡 Untapped Opportunities</CardTitle>
+            <CardDescription>
+              These terms show potential but need more investment to capture their value.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {opportunityTerms.slice(0, 5).map((term: any, index: number) => (
+                <div key={index} className="flex justify-between items-center p-3 bg-blue-50 rounded border border-blue-200">
+                  <div>
+                    <span className="font-medium">{term.search_term}</span>
+                    <div className="text-sm text-gray-600">{term.campaign_name}</div>
+                    <div className="text-sm text-blue-600">{term.opportunity}</div>
+                  </div>
+                  <div className="text-right text-sm">
+                    <div>CTR: {term.ctr}</div>
+                    <div className="text-gray-500">{term.clicks} clicks</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Summary with Next Steps */}
+      <Card>
+        <CardHeader>
+          <CardTitle>📊 Summary & Priority Actions</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+            <div className="text-center p-4 bg-gray-50 rounded">
+              <div className="text-lg font-bold">{searchTermsAnalysis.summary?.total_terms_analyzed || 0}</div>
+              <div className="text-gray-600">Terms Analyzed</div>
+            </div>
+            <div className="text-center p-4 bg-red-50 rounded">
+              <div className="text-lg font-bold text-red-600">${(searchTermsAnalysis.summary?.potential_monthly_savings || 0).toLocaleString()}</div>
+              <div className="text-red-600">Potential Monthly Savings</div>
+            </div>
+            <div className="text-center p-4 bg-green-50 rounded">
+              <div className="text-lg font-bold text-green-600">{searchTermsAnalysis.summary?.action_priority || 'Monitor'}</div>
+              <div className="text-green-600">Action Priority</div>
+            </div>
+          </div>
+          
+          {wastefulTerms.length === 0 && (
+            <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded text-center">
+              <CheckCircle className="w-8 h-8 text-green-600 mx-auto mb-2" />
+              <h3 className="font-semibold text-green-800">Great Job! No Major Waste Detected</h3>
+              <p className="text-sm text-green-700">Your search terms look well-optimized. Keep monitoring weekly for new wasteful terms.</p>
+            </div>
           )}
         </CardContent>
       </Card>
-
-      {/* High Performing Terms */}
-      {searchTermsAnalysis.high_performing_terms?.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>High Performing Terms</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {searchTermsAnalysis.high_performing_terms.slice(0, 5).map((term: any, index: number) => (
-                <div key={index} className="flex justify-between items-center p-2 bg-green-50 rounded">
-                  <div>
-                    <span className="font-medium">{term.search_term}</span>
-                    <div className="text-sm text-muted-foreground">{term.campaign_name}</div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-sm font-medium text-green-600">${term.cost?.toFixed(2) || '0.00'}</div>
-                    <div className="text-xs text-muted-foreground">{term.conversions?.toFixed(1) || 0} conv</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Summary */}
-      {searchTermsAnalysis.summary && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Analysis Summary</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-              <div>
-                <span className="font-medium">Total Terms Analyzed:</span>
-                <div className="text-lg">{searchTermsAnalysis.summary.total_terms_analyzed || 0}</div>
-              </div>
-              <div>
-                <span className="font-medium">Waste Terms Count:</span>
-                <div className="text-lg text-red-600">{searchTermsAnalysis.summary.waste_terms_count || 0}</div>
-              </div>
-              <div>
-                <span className="font-medium">Opportunity Terms:</span>
-                <div className="text-lg text-blue-600">{searchTermsAnalysis.summary.opportunity_terms_count || 0}</div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 };

@@ -1030,65 +1030,198 @@ function analyzeSearchTermsStrategically(searchTerms: any[], campaigns: any[]) {
   const wastefulTerms = [];
   const highPerformingTerms = [];
   const opportunityTerms = [];
+  const irrelevantTerms = [];
+  const negativeKeywordSuggestions = [];
   
   searchTerms.forEach(term => {
     const cost = parseFloat(term.metrics.costMicros || '0') / 1000000;
     const conversions = parseFloat(term.metrics.conversions || '0');
     const clicks = parseInt(term.metrics.clicks || '0');
     const ctr = parseFloat(term.metrics.ctr || '0');
+    const impressions = parseInt(term.metrics.impressions || '0');
     
     const campaign = campaignMap.get(term.campaign.id);
     if (!campaign) return;
     
-    // Identify wasteful terms - high cost, no conversions, multiple clicks
-    if (cost > 50 && conversions === 0 && clicks > 10) {
+    const searchTerm = term.searchTermView.searchTerm;
+    const campaignName = term.campaign.name;
+    
+    // More comprehensive wasteful term detection
+    let isWasteful = false;
+    let wasteReason = '';
+    let severity = 'low';
+    
+    // High cost, no conversions
+    if (cost > 10 && conversions === 0 && clicks >= 3) {
+      isWasteful = true;
+      wasteReason = 'High cost with zero conversions';
+      severity = cost > 50 ? 'high' : cost > 25 ? 'medium' : 'low';
+    }
+    
+    // Low CTR indicating irrelevance
+    else if (impressions > 50 && ctr < 0.01 && cost > 5) {
+      isWasteful = true;
+      wasteReason = 'Very low CTR indicates irrelevant traffic';
+      severity = 'medium';
+    }
+    
+    // Irrelevant/branded terms (common waste patterns)
+    const irrelevantPatterns = [
+      /free/i, /cheap/i, /discount/i, /coupon/i, /job/i, /hiring/i, 
+      /career/i, /salary/i, /review/i, /complaint/i, /scam/i,
+      /wikipedia/i, /wiki/i, /definition/i, /meaning/i
+    ];
+    
+    const hasIrrelevantPattern = irrelevantPatterns.some(pattern => pattern.test(searchTerm));
+    if (hasIrrelevantPattern && cost > 2) {
+      isWasteful = true;
+      wasteReason = 'Contains irrelevant keywords that typically don\'t convert';
+      severity = cost > 20 ? 'high' : 'medium';
+    }
+    
+    if (isWasteful) {
+      const actionSteps = [];
+      if (wasteReason.includes('zero conversions')) {
+        actionSteps.push('Add as negative keyword to prevent future clicks');
+        actionSteps.push('Review match types - consider using more exact matches');
+      } else if (wasteReason.includes('low CTR')) {
+        actionSteps.push('Add as negative keyword');
+        actionSteps.push('Review ad relevance to remaining traffic');
+      } else if (wasteReason.includes('irrelevant')) {
+        actionSteps.push('Add broad negative keywords to block similar terms');
+        actionSteps.push('Consider phrase negatives like "free", "cheap", etc.');
+      }
+      
       wastefulTerms.push({
-        search_term: term.searchTermView.searchTerm,
-        campaign_name: term.campaign.name,
+        search_term: searchTerm,
+        campaign_name: campaignName,
         campaign_id: term.campaign.id,
         cost,
         clicks,
         conversions,
+        impressions,
+        ctr: (ctr * 100).toFixed(2) + '%',
         potential_savings: cost,
-        recommendation: 'Add as negative keyword',
-        match_type: 'broad_match_issue'
+        waste_reason: wasteReason,
+        severity,
+        priority: severity === 'high' ? 1 : severity === 'medium' ? 2 : 3,
+        action_steps: actionSteps,
+        negative_keyword_suggestion: generateNegativeKeyword(searchTerm)
       });
     }
     
     // Identify high-performing terms for expansion
-    if (conversions > 0 && ctr > 0.05 && cost > 20) {
+    if (conversions > 0 && (ctr > 0.03 || (conversions / clicks) > 0.05)) {
+      const conversionRate = ((conversions / clicks) * 100).toFixed(1);
       highPerformingTerms.push({
-        search_term: term.searchTermView.searchTerm,
-        campaign_name: term.campaign.name,
+        search_term: searchTerm,
+        campaign_name: campaignName,
         cost,
         conversions,
-        ctr,
-        recommendation: 'Consider adding as exact match keyword'
+        ctr: (ctr * 100).toFixed(2) + '%',
+        conversion_rate: conversionRate + '%',
+        recommendation: 'Add as exact match keyword for better control',
+        action_steps: [
+          'Create exact match keyword: [' + searchTerm + ']',
+          'Set higher bids for this exact match',
+          'Create dedicated ad copy for this term'
+        ],
+        potential_impact: 'Could increase conversions by 15-30%'
       });
     }
     
-    // Identify opportunity terms - good CTR but low volume
-    if (ctr > 0.08 && clicks < 10 && cost < 10) {
+    // Identify opportunity terms - good engagement but low volume
+    if (ctr > 0.05 && clicks < 10 && impressions > 20 && conversions === 0) {
       opportunityTerms.push({
-        search_term: term.searchTermView.searchTerm,
-        campaign_name: term.campaign.name,
-        ctr,
-        opportunity: 'Increase bids for more volume'
+        search_term: searchTerm,
+        campaign_name: campaignName,
+        ctr: (ctr * 100).toFixed(2) + '%',
+        clicks,
+        impressions,
+        opportunity: 'High CTR but low clicks - increase bids for more traffic',
+        action_steps: [
+          'Increase bid by 20-30%',
+          'Improve ad position to capture more clicks',
+          'Monitor for conversions over next 30 days'
+        ]
       });
     }
   });
   
+  // Sort wasteful terms by cost (highest first)
+  wastefulTerms.sort((a, b) => b.cost - a.cost);
+  
+  // Generate broad negative keyword suggestions
+  const commonWastePatterns = extractCommonWastePatterns(wastefulTerms);
+  
   return {
     wasteful_terms: wastefulTerms,
-    high_performing_terms: highPerformingTerms,
+    high_performing_terms: highPerformingTerms.sort((a, b) => b.conversions - a.conversions),
     opportunity_terms: opportunityTerms,
+    negative_keyword_suggestions: commonWastePatterns,
     total_waste_identified: wastefulTerms.reduce((sum, t) => sum + t.cost, 0),
+    monthly_waste_projection: wastefulTerms.reduce((sum, t) => sum + t.cost, 0) * 1.2, // Assume 20% more waste over month
     summary: {
       total_terms_analyzed: searchTerms.length,
       waste_terms_count: wastefulTerms.length,
-      opportunity_terms_count: opportunityTerms.length
+      high_performing_count: highPerformingTerms.length,
+      opportunity_terms_count: opportunityTerms.length,
+      potential_monthly_savings: wastefulTerms.reduce((sum, t) => sum + t.cost, 0) * 1.2,
+      action_priority: wastefulTerms.length > 0 ? 'Immediate action needed' : 'Monitor performance'
+    },
+    dfy_recommendations: {
+      immediate_actions: [
+        'Add the top 10 wasteful terms as negative keywords',
+        'Increase bids on high-performing terms by 15-20%',
+        'Create exact match keywords for top converting terms'
+      ],
+      weekly_tasks: [
+        'Review search terms report weekly',
+        'Add 5-10 negative keywords per week',
+        'Test new ad copy for high-performing terms'
+      ],
+      monthly_goals: [
+        'Reduce wasted spend by 30%',
+        'Improve overall conversion rate by 15%',
+        'Expand high-performing terms to new ad groups'
+      ]
     }
   };
+}
+
+function generateNegativeKeyword(searchTerm: string): string {
+  // Simple logic to suggest negative keywords
+  const words = searchTerm.toLowerCase().split(' ');
+  const wasteWords = ['free', 'cheap', 'discount', 'job', 'career', 'salary', 'review'];
+  
+  for (const word of words) {
+    if (wasteWords.includes(word)) {
+      return word; // Suggest the problematic word as negative
+    }
+  }
+  
+  // If no obvious waste word, suggest phrase match negative
+  return '"' + searchTerm + '"';
+}
+
+function extractCommonWastePatterns(wastefulTerms: any[]): string[] {
+  const patterns = new Map<string, number>();
+  
+  wastefulTerms.forEach(term => {
+    const words = term.search_term.toLowerCase().split(' ');
+    words.forEach(word => {
+      if (word.length > 3) { // Only consider words longer than 3 characters
+        patterns.set(word, (patterns.get(word) || 0) + 1);
+      }
+    });
+  });
+  
+  // Return words that appear in multiple wasteful terms
+  return Array.from(patterns.entries())
+    .filter(([word, count]) => count >= 2)
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, 10)
+    .map(([word]) => word);
 }
 
 function analyzeKeywordStrategy(keywords: any[], campaigns: any[]) {
