@@ -1718,7 +1718,6 @@ function generateFallbackIssues(analysisData: any) {
     }
   };
 }
-}
 
 async function generateDetailedIssues(
   campaignMetrics: any,
