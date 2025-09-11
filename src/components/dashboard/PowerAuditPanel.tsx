@@ -484,6 +484,8 @@ const CampaignsTab = ({ campaigns }: { campaigns: any[] }) => (
 
 // Search Terms Tab Component
 const SearchTermsTab = ({ searchTermsAnalysis }: { searchTermsAnalysis: any }) => {
+  console.log('🔍 Search Terms Analysis data:', searchTermsAnalysis);
+  
   if (!searchTermsAnalysis) {
     return (
       <Card>
@@ -503,7 +505,7 @@ const SearchTermsTab = ({ searchTermsAnalysis }: { searchTermsAnalysis: any }) =
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-red-600">
-              ${searchTermsAnalysis.total_waste_identified?.toLocaleString() || '0'}
+              ${(searchTermsAnalysis.total_waste_identified || 0).toLocaleString()}
             </div>
           </CardContent>
         </Card>
@@ -529,27 +531,82 @@ const SearchTermsTab = ({ searchTermsAnalysis }: { searchTermsAnalysis: any }) =
         </Card>
       </div>
 
+      {/* Top Wasteful Terms */}
       <Card>
         <CardHeader>
           <CardTitle>Top Wasteful Search Terms</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-2">
-            {searchTermsAnalysis.wasteful_terms?.slice(0, 10).map((term: any, index: number) => (
-              <div key={index} className="flex justify-between items-center p-2 bg-red-50 rounded">
-                <div>
-                  <span className="font-medium">{term.search_term}</span>
-                  <div className="text-sm text-muted-foreground">{term.campaign_name}</div>
+          {searchTermsAnalysis.wasteful_terms?.length > 0 ? (
+            <div className="space-y-2">
+              {searchTermsAnalysis.wasteful_terms.slice(0, 10).map((term: any, index: number) => (
+                <div key={index} className="flex justify-between items-center p-2 bg-red-50 rounded">
+                  <div>
+                    <span className="font-medium">{term.search_term}</span>
+                    <div className="text-sm text-muted-foreground">{term.campaign_name}</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-sm font-medium text-red-600">${term.cost?.toFixed(2) || '0.00'}</div>
+                    <div className="text-xs text-muted-foreground">{term.clicks || 0} clicks, 0 conv</div>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <div className="text-sm font-medium text-red-600">${term.cost?.toFixed(2)}</div>
-                  <div className="text-xs text-muted-foreground">{term.clicks} clicks, 0 conv</div>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">No wasteful search terms identified</p>
+          )}
         </CardContent>
       </Card>
+
+      {/* High Performing Terms */}
+      {searchTermsAnalysis.high_performing_terms?.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>High Performing Terms</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {searchTermsAnalysis.high_performing_terms.slice(0, 5).map((term: any, index: number) => (
+                <div key={index} className="flex justify-between items-center p-2 bg-green-50 rounded">
+                  <div>
+                    <span className="font-medium">{term.search_term}</span>
+                    <div className="text-sm text-muted-foreground">{term.campaign_name}</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-sm font-medium text-green-600">${term.cost?.toFixed(2) || '0.00'}</div>
+                    <div className="text-xs text-muted-foreground">{term.conversions?.toFixed(1) || 0} conv</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Summary */}
+      {searchTermsAnalysis.summary && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Analysis Summary</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+              <div>
+                <span className="font-medium">Total Terms Analyzed:</span>
+                <div className="text-lg">{searchTermsAnalysis.summary.total_terms_analyzed || 0}</div>
+              </div>
+              <div>
+                <span className="font-medium">Waste Terms Count:</span>
+                <div className="text-lg text-red-600">{searchTermsAnalysis.summary.waste_terms_count || 0}</div>
+              </div>
+              <div>
+                <span className="font-medium">Opportunity Terms:</span>
+                <div className="text-lg text-blue-600">{searchTermsAnalysis.summary.opportunity_terms_count || 0}</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };
@@ -653,19 +710,19 @@ const IssuesTab = ({ issues }: { issues: any }) => {
           <CardContent>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="text-center">
-                <div className="text-2xl font-bold text-red-600">{totals.high}</div>
+                <div className="text-2xl font-bold text-red-600">{totals.high || 0}</div>
                 <div className="text-sm text-muted-foreground">High Severity</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-orange-600">{totals.medium}</div>
+                <div className="text-2xl font-bold text-orange-600">{totals.medium || 0}</div>
                 <div className="text-sm text-muted-foreground">Medium Severity</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-blue-600">{totals.low}</div>
+                <div className="text-2xl font-bold text-blue-600">{totals.low || 0}</div>
                 <div className="text-sm text-muted-foreground">Low Severity</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-green-600">${totals.estimated_value_at_risk?.toLocaleString() || '0'}</div>
+                <div className="text-2xl font-bold text-green-600">${(totals.estimated_value_at_risk || 0).toLocaleString()}</div>
                 <div className="text-sm text-muted-foreground">Value at Risk</div>
               </div>
             </div>
@@ -675,35 +732,37 @@ const IssuesTab = ({ issues }: { issues: any }) => {
         {/* Issues List */}
         <div className="space-y-4">
           {issuesList.map((issue: any, index: number) => (
-            <Card key={index} className={`border-l-4 ${getSeverityColor(issue.severity)}`}>
+            <Card key={index} className={`border-l-4 ${getSeverityColor(issue.severity || 'medium')}`}>
               <CardHeader>
                 <div className="flex items-start justify-between">
                   <div className="flex items-center space-x-3">
-                    {getCategoryIcon(issue.category)}
+                    {getCategoryIcon(issue.category || 'performance')}
                     <div>
-                      <CardTitle className="text-lg">{issue.entity_name}</CardTitle>
-                      <CardDescription className="text-base font-medium">{issue.summary}</CardDescription>
+                      <CardTitle className="text-lg">{issue.entity_name || 'Unknown Entity'}</CardTitle>
+                      <CardDescription className="text-base font-medium">{issue.summary || 'Issue detected'}</CardDescription>
                     </div>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <Badge variant="outline" className={getSeverityColor(issue.severity)}>
-                      {issue.severity}
+                    <Badge variant="outline" className={getSeverityColor(issue.severity || 'medium')}>
+                      {issue.severity || 'Medium'}
                     </Badge>
-                    <Badge variant="secondary">{issue.category}</Badge>
+                    <Badge variant="secondary">{issue.category || 'Performance'}</Badge>
                   </div>
                 </div>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
                   {/* Why Section */}
-                  <div>
-                    <h4 className="font-medium text-sm mb-2">Why this happened:</h4>
-                    <ul className="list-disc list-inside space-y-1">
-                      {issue.why?.map((reason: string, i: number) => (
-                        <li key={i} className="text-sm text-muted-foreground">{reason}</li>
-                      ))}
-                    </ul>
-                  </div>
+                  {issue.why && issue.why.length > 0 && (
+                    <div>
+                      <h4 className="font-medium text-sm mb-2">Why this happened:</h4>
+                      <ul className="list-disc list-inside space-y-1">
+                        {issue.why.map((reason: string, i: number) => (
+                          <li key={i} className="text-sm text-muted-foreground">{reason}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
 
                   {/* Evidence */}
                   {issue.evidence && (
@@ -724,13 +783,13 @@ const IssuesTab = ({ issues }: { issues: any }) => {
                   <div className="flex items-center justify-between">
                     <div>
                       <h4 className="font-medium text-sm">Recommended Action:</h4>
-                      <p className="text-sm text-muted-foreground">{issue.recommended_action}</p>
+                      <p className="text-sm text-muted-foreground">{issue.recommended_action || 'Review and optimize'}</p>
                     </div>
                     {issue.impact_estimate?.value && (
                       <div className="text-right">
                         <div className="text-sm font-medium">Potential Impact</div>
                         <div className="text-lg font-bold text-green-600">
-                          ${issue.impact_estimate.value.toLocaleString()}
+                          ${(issue.impact_estimate.value || 0).toLocaleString()}
                         </div>
                       </div>
                     )}

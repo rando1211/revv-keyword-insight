@@ -426,12 +426,18 @@ async function processEnterpriseAnalysis(
       keywordAnalysis,
       bidStrategyAnalysis,
       scalingOpportunities,
-      creativeAnalysis
+      creativeAnalysis,
+      budgetAnalysis
     }, openaiApiKey);
     
     console.log('✅ Strategic AI analysis complete', { aiInsights: !!aiInsights, detailedIssues: !!detailedIssues });
   } else {
     console.log('⚠️ OpenAI API key not available, using fallback analysis');
+    detailedIssues = generateFallbackIssues({
+      campaignMetrics,
+      searchTermsAnalysis,
+      keywordAnalysis
+    });
   }
 
   return {
@@ -1361,13 +1367,12 @@ Format as JSON with these exact keys: executive_summary, root_causes, prioritize
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'gpt-5-mini-2025-08-07',
         messages: [
           { role: 'system', content: 'You are a senior Google Ads strategist. Provide strategic insights that match expert-level PPC analysis. Return valid JSON only.' },
           { role: 'user', content: prompt }
         ],
-        max_tokens: 2000,
-        temperature: 0.3
+        max_completion_tokens: 2000
       }),
     });
 
@@ -1458,29 +1463,128 @@ Return ONLY valid JSON with actionable issues:
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'gpt-5-mini-2025-08-07',
         messages: [
           { role: 'system', content: 'You are a PPC analyst. Return ONLY valid JSON. No explanation outside JSON.' },
           { role: 'user', content: issuesPrompt }
         ],
-        temperature: 0.2,
-        max_tokens: 1500
+        max_completion_tokens: 1500
       }),
     });
 
-    const data = await response.json();
-    const content = data.choices[0].message.content;
-    const cleanContent = content.replace(/```json\n?|\n?```/g, '').trim();
-    
-    return JSON.parse(cleanContent);
+    if (response.ok) {
+      const data = await response.json();
+      const content = data.choices[0].message.content;
+      console.log('🤖 Strategic issues raw response:', content);
+      const cleanContent = content.replace(/```json\n?|\n?```/g, '').trim();
+      
+      try {
+        const parsedIssues = JSON.parse(cleanContent);
+        console.log('✅ Strategic issues parsed successfully:', parsedIssues);
+        
+        // Transform critical_issues to match expected frontend format
+        const transformedIssues = parsedIssues.critical_issues?.map((issue: any) => ({
+          entity_name: issue.entity || issue.title || 'Unknown Entity',
+          summary: issue.title || issue.problem || 'Issue detected',
+          category: issue.category || 'performance',
+          severity: issue.priority?.toLowerCase() || 'medium',
+          why: [issue.problem || 'Performance issue detected'],
+          evidence: { current: { impact: issue.impact || 'See details' } },
+          recommended_action: issue.action || 'Review and optimize',
+          impact_estimate: { value: extractNumericValue(issue.impact) },
+          affected_children: []
+        })) || [];
+        
+        return {
+          issues: transformedIssues,
+          totals: {
+            high: transformedIssues.filter((i: any) => i.severity === 'high').length,
+            medium: transformedIssues.filter((i: any) => i.severity === 'medium').length,
+            low: transformedIssues.filter((i: any) => i.severity === 'low').length,
+            estimated_value_at_risk: parsedIssues.waste_elimination?.immediate_savings || 0
+          },
+          waste_elimination: parsedIssues.waste_elimination || { immediate_savings: 0, actions: [] },
+          performance_recovery: parsedIssues.performance_recovery || { declining_campaigns_recovery_value: 0, recommendations: [] }
+        };
+      } catch (parseError) {
+        console.error('❌ Issues analysis JSON parse error:', parseError);
+        console.error('Raw content:', content);
+        
+        // Return fallback with basic issue detection
+        return generateFallbackIssues(analysisData);
+      }
+    } else {
+      const errorText = await response.text();
+      console.error('🚨 OpenAI API Error:', errorText);
+    }
   } catch (error) {
-    console.error('Strategic issues analysis error:', error);
-    return {
-      critical_issues: [],
-      waste_elimination: { immediate_savings: 0, actions: [] },
-      performance_recovery: { declining_campaigns_recovery_value: 0, recommendations: [] }
-    };
+    console.error('❌ Strategic issues analysis error:', error);
   }
+
+  return generateFallbackIssues(analysisData);
+}
+
+// Helper function to extract numeric values from text
+function extractNumericValue(text: string): number {
+  if (!text) return 0;
+  const match = text.match(/[\d,]+/);
+  return match ? parseInt(match[0].replace(/,/g, '')) : 0;
+}
+
+// Generate fallback issues when AI analysis fails
+function generateFallbackIssues(analysisData: any) {
+  const issues = [];
+  
+  // Add declining campaigns as issues
+  const decliningCampaigns = analysisData.campaignMetrics?.campaigns?.filter(
+    (c: any) => c.performance_trend === 'declining'
+  ) || [];
+  
+  decliningCampaigns.slice(0, 3).forEach((campaign: any) => {
+    issues.push({
+      entity_name: campaign.name,
+      summary: 'Campaign performance declining',
+      category: 'performance',
+      severity: 'high',
+      why: [`Conversions dropped by ${Math.abs(campaign.deltas?.conversions?.pct || 0).toFixed(1)}%`],
+      evidence: { 
+        current: { 
+          spend: `$${campaign.current_spend?.toLocaleString() || 0}`,
+          conversion_change: `${campaign.deltas?.conversions?.pct?.toFixed(1) || 0}%`
+        } 
+      },
+      recommended_action: 'Review bid strategy and targeting settings',
+      impact_estimate: { value: campaign.current_spend * 0.3 || 0 },
+      affected_children: []
+    });
+  });
+  
+  // Add wasteful terms as issues
+  const wastefulTerms = analysisData.searchTermsAnalysis?.wasteful_terms?.slice(0, 2) || [];
+  wastefulTerms.forEach((term: any) => {
+    issues.push({
+      entity_name: term.campaign_name,
+      summary: `Wasteful search term: "${term.search_term}"`,
+      category: 'performance',
+      severity: 'medium',
+      why: [`${term.clicks} clicks with 0 conversions, costing $${term.cost?.toFixed(2)}`],
+      evidence: { current: { cost: `$${term.cost?.toFixed(2)}`, clicks: term.clicks } },
+      recommended_action: 'Add as negative keyword',
+      impact_estimate: { value: term.cost || 0 },
+      affected_children: []
+    });
+  });
+  
+  return {
+    issues,
+    totals: {
+      high: issues.filter(i => i.severity === 'high').length,
+      medium: issues.filter(i => i.severity === 'medium').length,
+      low: issues.filter(i => i.severity === 'low').length,
+      estimated_value_at_risk: issues.reduce((sum, i) => sum + (i.impact_estimate?.value || 0), 0)
+    }
+  };
+}
 }
 
 async function generateDetailedIssues(
@@ -1547,13 +1651,12 @@ OUTPUT ONLY valid JSON in this exact shape:
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'gpt-5-mini-2025-08-07',
         messages: [
           { role: 'system', content: 'You are a senior PPC analyst. Return ONLY valid JSON. No explanation outside the JSON.' },
           { role: 'user', content: issuesPrompt }
         ],
-        temperature: 0.3,
-        max_tokens: 2000
+        max_completion_tokens: 2000
       }),
     });
 
