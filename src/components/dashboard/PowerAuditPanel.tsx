@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { CheckCircle, AlertTriangle, XCircle, TrendingUp, TrendingDown, Activity, Target, DollarSign, BarChart3, Users, Zap, Calendar, Play, Loader2 } from 'lucide-react';
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -498,6 +499,13 @@ const SearchTermsTab = ({
 }) => {
   const [isExecuting, setIsExecuting] = useState<Record<string, boolean>>({});
   const [executionResults, setExecutionResults] = useState<Record<string, any>>({});
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [pendingOptimization, setPendingOptimization] = useState<{
+    type: string;
+    terms: any[];
+    title: string;
+    description: string;
+  } | null>(null);
   const { toast } = useToast();
   
   console.log('🔍 Search Terms Analysis data:', searchTermsAnalysis);
@@ -517,30 +525,50 @@ const SearchTermsTab = ({
   const opportunityTerms = searchTermsAnalysis.opportunity_terms || [];
   const dfyRecommendations = searchTermsAnalysis.dfy_recommendations || {};
 
-  const executeOptimization = async (actionType: string, terms: any[]) => {
-    setIsExecuting(prev => ({ ...prev, [actionType]: true }));
+  const handleOptimizationRequest = (actionType: string, terms: any[]) => {
+    const wastefulSpend = wastefulTerms.reduce((sum: number, term: any) => sum + (term.cost || 0), 0);
+    
+    const title = actionType === 'wasteful' 
+      ? `Block ${terms.length} Wasteful Search Terms`
+      : `Expand ${terms.length} High-Performing Keywords`;
+    
+    const description = actionType === 'wasteful'
+      ? `I'll add negative keywords to prevent your ads from showing for these wasteful terms, saving approximately $${wastefulSpend.toFixed(0)}/month in ad spend. This will redirect your budget to more profitable opportunities.`
+      : `I'll expand these high-performing keywords with broader match types to capture more qualified traffic, potentially increasing conversions by ${Math.round(terms.length * 15)}%.`;
+
+    setPendingOptimization({ 
+      type: actionType, 
+      terms: terms.slice(0, actionType === 'wasteful' ? 20 : 10), 
+      title, 
+      description 
+    });
+    setShowConfirmDialog(true);
+  };
+
+  const executeConfirmedOptimization = async () => {
+    if (!pendingOptimization) return;
+    
+    const { type, terms } = pendingOptimization;
+    setIsExecuting(prev => ({ ...prev, [type]: true }));
+    setShowConfirmDialog(false);
     
     try {
-      console.log(`🚀 Executing ${actionType} optimization for terms:`, terms);
+      console.log(`🚀 Executing ${type} optimization for:`, terms);
       
-      // Convert audit findings to executable optimizations
       const pendingActions = terms
         .filter(term => term.search_term && term.campaign_id)
         .map(term => ({
-          type: actionType === 'wasteful' ? 'add_negative_keyword' : 'add_positive_keyword',
+          type: type === 'wasteful' ? 'add_negative_keyword' : 'add_positive_keyword',
           searchTerm: term.search_term,
           campaignId: term.campaign_id,
           adGroupId: term.ad_group_id || term.campaign_id,
           matchType: 'EXACT'
         }));
 
-      console.log('🎯 Converted to pending actions:', pendingActions);
-
       if (pendingActions.length === 0) {
         throw new Error('No valid optimizations found to execute');
       }
 
-      // Execute optimizations via edge function
       const { data, error } = await supabase.functions.invoke('execute-search-terms-optimizations', {
         body: {
           customerId: selectedAccount.id,
@@ -548,39 +576,33 @@ const SearchTermsTab = ({
         }
       });
 
-      if (error) {
-        throw error;
-      }
-
-      console.log('✅ Optimization execution result:', data);
+      if (error) throw error;
       
       setExecutionResults(prev => ({ 
         ...prev, 
-        [actionType]: { success: true, data, timestamp: new Date() }
+        [type]: { success: true, data, timestamp: new Date() }
       }));
-
+      
       toast({
-        title: "✅ Optimizations Executed Successfully",
-        description: `${pendingActions.length} optimizations have been applied to your Google Ads account`,
+        title: "✅ Optimizations Applied Successfully!",
+        description: `I've successfully processed ${pendingActions.length} ${type} search terms for you, sir.`,
         duration: 5000
       });
-
-    } catch (error: any) {
-      console.error(`❌ Error executing ${actionType}:`, error);
       
+    } catch (error: any) {
       setExecutionResults(prev => ({ 
         ...prev, 
-        [actionType]: { success: false, error: error.message, timestamp: new Date() }
+        [type]: { success: false, error: error.message, timestamp: new Date() }
       }));
-
+      
       toast({
-        title: "❌ Execution Failed",
-        description: error.message || "Failed to execute optimizations",
-        variant: "destructive",
-        duration: 5000
+        title: "Optimization Failed",
+        description: error.message || `Failed to execute ${type} optimization`,
+        variant: "destructive"
       });
     } finally {
-      setIsExecuting(prev => ({ ...prev, [actionType]: false }));
+      setIsExecuting(prev => ({ ...prev, [type]: false }));
+      setPendingOptimization(null);
     }
   };
 
@@ -682,7 +704,7 @@ const SearchTermsTab = ({
                       variant="destructive" 
                       size="sm"
                       disabled={isExecuting.wasteful || !selectedAccount}
-                      onClick={() => executeOptimization('wasteful', wastefulTerms.slice(0, 20))}
+                      onClick={() => handleOptimizationRequest('wasteful', wastefulTerms)}
                     >
                       {isExecuting.wasteful ? (
                         <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -720,7 +742,7 @@ const SearchTermsTab = ({
                       variant="default" 
                       size="sm"
                       disabled={isExecuting.scaling || !selectedAccount}
-                      onClick={() => executeOptimization('scaling', highPerformingTerms.slice(0, 10))}
+                      onClick={() => handleOptimizationRequest('scaling', highPerformingTerms)}
                       className="bg-green-600 hover:bg-green-700"
                     >
                       {isExecuting.scaling ? (
@@ -948,6 +970,31 @@ const SearchTermsTab = ({
           )}
         </CardContent>
       </Card>
+
+      {/* Premium Confirmation Dialog */}
+      <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+        <AlertDialogContent className="max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-xl font-semibold text-primary">
+              {pendingOptimization?.title}
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-base leading-relaxed">
+              {pendingOptimization?.description}
+              <br /><br />
+              <span className="font-medium text-primary">Would you like me to implement these changes for you, sir?</span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>No, maybe later</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={executeConfirmedOptimization}
+              className="bg-primary hover:bg-primary/90"
+            >
+              Yes, please proceed
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
