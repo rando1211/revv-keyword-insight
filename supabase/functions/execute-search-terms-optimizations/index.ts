@@ -148,6 +148,9 @@ serve(async (req) => {
       const campaignsData = await campaignsResponse.json();
       campaigns = campaignsData.results || [];
       console.log(`✅ Found ${campaigns.length} campaigns for optimization`);
+    } else {
+      const errorText = await campaignsResponse.text();
+      console.error(`❌ Campaigns fetch error: ${campaignsResponse.status} - ${errorText}`);
     }
 
     const results = [];
@@ -161,16 +164,9 @@ serve(async (req) => {
       try {
         if (action.type === 'negative_keyword') {
           // Find target campaign - prefer specified campaignId, fallback to first available
-          let targetCampaign = null;
-          if (action.campaignId) {
-            targetCampaign = campaigns.find(c => c.campaign.id === action.campaignId);
-          }
-          if (!targetCampaign && campaigns.length > 0) {
-            targetCampaign = campaigns[0]; // Use first campaign as fallback
-          }
-          
-          if (!targetCampaign) {
-            throw new Error('No campaigns available for negative keyword addition');
+          const campaignIdUsed = action.campaignId || (campaigns[0]?.campaign?.id ? String(campaigns[0].campaign.id) : null);
+          if (!campaignIdUsed) {
+            throw new Error('No target campaign id provided and none fetched');
           }
 
           const negativeKeywordApiUrl = `https://googleads.googleapis.com/v20/customers/${cleanCustomerId}/campaignCriteria:mutate`;
@@ -179,7 +175,7 @@ serve(async (req) => {
             operations: [
               {
                 create: {
-                  campaign: `customers/${cleanCustomerId}/campaigns/${targetCampaign.campaign.id}`,
+                  campaign: `customers/${cleanCustomerId}/campaigns/${campaignIdUsed}`,
                   keyword: {
                     text: action.searchTerm,
                     matchType: 'BROAD'
@@ -190,7 +186,7 @@ serve(async (req) => {
             ]
           };
 
-          console.log(`📝 Adding negative keyword "${action.searchTerm}" to campaign ${targetCampaign.campaign.name}`);
+          console.log(`📝 Adding negative keyword "${action.searchTerm}" to campaign ${campaignIdUsed}`);
 
           const negativeResponse = await fetch(negativeKeywordApiUrl, {
             method: 'POST',

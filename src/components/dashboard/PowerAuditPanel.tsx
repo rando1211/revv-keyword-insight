@@ -1004,7 +1004,15 @@ const SearchTermsTab = ({
       </Card>
 
       {/* Premium Confirmation Dialog */}
-      <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+        <AlertDialog 
+          open={showConfirmDialog} 
+          onOpenChange={(open) => {
+            setShowConfirmDialog(open);
+            if (open && pendingOptimization?.voiceMessage && !isPlaying) {
+              try { speak(pendingOptimization.voiceMessage, 'onyx'); } catch {}
+            }
+          }}
+        >
         <AlertDialogContent className="max-w-md">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-xl font-semibold text-primary flex items-center gap-2">
