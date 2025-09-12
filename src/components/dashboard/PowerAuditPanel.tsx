@@ -6,13 +6,14 @@ import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { CheckCircle, AlertTriangle, XCircle, TrendingUp, TrendingDown, Activity, Target, DollarSign, BarChart3, Users, Zap, Calendar, Play, Loader2 } from 'lucide-react';
+import { CheckCircle, AlertTriangle, XCircle, TrendingUp, TrendingDown, Activity, Target, DollarSign, BarChart3, Users, Zap, Calendar, Play, Loader2, Volume2 } from 'lucide-react';
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { GoogleAdsAccount } from '@/lib/google-ads-service';
 import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { BudgetAnalysisTab, AIInsightsTab } from './PowerAuditPanelExtended';
+import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 
 interface PowerAuditPanelProps {
   selectedAccount: GoogleAdsAccount | null;
@@ -505,8 +506,10 @@ const SearchTermsTab = ({
     terms: any[];
     title: string;
     description: string;
+    voiceMessage?: string;
   } | null>(null);
   const { toast } = useToast();
+  const { speak, isPlaying } = useTextToSpeech();
   
   console.log('🔍 Search Terms Analysis data:', searchTermsAnalysis);
   
@@ -536,11 +539,17 @@ const SearchTermsTab = ({
       ? `I'll add negative keywords to prevent your ads from showing for these wasteful terms, saving approximately $${wastefulSpend.toFixed(0)}/month in ad spend. This will redirect your budget to more profitable opportunities.`
       : `I'll expand these high-performing keywords with broader match types to capture more qualified traffic, potentially increasing conversions by ${Math.round(terms.length * 15)}%.`;
 
+    // Create the voice message
+    const voiceMessage = actionType === 'wasteful' 
+      ? `Sir, I've identified ${terms.length} wasteful search terms costing approximately $${wastefulSpend.toFixed(0)} per month. Would you like me to implement the negative keyword optimizations for you?`
+      : `Sir, I've found ${terms.length} high-performing search terms with excellent conversion potential. Shall I proceed with expanding these keywords to capture more qualified traffic?`;
+
     setPendingOptimization({ 
       type: actionType, 
       terms: terms.slice(0, actionType === 'wasteful' ? 20 : 10), 
       title, 
-      description 
+      description,
+      voiceMessage
     });
     setShowConfirmDialog(true);
   };
@@ -972,17 +981,29 @@ const SearchTermsTab = ({
         </CardContent>
       </Card>
 
-      {/* Premium Confirmation Dialog */}
-      <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+      {/* Premium Confirmation Dialog with Voice */}
+      <AlertDialog open={showConfirmDialog} onOpenChange={(open) => {
+        setShowConfirmDialog(open);
+        // Trigger voice when dialog opens
+        if (open && pendingOptimization?.voiceMessage) {
+          setTimeout(() => {
+            speak(pendingOptimization.voiceMessage!, 'onyx');
+          }, 500); // Small delay for better UX
+        }
+      }}>
         <AlertDialogContent className="max-w-md">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-xl font-semibold text-primary">
+            <AlertDialogTitle className="text-xl font-semibold text-primary flex items-center gap-2">
+              <Volume2 className="w-5 h-5 text-primary animate-pulse" />
               {pendingOptimization?.title}
             </AlertDialogTitle>
             <AlertDialogDescription className="text-base leading-relaxed">
               {pendingOptimization?.description}
               <br /><br />
-              <span className="font-medium text-primary">Would you like me to implement these changes for you, sir?</span>
+              <span className="font-medium text-primary flex items-center gap-2">
+                {isPlaying && <Volume2 className="w-4 h-4 animate-pulse" />}
+                Would you like me to implement these changes for you, sir?
+              </span>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
