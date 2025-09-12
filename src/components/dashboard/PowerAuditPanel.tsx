@@ -551,6 +551,14 @@ const SearchTermsTab = ({
       description,
       voiceMessage
     });
+
+    // Speak immediately on user click to satisfy browser autoplay policies
+    try {
+      speak(voiceMessage, 'onyx');
+    } catch (e) {
+      console.warn('TTS play blocked:', e);
+    }
+
     setShowConfirmDialog(true);
   };
 
@@ -981,16 +989,8 @@ const SearchTermsTab = ({
         </CardContent>
       </Card>
 
-      {/* Premium Confirmation Dialog with Voice */}
-      <AlertDialog open={showConfirmDialog} onOpenChange={(open) => {
-        setShowConfirmDialog(open);
-        // Trigger voice when dialog opens
-        if (open && pendingOptimization?.voiceMessage) {
-          setTimeout(() => {
-            speak(pendingOptimization.voiceMessage!, 'onyx');
-          }, 500); // Small delay for better UX
-        }
-      }}>
+      {/* Premium Confirmation Dialog */}
+      <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
         <AlertDialogContent className="max-w-md">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-xl font-semibold text-primary flex items-center gap-2">
