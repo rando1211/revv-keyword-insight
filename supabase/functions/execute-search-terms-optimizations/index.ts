@@ -63,7 +63,7 @@ serve(async (req) => {
     console.log('✅ Fresh access token obtained');
 
     // Clean customer ID (remove 'customers/' prefix if present)
-    const cleanCustomerId = customerId.replace('customers/', '');
+    const cleanCustomerId = customerId.replace('customers/', '').replace(/-/g, '');
 
     // First, fetch campaigns to get campaign IDs for actions that need them
     // Get accessible customers to find correct manager (same pattern as other functions)
@@ -75,49 +75,51 @@ serve(async (req) => {
         'Content-Type': 'application/json'
       }
     });
-    
+
     if (!accessibleCustomersResponse.ok) {
       throw new Error(`Failed to get accessible customers: ${accessibleCustomersResponse.status}`);
     }
-    
+
     const accessibleData = await accessibleCustomersResponse.json();
     const accessibleIds = accessibleData.resourceNames?.map((name: string) => name.replace('customers/', '')) || [];
-    
+
     // Check if target customer is directly accessible
     const isDirectlyAccessible = accessibleIds.includes(cleanCustomerId);
-    
+
     let loginCustomerId = cleanCustomerId; // Default to self
-    
+
     if (!isDirectlyAccessible) {
-      // Find a manager that can access this customer
+      // Probe each accessible customer as a potential manager by attempting a minimal GAQL query
+      console.log('🎯 Target not directly accessible; searching for manager that can access it...');
       for (const managerId of accessibleIds) {
         try {
-          const customerResponse = await fetch(`https://googleads.googleapis.com/v20/customers/${managerId}/customers:listAccessibleCustomers`, {
-            method: 'GET',
+          const testQuery = `SELECT customer.id FROM customer LIMIT 1`;
+          const testResp = await fetch(`https://googleads.googleapis.com/v20/customers/${cleanCustomerId}/googleAds:search`, {
+            method: 'POST',
             headers: {
               'Authorization': `Bearer ${access_token}`,
               'developer-token': developerToken,
               'login-customer-id': managerId,
               'Content-Type': 'application/json'
-            }
+            },
+            body: JSON.stringify({ query: testQuery })
           });
-          
-          if (customerResponse.ok) {
-            const customerData = await customerResponse.json();
-            const managedIds = customerData.resourceNames?.map((name: string) => name.replace('customers/', '')) || [];
-            
-            if (managedIds.includes(cleanCustomerId)) {
-              loginCustomerId = managerId;
-              console.log(`✅ Found correct manager: ${managerId} manages ${cleanCustomerId}`);
-              break;
-            }
+
+          if (testResp.ok) {
+            loginCustomerId = managerId;
+            console.log(`✅ Found correct manager: ${managerId} manages ${cleanCustomerId}`);
+            break;
+          } else {
+            const errText = await testResp.text();
+            console.log(`ℹ️ Manager ${managerId} cannot access ${cleanCustomerId}: ${testResp.status} - ${errText}`);
           }
         } catch (error) {
-          console.log(`⚠️ Error checking manager ${managerId}:`, error.message);
-          continue;
+          console.log(`⚠️ Error testing manager ${managerId}:`, (error as Error).message);
         }
       }
     }
+
+    console.log('📌 Using login-customer-id:', loginCustomerId);
 
     console.log('📊 Fetching campaigns for context...');
     const campaignsApiUrl = `https://googleads.googleapis.com/v20/customers/${cleanCustomerId}/googleAds:search`;
@@ -205,7 +207,7 @@ serve(async (req) => {
               action,
               success: true,
               result: result.results?.[0]?.resourceName || 'Negative keyword added',
-              message: `Successfully added "${action.searchTerm}" as negative keyword to ${targetCampaign.campaign.name}`
+              message: `Successfully added "${action.searchTerm}" as negative keyword to campaign ${campaignIdUsed}`
             });
             successCount++;
             console.log(`✅ Successfully added negative keyword: ${action.searchTerm}`);
