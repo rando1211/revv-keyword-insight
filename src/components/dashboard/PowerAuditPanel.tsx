@@ -589,23 +589,37 @@ const SearchTermsTab = ({
 
       const { data, error } = await supabase.functions.invoke('execute-search-terms-optimizations', {
         body: {
-          customerId: selectedAccount.id,
-          pendingActions: pendingActions
+          customerId: selectedAccount.customerId || selectedAccount.id,
+          pendingActions
         }
       });
 
       if (error) throw error;
-      
+
+      console.log('🔎 Optimization function response:', data);
+
+      const successCount = data?.summary?.successCount ?? 0;
+      const total = data?.summary?.totalActions ?? pendingActions.length;
+
       setExecutionResults(prev => ({ 
         ...prev, 
-        [type]: { success: true, data, timestamp: new Date() }
+        [type]: { success: successCount > 0, data, timestamp: new Date() }
       }));
       
-      toast({
-        title: "✅ Optimizations Applied Successfully!",
-        description: `I've successfully processed ${pendingActions.length} ${type} search terms for you, sir.`,
-        duration: 5000
-      });
+      if (successCount > 0) {
+        toast({
+          title: '✅ Optimizations Applied',
+          description: `Executed ${successCount}/${total} actions successfully`,
+        });
+        try { speak(`Affirmative, sir. I have executed ${successCount} optimization actions.`, 'onyx'); } catch {}
+      } else {
+        toast({
+          title: 'No Changes Applied',
+          description: data?.results?.[0]?.error || 'Google Ads rejected all actions. Check account permissions and developer token.',
+          variant: 'destructive'
+        });
+        try { speak('Apologies, sir. Google Ads did not accept the requested changes.', 'onyx'); } catch {}
+      }
       
     } catch (error: any) {
       setExecutionResults(prev => ({ 
