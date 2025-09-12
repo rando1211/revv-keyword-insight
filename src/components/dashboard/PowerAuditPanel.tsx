@@ -556,13 +556,14 @@ const SearchTermsTab = ({
       console.log(`🚀 Executing ${type} optimization for:`, terms);
       
       const pendingActions = terms
-        .filter(term => term.search_term && term.campaign_id)
+        .filter(term => term.search_term || term.searchTerm)
         .map(term => ({
-          type: type === 'wasteful' ? 'add_negative_keyword' : 'add_positive_keyword',
-          searchTerm: term.search_term,
+          id: `${type}_${Date.now()}_${Math.random()}`,
+          type: type === 'wasteful' ? 'negative_keyword' : (type === 'scaling' ? 'exact_match' : 'phrase_match'),
+          searchTerm: term.search_term || term.searchTerm || term.term,
+          reason: term.reason || `${type} search term optimization`,
           campaignId: term.campaign_id,
-          adGroupId: term.ad_group_id || term.campaign_id,
-          matchType: 'EXACT'
+          adGroupId: term.ad_group_id || term.campaign_id
         }));
 
       if (pendingActions.length === 0) {
@@ -572,7 +573,7 @@ const SearchTermsTab = ({
       const { data, error } = await supabase.functions.invoke('execute-search-terms-optimizations', {
         body: {
           customerId: selectedAccount.id,
-          pendingActions
+          pendingActions: pendingActions
         }
       });
 

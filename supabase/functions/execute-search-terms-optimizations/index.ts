@@ -159,10 +159,17 @@ serve(async (req) => {
       
       try {
         if (action.type === 'negative_keyword') {
-          // Add negative keyword at campaign level
-          const targetCampaign = campaigns[0]; // Use first campaign for demo
+          // Find target campaign - prefer specified campaignId, fallback to first available
+          let targetCampaign = null;
+          if (action.campaignId) {
+            targetCampaign = campaigns.find(c => c.campaign.id === action.campaignId);
+          }
+          if (!targetCampaign && campaigns.length > 0) {
+            targetCampaign = campaigns[0]; // Use first campaign as fallback
+          }
+          
           if (!targetCampaign) {
-            throw new Error('No campaigns found to add negative keyword');
+            throw new Error('No campaigns available for negative keyword addition');
           }
 
           const negativeKeywordApiUrl = `https://googleads.googleapis.com/v20/customers/${cleanCustomerId}/campaignCriteria:mutate`;
@@ -182,6 +189,8 @@ serve(async (req) => {
             ]
           };
 
+          console.log(`📝 Adding negative keyword "${action.searchTerm}" to campaign ${targetCampaign.campaign.name}`);
+
           const negativeResponse = await fetch(negativeKeywordApiUrl, {
             method: 'POST',
             headers: {
@@ -199,20 +208,28 @@ serve(async (req) => {
               action,
               success: true,
               result: result.results?.[0]?.resourceName || 'Negative keyword added',
-              message: `Successfully added "${action.searchTerm}" as negative keyword`
+              message: `Successfully added "${action.searchTerm}" as negative keyword to ${targetCampaign.campaign.name}`
             });
             successCount++;
             console.log(`✅ Successfully added negative keyword: ${action.searchTerm}`);
           } else {
             const errorText = await negativeResponse.text();
+            console.error(`❌ Negative keyword API error: ${negativeResponse.status} - ${errorText}`);
             throw new Error(`API error: ${negativeResponse.status} - ${errorText}`);
           }
 
         } else if (action.type === 'exact_match' || action.type === 'phrase_match') {
-          // Add positive keyword with bid adjustment
-          const targetCampaign = campaigns[0];
+          // Find target campaign for positive keywords
+          let targetCampaign = null;
+          if (action.campaignId) {
+            targetCampaign = campaigns.find(c => c.campaign.id === action.campaignId);
+          }
+          if (!targetCampaign && campaigns.length > 0) {
+            targetCampaign = campaigns[0];
+          }
+          
           if (!targetCampaign) {
-            throw new Error('No campaigns found to add positive keyword');
+            throw new Error('No campaigns available for positive keyword addition');
           }
 
           // Fetch ad groups for the campaign
@@ -265,6 +282,8 @@ serve(async (req) => {
               ]
             };
 
+            console.log(`📝 Adding ${matchType} keyword "${action.searchTerm}" to ad group ${targetAdGroup.adGroup.name}`);
+
             const keywordResponse = await fetch(keywordApiUrl, {
               method: 'POST',
               headers: {
@@ -282,17 +301,20 @@ serve(async (req) => {
                 action,
                 success: true,
                 result: result.results?.[0]?.resourceName || 'Keyword added',
-                message: `Successfully added "${action.searchTerm}" as ${matchType} keyword with $1.50 bid`
+                message: `Successfully added "${action.searchTerm}" as ${matchType} keyword with $1.50 bid to ${targetAdGroup.adGroup.name}`
               });
               successCount++;
               console.log(`✅ Successfully added ${matchType} keyword: ${action.searchTerm}`);
             } else {
               const errorText = await keywordResponse.text();
+              console.error(`❌ Keyword API error: ${keywordResponse.status} - ${errorText}`);
               throw new Error(`Keyword API error: ${keywordResponse.status} - ${errorText}`);
             }
           } else {
             throw new Error('No enabled ad groups found for keyword addition');
           }
+        } else {
+          console.log(`⚠️ Unsupported action type: ${action.type}`);
         }
 
       } catch (actionError) {
