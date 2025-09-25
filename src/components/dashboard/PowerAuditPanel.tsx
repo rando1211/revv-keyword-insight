@@ -628,13 +628,19 @@ const SearchTermsTab = ({
         });
         try { speak(`Affirmative, sir. I have executed ${successCount} optimization actions. Updating your dashboard now.`, 'onyx'); } catch {}
         
+        // Show immediate feedback and schedule refresh
+        toast({
+          title: "Scaling Applied", 
+          description: "Keyword added for scaling. Numbers will update within 15-30 minutes as Google Ads processes the changes.",
+        });
+        
         // Auto-refresh audit data after successful optimization
         setTimeout(async () => {
           if (onRefreshAudit) {
-            console.log('🔄 Refreshing audit data after scaling optimization...');
+            console.log('🔄 Refreshing audit data after scaling optimization...', { timestamp: new Date().toISOString() });
             onRefreshAudit();
           } else {
-            console.warn('⚠️ onRefreshAudit not available');
+            console.warn('⚠️ onRefreshAudit callback not available');
           }
         }, 3000);
       } else {
@@ -689,7 +695,7 @@ const SearchTermsTab = ({
 
       toast({
         title: "Negative Keywords Added Successfully",
-        description: `Added ${selectedTerms.length} negative keywords. Refreshing audit data...`,
+        description: `Added ${selectedTerms.length} negative keywords. Numbers will update within 15-30 minutes as Google Ads processes the changes.`,
       });
 
       setShowNegativeReview(false);
@@ -697,10 +703,10 @@ const SearchTermsTab = ({
       // Auto-refresh audit data after successful optimization
       setTimeout(async () => {
         if (onRefreshAudit) {
-          console.log('🔄 Refreshing audit data after adding negative keywords...');
+          console.log('🔄 Refreshing audit data after adding negative keywords...', { timestamp: new Date().toISOString() });
           onRefreshAudit();
         } else {
-          console.warn('⚠️ onRefreshAudit not available');
+          console.warn('⚠️ onRefreshAudit callback not available');
         }
       }, 3000);
       
