@@ -232,6 +232,7 @@ serve(async (req) => {
     // Process each negative keyword
     for (const action of negativeKeywords) {
       console.log(`🔧 Adding negative keyword: "${action.term}" (${action.matchType}) at ${action.level || 'campaign'} level`);
+      console.log(`🔍 Debug - action.level: ${action.level}, action.adGroupId: ${action.adGroupId}`);
       
       try {
         let targetCampaign;
@@ -256,8 +257,13 @@ serve(async (req) => {
         
         // Handle ad group level negative keywords
         if (action.level === 'adgroup' && action.adGroupId) {
+          console.log(`🔍 Looking for ad group ${action.adGroupId} in ${adGroups.length} ad groups`);
           targetAdGroup = adGroups.find((ag: any) => String(ag.id) === String(action.adGroupId));
+          console.log(`🔍 Found ad group:`, targetAdGroup ? `${targetAdGroup.name} (${targetAdGroup.id})` : 'NOT FOUND');
+          
           if (!targetAdGroup) {
+            // Let's also try to find by campaign ID in case ad group lookup fails
+            console.log(`⚠️ Ad group ${action.adGroupId} not found. Available ad groups:`, adGroups.map(ag => `${ag.name} (${ag.id})`));
             throw new Error(`Ad group ${action.adGroupId} not found or not enabled`);
           }
           
@@ -315,6 +321,7 @@ serve(async (req) => {
           }
         } else {
           // Campaign level negative keywords (default)
+          console.log(`🔍 Using campaign level - level: ${action.level}, hasAdGroupId: ${!!action.adGroupId}`);
           console.log(`🎯 Targeting campaign: ${targetCampaign.name} (${campaignId})`);
           
           const negativeKeywordApiUrl = `https://googleads.googleapis.com/v20/customers/${cleanCustomerId}/campaignCriteria:mutate`;
