@@ -150,7 +150,7 @@ Make the data realistic based on actual market conditions for ${businessType} bu
     console.error('Enhanced keyword research error:', error);
     return new Response(
       JSON.stringify({ 
-        error: error.message,
+        error: error instanceof Error ? error.message : 'Unknown error occurred',
         success: false
       }),
       { 

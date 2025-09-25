@@ -137,7 +137,7 @@ serve(async (req) => {
     console.error("Get credentials error:", error);
     return new Response(
       JSON.stringify({ 
-        error: error.message,
+        error: error instanceof Error ? error.message : 'Unknown error occurred',
         success: false
       }),
       { 

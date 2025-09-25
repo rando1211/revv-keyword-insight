@@ -86,9 +86,9 @@ serve(async (req) => {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: new URLSearchParams({
-          client_id: CLIENT_ID,
-          client_secret: CLIENT_SECRET,
-          refresh_token: REFRESH_TOKEN,
+          client_id: CLIENT_ID || '',
+          client_secret: CLIENT_SECRET || '',
+          refresh_token: REFRESH_TOKEN || '',
           grant_type: "refresh_token",
         }),
       });
@@ -105,7 +105,7 @@ serve(async (req) => {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${accessToken}`,
-          "developer-token": DEVELOPER_TOKEN,
+          "developer-token": DEVELOPER_TOKEN || "",
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ query: "SELECT customer.id FROM customer LIMIT 1" }),
@@ -136,8 +136,8 @@ serve(async (req) => {
         };
         
         // Check if we have a known mapping first
-        if (knownMCCMappings[cleanCustomerId]) {
-          const knownMCC = knownMCCMappings[cleanCustomerId];
+        if ((knownMCCMappings as any)[cleanCustomerId]) {
+          const knownMCC = (knownMCCMappings as any)[cleanCustomerId];
           console.log(`🔍 Using known MCC mapping: ${cleanCustomerId} -> ${knownMCC}`);
           
           // Test this known relationship
@@ -145,7 +145,7 @@ serve(async (req) => {
             method: "POST",
             headers: {
               "Authorization": `Bearer ${accessToken}`,
-              "developer-token": DEVELOPER_TOKEN,
+              "developer-token": DEVELOPER_TOKEN || "",
               "login-customer-id": knownMCC,
               "Content-Type": "application/json",
             },
@@ -169,7 +169,7 @@ serve(async (req) => {
             method: "POST",
             headers: {
               "Authorization": `Bearer ${accessToken}`,
-              "developer-token": DEVELOPER_TOKEN,
+              "developer-token": DEVELOPER_TOKEN || "",
               "login-customer-id": primaryCustomerId,
               "Content-Type": "application/json",
             },
@@ -193,7 +193,7 @@ serve(async (req) => {
             method: "POST",
             headers: {
               "Authorization": `Bearer ${accessToken}`,
-              "developer-token": DEVELOPER_TOKEN,
+              "developer-token": DEVELOPER_TOKEN || "",
               "login-customer-id": "9301596383",
               "Content-Type": "application/json",
             },
@@ -232,7 +232,7 @@ serve(async (req) => {
     
     return new Response(
       JSON.stringify({ 
-        error: error.message || 'Unknown error occurred',
+        error: error instanceof Error ? error.message : 'Unknown error occurred',
         success: false
       }),
       { 

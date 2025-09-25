@@ -305,7 +305,7 @@ serve(async (req) => {
           // Find target campaign for positive keywords
           let targetCampaign = null;
           if (action.campaignId) {
-            targetCampaign = campaigns.find(c => c.campaign.id === action.campaignId);
+            targetCampaign = campaigns.find((c: any) => c.campaign.id === action.campaignId);
           }
           if (!targetCampaign && campaigns.length > 0) {
             targetCampaign = campaigns[0];
@@ -405,8 +405,8 @@ serve(async (req) => {
         results.push({
           action,
           success: false,
-          error: actionError.message,
-          message: `Failed to process "${action.searchTerm}": ${actionError.message}`
+          error: actionError instanceof Error ? actionError.message : 'Unknown error occurred',
+          message: `Failed to process "${action.searchTerm}": ${actionError instanceof Error ? actionError.message : 'Unknown error'}`
         });
         errorCount++;
       }
@@ -434,8 +434,8 @@ serve(async (req) => {
     
     return new Response(JSON.stringify({ 
       success: false,
-      error: error.message,
-      details: error.stack
+      error: error instanceof Error ? error.message : 'Unknown error occurred',
+      details: error instanceof Error ? error.stack : 'No stack trace available'
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

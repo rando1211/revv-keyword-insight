@@ -120,7 +120,7 @@ serve(async (req) => {
             }
           }
         } catch (error) {
-          console.log(`⚠️ Error checking manager ${managerId}:`, error.message);
+          console.log(`⚠️ Error checking manager ${managerId}:`, error instanceof Error ? error.message : 'Unknown error');
           continue;
         }
       }
@@ -254,8 +254,8 @@ serve(async (req) => {
     
     return new Response(JSON.stringify({ 
       success: false,
-      error: error.message,
-      details: error.stack
+      error: error instanceof Error ? error.message : 'Unknown error occurred',
+      details: error instanceof Error ? error.stack : 'No stack trace available'
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

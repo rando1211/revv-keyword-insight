@@ -50,9 +50,9 @@ serve(async (req) => {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({
-        client_id: CLIENT_ID,
-        client_secret: CLIENT_SECRET,
-        refresh_token: REFRESH_TOKEN,
+        client_id: CLIENT_ID || '',
+        client_secret: CLIENT_SECRET || '',
+        refresh_token: REFRESH_TOKEN || '',
         grant_type: "refresh_token",
       }),
     });
@@ -71,7 +71,7 @@ serve(async (req) => {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${access_token}`,
-        'developer-token': DEVELOPER_TOKEN,
+        'developer-token': DEVELOPER_TOKEN || '',
         'Content-Type': 'application/json'
       }
     });
@@ -99,7 +99,7 @@ serve(async (req) => {
             method: "POST",
             headers: {
               "Authorization": `Bearer ${access_token}`,
-              "developer-token": DEVELOPER_TOKEN,
+              "developer-token": DEVELOPER_TOKEN || "",
               "login-customer-id": potentialManagerId,
               "Content-Type": "application/json",
             },
@@ -131,7 +131,7 @@ serve(async (req) => {
           }
         }
       } catch (error) {
-        console.log(`⚠️ Error checking ${potentialManagerId}:`, error.message);
+        console.log(`⚠️ Error checking ${potentialManagerId}:`, error instanceof Error ? error.message : 'Unknown error');
         continue;
       }
     }
@@ -166,7 +166,7 @@ serve(async (req) => {
 
     let campaignFilter = '';
     if (campaignIds && campaignIds.length > 0) {
-      const campaignIdList = campaignIds.map(id => `'${id}'`).join(',');
+      const campaignIdList = campaignIds.map((id: string) => `'${id}'`).join(',');
       campaignFilter = `AND campaign.id IN (${campaignIdList})`;
     }
 
@@ -198,7 +198,7 @@ serve(async (req) => {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${access_token}`,
-        'developer-token': DEVELOPER_TOKEN,
+        'developer-token': DEVELOPER_TOKEN || '',
         'login-customer-id': correctManagerId, // MANAGER in header
         'Content-Type': 'application/json'
       },
@@ -217,7 +217,7 @@ serve(async (req) => {
     console.log(`✅ Processed ${apiData.results?.length || 0} ads`);
 
     // Process the results - extract individual headlines/descriptions
-    const adCreatives = [];
+    const adCreatives: any[] = [];
     const campaignSet = new Set();
 
     if (apiData.results) {
@@ -231,7 +231,7 @@ serve(async (req) => {
 
           // Process headlines
           if (rsa.headlines) {
-            rsa.headlines.forEach((headline, index) => {
+            rsa.headlines.forEach((headline: any, index: number) => {
               adCreatives.push({
                 id: `${ad.id}_headline_${index}`,
                 adId: ad.id,
@@ -253,7 +253,7 @@ serve(async (req) => {
 
           // Process descriptions
           if (rsa.descriptions) {
-            rsa.descriptions.forEach((description, index) => {
+            rsa.descriptions.forEach((description: any, index: number) => {
               adCreatives.push({
                 id: `${ad.id}_description_${index}`,
                 adId: ad.id,
@@ -311,7 +311,7 @@ serve(async (req) => {
     console.error('❌ Error fetching ad creatives:', error);
     return new Response(JSON.stringify({
       success: false,
-      error: error.message
+      error: error instanceof Error ? error.message : 'Unknown error occurred'
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

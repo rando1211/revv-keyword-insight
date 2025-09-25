@@ -169,7 +169,7 @@ Make the copy compelling, relevant, and high-converting for the ${adGroup.theme}
     console.error('Ad generation error:', error);
     return new Response(
       JSON.stringify({ 
-        error: error.message,
+        error: error instanceof Error ? error.message : 'Unknown error occurred',
         success: false
       }),
       { 

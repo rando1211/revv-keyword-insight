@@ -137,7 +137,7 @@ serve(async (req) => {
           type: optimization.type,
           status: 'ERROR',
           action: 'Failed to execute',
-          details: error.message
+          details: error instanceof Error ? error.message : 'Unknown error'
         });
       }
     }
@@ -167,7 +167,7 @@ serve(async (req) => {
     console.error('❌ Error in creative optimization execution:', error);
     return new Response(JSON.stringify({
       success: false,
-      error: error.message
+      error: error instanceof Error ? error.message : 'Unknown error occurred'
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -217,12 +217,12 @@ async function addNewCreative(headers: any, customerId: string, optimization: an
   const headlines = optimization.newHeadlines || ['New Headline 1', 'New Headline 2', 'New Headline 3'];
   const descriptions = optimization.newDescriptions || ['New description showcasing benefits', 'Contact us today for more information'];
   
-  const headlineAssets = headlines.map(text => ({
+  const headlineAssets = headlines.map((text: string) => ({
     text,
     pinnedField: 'UNSPECIFIED'
   }));
   
-  const descriptionAssets = descriptions.map(text => ({
+  const descriptionAssets = descriptions.map((text: string) => ({
     text,
     pinnedField: 'UNSPECIFIED'
   }));

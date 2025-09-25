@@ -54,9 +54,9 @@ serve(async (req) => {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({
-        client_id: CLIENT_ID,
-        client_secret: CLIENT_SECRET,
-        refresh_token: REFRESH_TOKEN,
+        client_id: CLIENT_ID || '',
+        client_secret: CLIENT_SECRET || '',
+        refresh_token: REFRESH_TOKEN || '',
         grant_type: "refresh_token",
       }),
     });
@@ -74,7 +74,7 @@ serve(async (req) => {
     const accessibleRes = await fetch("https://googleads.googleapis.com/v20/customers:listAccessibleCustomers", {
       headers: {
         "Authorization": `Bearer ${accessToken}`,
-        "developer-token": DEVELOPER_TOKEN,
+        "developer-token": DEVELOPER_TOKEN || "",
       },
     });
     
@@ -111,7 +111,7 @@ serve(async (req) => {
             method: "POST",
             headers: {
               "Authorization": `Bearer ${accessToken}`,
-              "developer-token": DEVELOPER_TOKEN,
+              "developer-token": DEVELOPER_TOKEN || "",
               "login-customer-id": potentialManagerId,
               "Content-Type": "application/json",
             },
@@ -143,7 +143,7 @@ serve(async (req) => {
           }
         }
       } catch (error) {
-        console.log(`❌ ${potentialManagerId} is not a manager or error occurred:`, error.message);
+        console.log(`❌ ${potentialManagerId} is not a manager or error occurred:`, error instanceof Error ? error.message : 'Unknown error');
       }
     }
     
@@ -184,11 +184,11 @@ serve(async (req) => {
     
     console.log("🚀 Making API request to:", apiUrl);
 
-    const headers = {
+    const headers: Record<string, string> = {
       "Authorization": `Bearer ${accessToken}`,
-      "developer-token": DEVELOPER_TOKEN,
+      "developer-token": DEVELOPER_TOKEN || "",
       "Content-Type": "application/json",
-      "login-customer-id": correctManagerId // Use the dynamically found correct manager
+      "login-customer-id": correctManagerId || "" // Use the dynamically found correct manager
     };
     
     console.log('🔧 Request headers:', { 
@@ -245,7 +245,7 @@ serve(async (req) => {
     
     return new Response(
       JSON.stringify({
-        error: error.message || 'Unknown error occurred',
+        error: error instanceof Error ? error.message : 'Unknown error occurred',
         success: false,
         timestamp: new Date().toISOString()
       }),

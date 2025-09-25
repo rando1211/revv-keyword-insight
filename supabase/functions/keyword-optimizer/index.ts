@@ -185,7 +185,7 @@ serve(async (req) => {
 
       if (ctr < 2 && clicks > 30) {
         // Find poor performing search terms for this campaign
-        const campaignSearchTerms = searchTerms.filter(st => st.campaign.id === r.campaign.id);
+        const campaignSearchTerms = searchTerms.filter((st: any) => st.campaign.id === r.campaign.id);
         console.log(`Found ${campaignSearchTerms.length} search terms for campaign ${r.campaign.name}`);
         
         let poorTerms = [];
@@ -193,15 +193,15 @@ serve(async (req) => {
         if (campaignSearchTerms.length > 0) {
           // Analyze actual search terms
           poorTerms = campaignSearchTerms
-            .filter(st => {
+            .filter((st: any) => {
               const termCtr = parseFloat(st.metrics?.ctr || '0') * 100;
               const termClicks = parseFloat(st.metrics?.clicks || '0');
               const termConversions = parseFloat(st.metrics?.conversions || '0');
               return termCtr < 1 && termClicks > 5 && termConversions === 0;
             })
-            .sort((a, b) => parseFloat(b.metrics?.clicks || '0') - parseFloat(a.metrics?.clicks || '0'))
+            .sort((a: any, b: any) => parseFloat(b.metrics?.clicks || '0') - parseFloat(a.metrics?.clicks || '0'))
             .slice(0, 8) // Top 8 worst performing terms
-            .map(st => st.searchTermView?.searchTerm || st.search_term_view?.search_term || st.searchTerm?.search_term || 'Unknown');
+            .map((st: any) => st.searchTermView?.searchTerm || st.search_term_view?.search_term || st.searchTerm?.search_term || 'Unknown');
           
           console.log(`Identified ${poorTerms.length} poor performing search terms`);
         }
@@ -292,7 +292,7 @@ serve(async (req) => {
     console.error('Error:', error);
     return new Response(JSON.stringify({
       success: false,
-      error: error.message
+      error: error instanceof Error ? error.message : 'Unknown error occurred'
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

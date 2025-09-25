@@ -55,7 +55,7 @@ serve(async (req) => {
     console.error("Token exchange error:", error);
     return new Response(
       JSON.stringify({ 
-        error: error.message,
+        error: error instanceof Error ? error.message : 'Unknown error occurred',
         success: false
       }),
       { 

@@ -187,9 +187,9 @@ serve(async (req) => {
     console.log(`🎯 Generated ${optimizations.length} optimization recommendations`);
 
     // Calculate summary
-    const totalSpend = campaigns.reduce((sum, c) => sum + c.cost, 0);
-    const totalConversions = campaigns.reduce((sum, c) => sum + c.conversions, 0);
-    const avgCTR = campaigns.length > 0 ? campaigns.reduce((sum, c) => sum + c.ctr, 0) / campaigns.length : 0;
+    const totalSpend = campaigns.reduce((sum: number, c: any) => sum + c.cost, 0);
+    const totalConversions = campaigns.reduce((sum: number, c: any) => sum + c.conversions, 0);
+    const avgCTR = campaigns.length > 0 ? campaigns.reduce((sum: number, c: any) => sum + c.ctr, 0) / campaigns.length : 0;
     const potentialSavings = optimizations.reduce((sum, o) => sum + o.estimatedSavings, 0);
 
     return new Response(JSON.stringify({

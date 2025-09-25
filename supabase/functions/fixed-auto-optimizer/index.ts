@@ -164,12 +164,12 @@ serve(async (req) => {
       success: true,
       summary: {
         totalCampaigns: processedCampaigns.length,
-        highPerformingCampaigns: processedCampaigns.filter(c => c.score > 5).length,
+        highPerformingCampaigns: processedCampaigns.filter((c: any) => c.score > 5).length,
         optimizationsAttempted: actions.length,
         optimizationsSuccessful: 0
       },
       campaigns: processedCampaigns,
-      optimizedCampaigns: processedCampaigns.filter(c => c.score > 5),
+      optimizedCampaigns: processedCampaigns.filter((c: any) => c.score > 5),
       actions,
       timestamp: new Date().toISOString()
     }), {
@@ -180,7 +180,7 @@ serve(async (req) => {
     console.error('🔥 Fixed Auto-Optimizer Error:', error);
     return new Response(JSON.stringify({
       success: false,
-      error: error.message
+      error: error instanceof Error ? error.message : 'Unknown error occurred'
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

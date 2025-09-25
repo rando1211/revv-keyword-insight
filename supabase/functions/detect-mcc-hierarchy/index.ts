@@ -220,7 +220,7 @@ serve(async (req) => {
     }
 
     // Build response with login-customer-id recommendations
-    const recommendations = {};
+    const recommendations: Record<string, any> = {};
     for (const record of hierarchyData) {
       const customerId = record.customer_id;
       let loginCustomerId = null;

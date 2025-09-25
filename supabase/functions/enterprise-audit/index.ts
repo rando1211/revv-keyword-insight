@@ -152,7 +152,7 @@ serve(async (req) => {
             }
           }
         } catch (error) {
-          console.log(`⚠️ Error checking ${potentialManagerId}:`, error.message);
+          console.log(`⚠️ Error checking ${potentialManagerId}:`, error instanceof Error ? error.message : 'Unknown error');
           continue;
         }
       }
@@ -348,8 +348,8 @@ serve(async (req) => {
     console.error('🚨 Enterprise audit error:', error);
     
     return new Response(JSON.stringify({
-      error: error.message,
-      details: error.stack
+      error: error instanceof Error ? error.message : 'Unknown error occurred',
+      details: error instanceof Error ? error.stack : 'No stack trace available'
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -699,7 +699,7 @@ function calculateOpportunityValue(campaigns: any[], searchTermsAnalysis?: any, 
 
   // Scaling opportunities (high-confidence growth)
   if (scalingOpportunities) {
-    scalingOpportunities.scaling_opportunities.forEach(opp => {
+    scalingOpportunities.scaling_opportunities.forEach((opp: any) => {
       if (opp.type === 'budget_increase') {
         const campaign = campaigns.find(c => c.name === opp.campaign_name);
         if (campaign) {
@@ -852,7 +852,7 @@ async function performAdvancedUrlChecks(ads: any[]) {
           status: null,
           ok: false,
           domain: 'unknown',
-          notes: error.message
+          notes: error instanceof Error ? error.message : 'Unknown error'
         };
       }
     })
@@ -868,7 +868,7 @@ async function performAdvancedUrlChecks(ads: any[]) {
 }
 
 function groupByDomain(urlChecks: any[]) {
-  const domains = {};
+  const domains: Record<string, { total: number; broken: number }> = {};
   urlChecks.forEach(check => {
     const domain = check.domain;
     if (!domains[domain]) {
@@ -903,7 +903,7 @@ function analyzeAssetCompleteness(ads: any[], assets: any[]) {
     return acc;
   }, {});
 
-  const issues = [];
+  const issues: any[] = [];
   Object.values(assetCounts).forEach((campaign: any) => {
     if (campaign.sitelinks < 4) {
       issues.push({
@@ -951,13 +951,13 @@ async function generateEnhancedAIInsights(
 
 ACCOUNT PERFORMANCE:
 - Total Campaigns: ${campaignMetrics.campaigns.length}
-- Improving Campaigns: ${campaignMetrics.campaigns.filter(c => c.performance_trend === 'improving').length}
+- Improving Campaigns: ${campaignMetrics.campaigns.filter((c: any) => c.performance_trend === 'improving').length}
 - Budget Limited: ${Math.round(budgetAnalysis.budget_limited_percentage)}%
 - Broken URLs: ${urlHealth.broken_urls.length}
 - Asset Issues: ${assetAnalysis.issues.length}
 
 TOP CAMPAIGNS BY SPEND:
-${campaignMetrics.campaigns.slice(0, 5).map(c => 
+${campaignMetrics.campaigns.slice(0, 5).map((c: any) => 
   `- ${c.name}: $${c.current_spend.toLocaleString()}, Conv: ${c.deltas.conversions.pct.toFixed(1)}%, CPA: ${c.deltas.cpa.pct.toFixed(1)}%`
 ).join('\n')}
 
@@ -1027,9 +1027,9 @@ function extractInsightSection(content: string, section: string): string[] {
 function analyzeSearchTermsStrategically(searchTerms: any[], campaigns: any[]) {
   const campaignMap = new Map(campaigns.map(c => [c.id, c]));
   
-  const wastefulTerms = [];
-  const highPerformingTerms = [];
-  const opportunityTerms = [];
+  const wastefulTerms: any[] = [];
+  const highPerformingTerms: any[] = [];
+  const opportunityTerms: any[] = [];
   const irrelevantTerms = [];
   const negativeKeywordSuggestions = [];
   
@@ -1209,7 +1209,7 @@ function extractCommonWastePatterns(wastefulTerms: any[]): string[] {
   
   wastefulTerms.forEach(term => {
     const words = term.search_term.toLowerCase().split(' ');
-    words.forEach(word => {
+    words.forEach((word: string) => {
       if (word.length > 3) { // Only consider words longer than 3 characters
         patterns.set(word, (patterns.get(word) || 0) + 1);
       }
@@ -1233,8 +1233,8 @@ function analyzeKeywordStrategy(keywords: any[], campaigns: any[]) {
     exact: { count: 0, cost: 0, conversions: 0 }
   };
   
-  const qualityScoreIssues = [];
-  const opportunities = [];
+  const qualityScoreIssues: any[] = [];
+  const opportunities: any[] = [];
   
   keywords.forEach(kw => {
     const cost = parseFloat(kw.metrics.costMicros || '0') / 1000000;
@@ -1246,10 +1246,10 @@ function analyzeKeywordStrategy(keywords: any[], campaigns: any[]) {
     if (!campaign) return;
     
     // Analyze match types
-    if (matchTypeAnalysis[matchType]) {
-      matchTypeAnalysis[matchType].count++;
-      matchTypeAnalysis[matchType].cost += cost;
-      matchTypeAnalysis[matchType].conversions += conversions;
+    if ((matchTypeAnalysis as any)[matchType]) {
+      (matchTypeAnalysis as any)[matchType].count++;
+      (matchTypeAnalysis as any)[matchType].cost += cost;
+      (matchTypeAnalysis as any)[matchType].conversions += conversions;
     }
     
     // Identify quality score issues
@@ -1301,7 +1301,7 @@ function generateKeywordStrategyRecommendations(matchTypeAnalysis: any) {
 }
 
 function analyzeBidStrategyImpact(campaigns: any[]) {
-  const strategies = {};
+  const strategies: Record<string, any> = {};
   
   campaigns.forEach(campaign => {
     const strategy = campaign.bidding_strategy;
@@ -1332,7 +1332,7 @@ function analyzeBidStrategyImpact(campaigns: any[]) {
     const data = strategies[strategy];
     data.avg_cpa = data.total_conversions > 0 ? data.total_cost / data.total_conversions : 0;
     data.avg_roas = data.total_cost > 0 ? data.total_conv_value / data.total_cost : 0;
-    data.improving_campaigns = data.campaigns.filter(c => c.performance_trend === 'improving').length;
+    data.improving_campaigns = data.campaigns.filter((c: any) => c.performance_trend === 'improving').length;
   });
   
   return {
@@ -1364,7 +1364,7 @@ function generateBidStrategyRecommendations(strategies: any) {
 }
 
 function identifyScalingOpportunities(campaigns: any[], budgetAnalysis: any) {
-  const opportunities = [];
+  const opportunities: any[] = [];
   
   campaigns.forEach(campaign => {
     // Budget-constrained high performers
@@ -1406,8 +1406,8 @@ function identifyScalingOpportunities(campaigns: any[], budgetAnalysis: any) {
 function analyzeCreativePerformance(ads: any[], campaigns: any[]) {
   const campaignMap = new Map(campaigns.map(c => [c.id, c]));
   
-  const issues = [];
-  const opportunities = [];
+  const issues: any[] = [];
+  const opportunities: any[] = [];
   
   // Group ads by campaign
   const adsByCampaign = ads.reduce((acc, ad) => {
@@ -1434,7 +1434,7 @@ function analyzeCreativePerformance(ads: any[], campaigns: any[]) {
     }
     
     // Check for policy issues
-    const policyIssues = campaignAds.filter(ad => 
+    const policyIssues = campaignAds.filter((ad: any) => 
       ad.adGroupAd?.policySummary?.approvalStatus !== 'APPROVED'
     );
     
@@ -1462,13 +1462,13 @@ async function generateStrategicAIInsights(analysisData: any, openaiApiKey: stri
   const prompt = `As a senior Google Ads strategist, analyze this comprehensive account data and provide strategic insights that would rival a top PPC agency's analysis:
 
 CAMPAIGN PERFORMANCE:
-${(analysisData.campaignMetrics?.campaigns || []).slice(0, 5).map(c => 
+${(analysisData.campaignMetrics?.campaigns || []).slice(0, 5).map((c: any) => 
   `• ${c.name}: $${c.current_spend?.toLocaleString() || 0} spend, ${c.deltas?.conversions?.pct?.toFixed(1) || 0}% conv change, ${c.bidding_strategy || 'unknown'} strategy`
 ).join('\n')}
 
 SEARCH TERMS WASTE:
 • Total waste identified: $${analysisData.searchTermsAnalysis?.total_waste_identified?.toLocaleString() || 0}
-• Top wasteful terms: ${(analysisData.searchTermsAnalysis?.wasteful_terms || []).slice(0, 3).map(t => t.search_term).join(', ')}
+• Top wasteful terms: ${(analysisData.searchTermsAnalysis?.wasteful_terms || []).slice(0, 3).map((t: any) => t.search_term).join(', ')}
 
 KEYWORD STRATEGY:
 • Match type distribution: ${JSON.stringify(analysisData.keywordAnalysis?.match_type_analysis || {})}
@@ -1546,7 +1546,7 @@ async function generateStrategicIssuesAnalysis(analysisData: any, openaiApiKey: 
 ACCOUNT DATA SUMMARY:
 ${JSON.stringify({
     total_campaigns: analysisData.campaignMetrics?.campaigns?.length || 0,
-    declining_campaigns: analysisData.campaignMetrics?.campaigns?.filter(c => c.performance_trend === 'declining')?.length || 0,
+    declining_campaigns: analysisData.campaignMetrics?.campaigns?.filter((c: any) => c.performance_trend === 'declining')?.length || 0,
     total_waste: analysisData.searchTermsAnalysis?.total_waste_identified || 0,
     wasteful_terms_count: analysisData.searchTermsAnalysis?.wasteful_terms?.length || 0,
     quality_issues: analysisData.keywordAnalysis?.quality_score_issues?.length || 0,
@@ -1556,13 +1556,13 @@ ${JSON.stringify({
 
 TOP SPENDING DECLINING CAMPAIGNS:
 ${(analysisData.campaignMetrics?.campaigns || [])
-  .filter(c => c.performance_trend === 'declining')
+  .filter((c: any) => c.performance_trend === 'declining')
   .slice(0, 3)
-  .map(c => `${c.name}: $${c.current_spend?.toLocaleString() || 0} spend, ${c.deltas?.conversions?.pct?.toFixed(1) || 0}% conversion change`)
+  .map((c: any) => `${c.name}: $${c.current_spend?.toLocaleString() || 0} spend, ${c.deltas?.conversions?.pct?.toFixed(1) || 0}% conversion change`)
   .join('\n')}
 
 SPECIFIC WASTEFUL TERMS:
-${(analysisData.searchTermsAnalysis?.wasteful_terms || []).slice(0, 5).map(t => 
+${(analysisData.searchTermsAnalysis?.wasteful_terms || []).slice(0, 5).map((t: any) => 
   `${t.search_term} in ${t.campaign_name}: $${t.cost?.toFixed(2) || 0} cost, ${t.clicks || 0} clicks, 0 conversions`
 ).join('\n')}
 
@@ -1666,7 +1666,7 @@ function extractNumericValue(text: string): number {
 
 // Generate fallback issues when AI analysis fails
 function generateFallbackIssues(analysisData: any) {
-  const issues = [];
+  const issues: any[] = [];
   
   // Add declining campaigns as issues
   const decliningCampaigns = analysisData.campaignMetrics?.campaigns?.filter(
