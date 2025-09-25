@@ -150,7 +150,7 @@ serve(async (req) => {
             console.log(`⚠️ Manager ${potentialManagerId} request failed: ${clientsRes.status}`);
           }
         } catch (error) {
-          console.log(`⚠️ Error checking ${potentialManagerId}:`, error.message);
+          console.log(`⚠️ Error checking ${potentialManagerId}:`, (error as Error).message);
           continue;
         }
       }
@@ -257,9 +257,9 @@ serve(async (req) => {
 
     // Calculate benchmarks for anomaly detection
     const allTerms = structuredData.searchTerms;
-    const avgCtr = allTerms.reduce((sum, term) => sum + term.ctr, 0) / allTerms.length;
-    const avgImpressions = allTerms.reduce((sum, term) => sum + term.impressions, 0) / allTerms.length;
-    const avgCost = allTerms.reduce((sum, term) => sum + term.cost, 0) / allTerms.length;
+    const avgCtr = allTerms.reduce((sum: number, term: any) => sum + term.ctr, 0) / allTerms.length;
+    const avgImpressions = allTerms.reduce((sum: number, term: any) => sum + term.impressions, 0) / allTerms.length;
+    const avgCost = allTerms.reduce((sum: number, term: any) => sum + term.cost, 0) / allTerms.length;
     
     const benchmarks = {
       avgCtr: avgCtr || 0,
@@ -306,7 +306,7 @@ Performance Benchmarks:
 
 ⚠️ CONVERSION DATA VALIDATION:
 Before categorizing any term, check these examples from the data:
-${structuredData.searchTerms.slice(0, 5).map(term => 
+${structuredData.searchTerms.slice(0, 5).map((term: any) => 
   `- "${term.searchTerm}": clicks=${term.clicks}, conversions=${term.conversions} (${term.conversions > 0 ? 'HAS CONVERSIONS' : 'NO CONVERSIONS'})`
 ).join('\n')}
 
@@ -445,8 +445,8 @@ Provide your analysis in the following structured format. Return ONLY valid JSON
     
     return new Response(JSON.stringify({ 
       success: false,
-      error: error.message,
-      details: error.stack
+      error: (error as Error).message,
+      details: (error as Error).stack
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

@@ -236,7 +236,7 @@ Focus on actionable insights that can immediately improve ad performance and con
     return new Response(
       JSON.stringify({
         success: false,
-        error: error.message || 'Failed to complete competitor analysis'
+        error: (error as Error).message || 'Failed to complete competitor analysis'
       }),
       {
         status: 500,

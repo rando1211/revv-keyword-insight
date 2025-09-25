@@ -64,7 +64,7 @@ serve(async (req) => {
     // Build campaign filter
     let campaignFilter = '';
     if (campaignIds && campaignIds.length > 0) {
-      const campaignResourceNames = campaignIds.map(id => `'${customerId}/campaigns/${id}'`).join(',');
+      const campaignResourceNames = campaignIds.map((id: any) => `'${customerId}/campaigns/${id}'`).join(',');
       campaignFilter = `AND campaign.resource_name IN (${campaignResourceNames})`;
     }
 
@@ -156,7 +156,7 @@ serve(async (req) => {
     console.error('❌ Error in creative performance tracking:', error);
     return new Response(JSON.stringify({
       success: false,
-      error: error.message
+      error: (error as Error).message
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -234,7 +234,7 @@ function calculateOptimizationImpact(current: any, historical: any) {
       absolute: costChange,
       percentage: historical.average_cpc > 0 ? (costChange / historical.average_cpc) * 100 : 0
     },
-    efficiency_improvement,
+    efficiencyImprovement,
     overall_impact: categorizeImpact(ctrChange, conversionRateChange, efficiencyImprovement)
   };
 }

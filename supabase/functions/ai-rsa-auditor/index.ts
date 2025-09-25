@@ -38,7 +38,7 @@ You are an AI Google Ads RSA Auditor. You will analyze Responsive Search Ads ass
 Campaign Goal: ${campaignGoal || 'Drive conversions for motorsports dealership'}
 
 RSA Assets to Audit:
-${rsaAssets.map((asset, i) => `${i+1}. ${asset.type.toUpperCase()}: "${asset.text}" (Current CTR: ${asset.realData?.ctr}%, Clicks: ${asset.realData?.clicks}, Campaign: ${asset.realData?.campaign})`).join('\n')}
+${rsaAssets.map((asset: any, i: number) => `${i+1}. ${asset.type.toUpperCase()}: "${asset.text}" (Current CTR: ${asset.realData?.ctr}%, Clicks: ${asset.realData?.clicks}, Campaign: ${asset.realData?.campaign})`).join('\n')}
 
 Search Terms Context: ${searchTerms || 'Motorcycle dealership, powersports, sales, service, parts, financing'}
 
@@ -122,7 +122,7 @@ Return ONLY a valid JSON response:
       console.log('✅ Successfully parsed AI audit response');
     } catch (e) {
       console.error('❌ Failed to parse OpenAI response:', auditResult);
-      console.error('❌ Parse error:', e.message);
+      console.error('❌ Parse error:', (e as Error).message);
       throw new Error('Invalid JSON response from AI auditor');
     }
 
@@ -139,7 +139,7 @@ Return ONLY a valid JSON response:
     console.error('❌ Error in AI RSA auditor:', error);
     return new Response(JSON.stringify({
       success: false,
-      error: error.message || 'Failed to audit RSA assets'
+      error: (error as Error).message || 'Failed to audit RSA assets'
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }

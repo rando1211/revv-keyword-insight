@@ -32,9 +32,9 @@ serve(async (req) => {
     }
 
     // Prepare comprehensive analysis data
-    const headlines = creatives.filter(c => c.type === 'headline');
-    const descriptions = creatives.filter(c => c.type === 'description');
-    const totalPerformance = creatives.reduce((acc, c) => ({
+    const headlines = creatives.filter((c: any) => c.type === 'headline');
+    const descriptions = creatives.filter((c: any) => c.type === 'description');
+    const totalPerformance = creatives.reduce((acc: any, c: any) => ({
       clicks: acc.clicks + c.clicks,
       impressions: acc.impressions + c.impressions,
       conversions: acc.conversions + c.conversions,
@@ -42,7 +42,7 @@ serve(async (req) => {
     }), { clicks: 0, impressions: 0, conversions: 0, cost: 0 });
 
     // Group by campaign for insights
-    const campaignGroups = creatives.reduce((acc, c) => {
+    const campaignGroups = creatives.reduce((acc: any, c: any) => {
       if (!acc[c.campaign]) acc[c.campaign] = [];
       acc[c.campaign].push(c);
       return acc;
@@ -59,15 +59,15 @@ CAMPAIGN CONTEXT:
 
 CREATIVE ASSETS:
 Headlines (${headlines.length}):
-${headlines.slice(0, 10).map((h, i) => `${i+1}. "${h.text}" - CTR: ${(h.ctr * 100).toFixed(2)}%, Conv: ${h.conversions}, Campaign: ${h.campaign}`).join('\n')}
+${headlines.slice(0, 10).map((h: any, i: number) => `${i+1}. "${h.text}" - CTR: ${(h.ctr * 100).toFixed(2)}%, Conv: ${h.conversions}, Campaign: ${h.campaign}`).join('\n')}
 
 Descriptions (${descriptions.length}):
-${descriptions.slice(0, 8).map((d, i) => `${i+1}. "${d.text}" - CTR: ${(d.ctr * 100).toFixed(2)}%, Conv: ${d.conversions}, Campaign: ${d.campaign}`).join('\n')}
+${descriptions.slice(0, 8).map((d: any, i: number) => `${i+1}. "${d.text}" - CTR: ${(d.ctr * 100).toFixed(2)}%, Conv: ${d.conversions}, Campaign: ${d.campaign}`).join('\n')}
 
 CAMPAIGN BREAKDOWN:
 ${Object.keys(campaignGroups).map(camp => {
   const assets = campaignGroups[camp];
-  const campPerf = assets.reduce((acc, a) => ({
+  const campPerf = assets.reduce((acc: any, a: any) => ({
     clicks: acc.clicks + a.clicks,
     impressions: acc.impressions + a.impressions,
     conversions: acc.conversions + a.conversions
@@ -219,7 +219,7 @@ Return as JSON:
     console.error('❌ Error in advanced creatives AI:', error);
     return new Response(JSON.stringify({
       success: false,
-      error: error.message || 'Failed to analyze creatives'
+      error: (error as Error).message || 'Failed to analyze creatives'
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }

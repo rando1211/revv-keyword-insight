@@ -210,7 +210,7 @@ serve(async (req) => {
         console.log('Ad groups created successfully:', adGroupResults.results.length);
 
         // Create keywords for each ad group
-        const keywordOperations = [];
+        const keywordOperations: any[] = [];
         campaignData.adGroups.forEach((adGroup: any, index: number) => {
           const adGroupResourceName = adGroupResults.results[index].resourceName;
           
