@@ -192,8 +192,8 @@ export const SearchTermsAnalysisUI = ({ analysisData, onUpdateAnalysisData, sele
         searchTerm: term,
         campaignName: 'Auto-selected based on performance',
         adGroupName: cluster.theme || 'High-Converting Terms',
-        campaignId: 'auto-select', // Will be determined by backend
-        adGroupId: 'auto-select', // Will be determined by backend
+        campaignId: '', // Leave empty to let backend auto-select best campaign
+        adGroupId: '', // Leave empty to let backend auto-select best ad group
         conversionRate: parseFloat(cluster.conversionRate) || 0,
         reason: cluster.expandRecommendation || 'High-converting term identified for scaling',
         impact: parseFloat(cluster.conversionRate) > 10 ? 'high' : parseFloat(cluster.conversionRate) > 5 ? 'medium' : 'low',

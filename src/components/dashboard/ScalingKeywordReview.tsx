@@ -201,7 +201,6 @@ const ScalingKeywordReview: React.FC<ScalingKeywordReviewProps> = ({
                           <SelectContent>
                             <SelectItem value="EXACT">Exact</SelectItem>
                             <SelectItem value="PHRASE">Phrase</SelectItem>
-                            <SelectItem value="BROAD">Broad</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
