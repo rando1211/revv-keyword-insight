@@ -615,9 +615,23 @@ const SearchTermsTab = ({
       if (successCount > 0) {
         toast({
           title: '✅ Optimizations Applied',
-          description: `Executed ${successCount}/${total} actions successfully`,
+          description: `Executed ${successCount}/${total} actions successfully. Refreshing audit data...`,
         });
-        try { speak(`Affirmative, sir. I have executed ${successCount} optimization actions.`, 'onyx'); } catch {}
+        try { speak(`Affirmative, sir. I have executed ${successCount} optimization actions. Updating your dashboard now.`, 'onyx'); } catch {}
+        
+        // Auto-refresh audit data after successful optimization
+        setTimeout(async () => {
+          try {
+            const { data: refreshData, error: refreshError } = await supabase.functions.invoke('enterprise-audit', {
+              body: { customerId: selectedAccount.customerId || selectedAccount.id }
+            });
+            if (!refreshError && refreshData) {
+              window.location.reload(); // Trigger parent component refresh
+            }
+          } catch (e) {
+            console.warn('Auto-refresh failed:', e);
+          }
+        }, 3000);
       } else {
         toast({
           title: 'No Changes Applied',
@@ -670,10 +684,24 @@ const SearchTermsTab = ({
 
       toast({
         title: "Negative Keywords Added Successfully",
-        description: `Added ${selectedTerms.length} negative keywords to prevent wasteful spend`,
+        description: `Added ${selectedTerms.length} negative keywords. Refreshing audit data...`,
       });
 
       setShowNegativeReview(false);
+      
+      // Auto-refresh audit data after successful optimization
+      setTimeout(async () => {
+        try {
+          const { data: refreshData, error: refreshError } = await supabase.functions.invoke('enterprise-audit', {
+            body: { customerId: selectedAccount.customerId || selectedAccount.id }
+          });
+          if (!refreshError && refreshData) {
+            window.location.reload(); // Trigger parent component refresh
+          }
+        } catch (e) {
+          console.warn('Auto-refresh failed:', e);
+        }
+      }, 3000);
       
     } catch (error) {
       console.error('❌ Failed to execute negative keywords:', error);
