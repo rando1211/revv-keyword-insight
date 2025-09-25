@@ -9,6 +9,9 @@ const corsHeaders = {
 interface NegativeKeywordAction {
   term: string;
   matchType: string;
+  level?: 'campaign' | 'adgroup';
+  campaignId?: string;
+  adGroupId?: string;
 }
 
 serve(async (req) => {
@@ -31,6 +34,10 @@ serve(async (req) => {
     const authHeader = req.headers.get('Authorization');
     
     let credentialsResponse;
+    let access_token: string | undefined;
+    let developerToken: string | undefined;
+    let userCustomerId: string | undefined;
+    
     if (authHeader) {
       try {
         credentialsResponse = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/get-user-credentials`, {
@@ -45,9 +52,9 @@ serve(async (req) => {
           const credData = await credentialsResponse.json();
           if (credData?.success) {
             const { credentials } = credData;
-            var access_token = credentials.access_token;
-            var developerToken = credentials.developer_token;
-            var userCustomerId = credentials.customer_id;
+            access_token = credentials.access_token;
+            developerToken = credentials.developer_token;
+            userCustomerId = credentials.customer_id;
             console.log(`✅ Using ${credentials.uses_own_credentials ? 'user' : 'shared'} credentials`);
           } else {
             throw new Error('Failed to get credentials from user service');
@@ -151,15 +158,19 @@ serve(async (req) => {
       }
     }
 
-    // Fetch campaigns to get campaign IDs
+    // Fetch campaigns and ad groups to get proper targeting
     const campaignsQuery = `
       SELECT
         campaign.id,
         campaign.name,
-        campaign.status
-      FROM campaign
+        campaign.status,
+        ad_group.id,
+        ad_group.name,
+        ad_group.status
+      FROM ad_group
       WHERE campaign.status = 'ENABLED'
-      LIMIT 10
+        AND ad_group.status = 'ENABLED'
+      LIMIT 50
     `;
 
     const campaignsResponse = await fetch(`https://googleads.googleapis.com/v20/customers/${cleanCustomerId}/googleAds:search`, {
@@ -173,11 +184,39 @@ serve(async (req) => {
       body: JSON.stringify({ query: campaignsQuery })
     });
 
-    let campaigns = [];
+    let campaigns: any[] = [];
+    let adGroups: any[] = [];
     if (campaignsResponse.ok) {
       const campaignsData = await campaignsResponse.json();
-      campaigns = campaignsData.results || [];
-      console.log(`✅ Found ${campaigns.length} campaigns`);
+      const results = campaignsData.results || [];
+      
+      // Create maps for campaigns and ad groups
+      const campaignMap = new Map();
+      const adGroupMap = new Map();
+      
+      results.forEach((row: any) => {
+        const campaignId = String(row.campaign.id);
+        const adGroupId = String(row.adGroup.id);
+        
+        if (!campaignMap.has(campaignId)) {
+          campaignMap.set(campaignId, {
+            id: campaignId,
+            name: row.campaign.name,
+            status: row.campaign.status
+          });
+        }
+        
+        adGroupMap.set(adGroupId, {
+          id: adGroupId,
+          name: row.adGroup.name,
+          campaignId: campaignId,
+          status: row.adGroup.status
+        });
+      });
+      
+      campaigns = Array.from(campaignMap.values());
+      adGroups = Array.from(adGroupMap.values());
+      console.log(`✅ Found ${campaigns.length} campaigns and ${adGroups.length} ad groups`);
     } else {
       throw new Error('Failed to fetch campaigns for negative keyword addition');
     }
@@ -186,66 +225,63 @@ serve(async (req) => {
       throw new Error('No enabled campaigns found for negative keyword addition');
     }
 
-    const results = [];
+    const results: any[] = [];
     let successCount = 0;
     let errorCount = 0;
 
     // Process each negative keyword
     for (const action of negativeKeywords) {
-      console.log(`🔧 Adding negative keyword: "${action.term}" (${action.matchType})`);
+      console.log(`🔧 Adding negative keyword: "${action.term}" (${action.matchType}) at ${action.level || 'campaign'} level`);
       
       try {
-        // Use first available campaign for negative keywords
-        const targetCampaign = campaigns[0];
-        const campaignId = String(targetCampaign.campaign.id);
-
-        const negativeKeywordApiUrl = `https://googleads.googleapis.com/v20/customers/${cleanCustomerId}/campaignCriteria:mutate`;
+        let targetCampaign;
+        let targetAdGroup;
         
-        const negativeKeywordPayload = {
-          operations: [
-            {
-              create: {
-                campaign: `customers/${cleanCustomerId}/campaigns/${campaignId}`,
-                negative: true,
-                keyword: {
-                  text: action.term,
-                  matchType: action.matchType || 'BROAD'
+        // Find the specific campaign if campaignId is provided
+        if (action.campaignId) {
+          targetCampaign = campaigns.find((c: any) => String(c.id) === String(action.campaignId));
+          if (!targetCampaign) {
+            throw new Error(`Campaign ${action.campaignId} not found or not enabled`);
+          }
+        } else {
+          // Fallback to first available campaign
+          targetCampaign = campaigns[0];
+        }
+        
+        if (!targetCampaign) {
+          throw new Error('No target campaign found');
+        }
+        
+        const campaignId = String(targetCampaign.id);
+        
+        // Handle ad group level negative keywords
+        if (action.level === 'adgroup' && action.adGroupId) {
+          targetAdGroup = adGroups.find((ag: any) => String(ag.id) === String(action.adGroupId));
+          if (!targetAdGroup) {
+            throw new Error(`Ad group ${action.adGroupId} not found or not enabled`);
+          }
+          
+          const adGroupId = String(targetAdGroup.id);
+          console.log(`🎯 Targeting ad group: ${targetAdGroup.name} (${adGroupId}) in campaign ${targetCampaign.name}`);
+          
+          const negativeKeywordApiUrl = `https://googleads.googleapis.com/v20/customers/${cleanCustomerId}/adGroupCriteria:mutate`;
+          
+          const negativeKeywordPayload = {
+            operations: [
+              {
+                create: {
+                  adGroup: `customers/${cleanCustomerId}/adGroups/${adGroupId}`,
+                  negative: true,
+                  keyword: {
+                    text: action.term,
+                    matchType: action.matchType || 'BROAD'
+                  }
                 }
               }
-            }
-          ]
-        };
-
-        const negativeResponse = await fetch(negativeKeywordApiUrl, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${access_token}`,
-            'developer-token': developerToken,
-            'login-customer-id': loginCustomerId,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(negativeKeywordPayload)
-        });
-
-        if (negativeResponse.ok) {
-          const result = await negativeResponse.json();
+            ]
+          };
           
-          // Verify the negative keyword was added
-          const verifyQuery = `
-            SELECT
-              campaign_criterion.criterion_id,
-              campaign_criterion.negative,
-              keyword.text,
-              keyword.match_type
-            FROM campaign_criterion
-            WHERE campaign.id = ${campaignId}
-              AND campaign_criterion.negative = true
-              AND campaign_criterion.type = 'KEYWORD'
-              AND keyword.text = '${action.term.replace(/'/g, "\\'")}'
-            LIMIT 1
-          `;
-
-          const verifyResp = await fetch(`https://googleads.googleapis.com/v20/customers/${cleanCustomerId}/googleAds:search`, {
+          const negativeResponse = await fetch(negativeKeywordApiUrl, {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${access_token}`,
@@ -253,30 +289,114 @@ serve(async (req) => {
               'login-customer-id': loginCustomerId,
               'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ query: verifyQuery })
+            body: JSON.stringify(negativeKeywordPayload)
           });
-
-          let verified = false;
-          if (verifyResp.ok) {
-            const verifyData = await verifyResp.json();
-            verified = (verifyData.results || []).length > 0;
+          
+          if (negativeResponse.ok) {
+            const result = await negativeResponse.json();
+            results.push({
+              term: action.term,
+              matchType: action.matchType,
+              success: true,
+              level: 'adgroup',
+              campaignId,
+              campaignName: targetCampaign.name,
+              adGroupId,
+              adGroupName: targetAdGroup.name,
+              verified: false, // Skip verification for ad group level for now
+              resourceName: result.results?.[0]?.resourceName || 'Unknown'
+            });
+            successCount++;
+            console.log(`✅ Successfully added ad group negative: "${action.term}"`);
+          } else {
+            const errorText = await negativeResponse.text();
+            console.error(`❌ API error for ad group negative "${action.term}": ${negativeResponse.status} - ${errorText}`);
+            throw new Error(`API error: ${negativeResponse.status} - ${errorText}`);
           }
-
-          results.push({
-            term: action.term,
-            matchType: action.matchType,
-            success: true,
-            campaignId,
-            campaignName: targetCampaign.campaign.name,
-            verified,
-            resourceName: result.results?.[0]?.resourceName || 'Unknown'
-          });
-          successCount++;
-          console.log(`✅ Successfully added: "${action.term}" (verified: ${verified})`);
         } else {
-          const errorText = await negativeResponse.text();
-          console.error(`❌ API error for "${action.term}": ${negativeResponse.status} - ${errorText}`);
-          throw new Error(`API error: ${negativeResponse.status} - ${errorText}`);
+          // Campaign level negative keywords (default)
+          console.log(`🎯 Targeting campaign: ${targetCampaign.name} (${campaignId})`);
+          
+          const negativeKeywordApiUrl = `https://googleads.googleapis.com/v20/customers/${cleanCustomerId}/campaignCriteria:mutate`;
+          
+          const negativeKeywordPayload = {
+            operations: [
+              {
+                create: {
+                  campaign: `customers/${cleanCustomerId}/campaigns/${campaignId}`,
+                  negative: true,
+                  keyword: {
+                    text: action.term,
+                    matchType: action.matchType || 'BROAD'
+                  }
+                }
+              }
+            ]
+          };
+
+          const negativeResponse = await fetch(negativeKeywordApiUrl, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${access_token}`,
+              'developer-token': developerToken,
+              'login-customer-id': loginCustomerId,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(negativeKeywordPayload)
+          });
+
+          if (negativeResponse.ok) {
+            const result = await negativeResponse.json();
+            
+            // Verify the negative keyword was added
+            const verifyQuery = `
+              SELECT
+                campaign_criterion.criterion_id,
+                campaign_criterion.negative,
+                keyword.text,
+                keyword.match_type
+              FROM campaign_criterion
+              WHERE campaign.id = ${campaignId}
+                AND campaign_criterion.negative = true
+                AND campaign_criterion.type = 'KEYWORD'
+                AND keyword.text = '${action.term.replace(/'/g, "\\'")}'
+              LIMIT 1
+            `;
+
+            const verifyResp = await fetch(`https://googleads.googleapis.com/v20/customers/${cleanCustomerId}/googleAds:search`, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${access_token}`,
+                'developer-token': developerToken,
+                'login-customer-id': loginCustomerId,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({ query: verifyQuery })
+            });
+
+            let verified = false;
+            if (verifyResp.ok) {
+              const verifyData = await verifyResp.json();
+              verified = (verifyData.results || []).length > 0;
+            }
+
+            results.push({
+              term: action.term,
+              matchType: action.matchType,
+              success: true,
+              level: 'campaign',
+              campaignId,
+              campaignName: targetCampaign.name,
+              verified,
+              resourceName: result.results?.[0]?.resourceName || 'Unknown'
+            });
+            successCount++;
+            console.log(`✅ Successfully added campaign negative: "${action.term}" (verified: ${verified})`);
+          } else {
+            const errorText = await negativeResponse.text();
+            console.error(`❌ API error for campaign negative "${action.term}": ${negativeResponse.status} - ${errorText}`);
+            throw new Error(`API error: ${negativeResponse.status} - ${errorText}`);
+          }
         }
 
       } catch (actionError) {
