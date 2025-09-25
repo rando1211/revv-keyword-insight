@@ -166,17 +166,21 @@ serve(async (req) => {
 
     console.log('📌 Using login-customer-id:', loginCustomerId);
 
-    console.log('📊 Fetching campaigns for context...');
+    console.log('📊 Fetching campaigns and ad groups for context...');
     const campaignsApiUrl = `https://googleads.googleapis.com/v20/customers/${cleanCustomerId}/googleAds:search`;
     
     const campaignsQuery = `
       SELECT
         campaign.id,
         campaign.name,
-        campaign.status
-      FROM campaign
+        campaign.status,
+        ad_group.id,
+        ad_group.name,
+        ad_group.status
+      FROM ad_group
       WHERE campaign.status = 'ENABLED'
-      LIMIT 10
+        AND ad_group.status = 'ENABLED'
+      LIMIT 50
     `;
 
     const campaignsResponse = await fetch(campaignsApiUrl, {
@@ -184,17 +188,45 @@ serve(async (req) => {
       headers: {
         'Authorization': `Bearer ${access_token}`,
         'developer-token': developerToken,
-        'login-customer-id': loginCustomerId, // Use dynamic manager detection
+        'login-customer-id': loginCustomerId,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({ query: campaignsQuery })
     });
 
-    let campaigns = [];
+    let campaigns: any[] = [];
+    let adGroups: any[] = [];
     if (campaignsResponse.ok) {
       const campaignsData = await campaignsResponse.json();
-      campaigns = campaignsData.results || [];
-      console.log(`✅ Found ${campaigns.length} campaigns for optimization`);
+      const results = campaignsData.results || [];
+      
+      // Create maps for campaigns and ad groups
+      const campaignMap = new Map();
+      const adGroupMap = new Map();
+      
+      results.forEach((row: any) => {
+        const campaignId = String(row.campaign.id);
+        const adGroupId = String(row.adGroup.id);
+        
+        if (!campaignMap.has(campaignId)) {
+          campaignMap.set(campaignId, {
+            id: campaignId,
+            name: row.campaign.name,
+            status: row.campaign.status
+          });
+        }
+        
+        adGroupMap.set(adGroupId, {
+          id: adGroupId,
+          name: row.adGroup.name,
+          campaignId: campaignId,
+          status: row.adGroup.status
+        });
+      });
+      
+      campaigns = Array.from(campaignMap.values());
+      adGroups = Array.from(adGroupMap.values());
+      console.log(`✅ Found ${campaigns.length} campaigns and ${adGroups.length} ad groups for optimization`);
     } else {
       const errorText = await campaignsResponse.text();
       console.error(`❌ Campaigns fetch error: ${campaignsResponse.status} - ${errorText}`);
@@ -207,16 +239,30 @@ serve(async (req) => {
     // Process each pending action
     for (const action of pendingActions) {
       console.log(`🔧 Processing action: ${action.type} for "${action.searchTerm}"`);
+      console.log(`🔍 Debug - action details:`, JSON.stringify(action));
       
       try {
-        console.log(`🔍 Action details: ${JSON.stringify(action)}`);
+        let targetCampaign;
+        let targetAdGroup;
         
         if (action.type === 'negative_keyword') {
-          // Find target campaign - prefer specified campaignId, fallback to first available
-          const campaignIdUsed = action.campaignId || (campaigns[0]?.campaign?.id ? String(campaigns[0].campaign.id) : null);
-          if (!campaignIdUsed) {
-            throw new Error('No target campaign id provided and none fetched');
+          // Find the specific campaign if campaignId is provided
+          if (action.campaignId) {
+            targetCampaign = campaigns.find((c: any) => String(c.id) === String(action.campaignId));
+            if (!targetCampaign) {
+              throw new Error(`Campaign ${action.campaignId} not found or not enabled`);
+            }
+          } else {
+            // Fallback to first available campaign
+            targetCampaign = campaigns[0];
           }
+          
+          if (!targetCampaign) {
+            throw new Error('No target campaign found');
+          }
+          
+          const campaignId = String(targetCampaign.id);
+          console.log(`🎯 Targeting campaign: ${targetCampaign.name} (${campaignId})`);
 
           const negativeKeywordApiUrl = `https://googleads.googleapis.com/v20/customers/${cleanCustomerId}/campaignCriteria:mutate`;
           
@@ -224,7 +270,7 @@ serve(async (req) => {
             operations: [
               {
                 create: {
-                  campaign: `customers/${cleanCustomerId}/campaigns/${campaignIdUsed}`,
+                  campaign: `customers/${cleanCustomerId}/campaigns/${campaignId}`,
                   negative: true,
                   keyword: {
                     text: action.searchTerm,
@@ -235,7 +281,7 @@ serve(async (req) => {
             ]
           };
 
-          console.log(`📝 Adding negative keyword "${action.searchTerm}" to campaign ${campaignIdUsed}`);
+          console.log(`📝 Adding negative keyword "${action.searchTerm}" to campaign ${targetCampaign.name}`);
 
           const negativeResponse = await fetch(negativeKeywordApiUrl, {
             method: 'POST',
@@ -259,7 +305,7 @@ serve(async (req) => {
                 keyword.text,
                 keyword.match_type
               FROM campaign_criterion
-              WHERE campaign.id = ${campaignIdUsed}
+              WHERE campaign.id = ${campaignId}
                 AND campaign_criterion.negative = true
                 AND campaign_criterion.type = 'KEYWORD'
                 AND keyword.text = '${action.searchTerm.replace(/'/g, "\\'")}'
@@ -290,7 +336,7 @@ serve(async (req) => {
               action,
               success: true,
               result: result.results?.[0]?.resourceName || 'Negative keyword added',
-              message: `Successfully added "${action.searchTerm}" as negative keyword to campaign ${campaignIdUsed}`,
+              message: `Successfully added "${action.searchTerm}" as negative keyword to campaign ${targetCampaign.name}`,
               verified
             });
             successCount++;
@@ -302,32 +348,66 @@ serve(async (req) => {
           }
 
         } else if (action.type === 'exact_match' || action.type === 'phrase_match') {
-          // Find target campaign for positive keywords
-          let targetCampaign = null;
+          // Enhanced positive keyword handling with proper targeting
+          
+          // Find target campaign
           if (action.campaignId) {
-            targetCampaign = campaigns.find((c: any) => c.campaign.id === action.campaignId);
-          }
-          if (!targetCampaign && campaigns.length > 0) {
+            targetCampaign = campaigns.find((c: any) => String(c.id) === String(action.campaignId));
+            if (!targetCampaign) {
+              throw new Error(`Campaign ${action.campaignId} not found or not enabled`);
+            }
+          } else {
+            // Fallback to first available campaign
             targetCampaign = campaigns[0];
           }
           
           if (!targetCampaign) {
-            throw new Error('No campaigns available for positive keyword addition');
+            throw new Error('No target campaign found for positive keyword');
           }
+          
+          const campaignId = String(targetCampaign.id);
+          
+          // Find target ad group - prefer specified adGroupId, otherwise use first in campaign
+          if (action.adGroupId) {
+            targetAdGroup = adGroups.find((ag: any) => String(ag.id) === String(action.adGroupId));
+            console.log(`🔍 Looking for specific ad group ${action.adGroupId}:`, targetAdGroup ? `${targetAdGroup.name} (${targetAdGroup.id})` : 'NOT FOUND');
+            
+            if (!targetAdGroup) {
+              throw new Error(`Ad group ${action.adGroupId} not found or not enabled`);
+            }
+          } else {
+            // Find first ad group in the target campaign
+            targetAdGroup = adGroups.find((ag: any) => String(ag.campaignId) === campaignId);
+            console.log(`🔍 Using first ad group in campaign ${campaignId}:`, targetAdGroup ? `${targetAdGroup.name} (${targetAdGroup.id})` : 'NOT FOUND');
+            
+            if (!targetAdGroup) {
+              throw new Error(`No enabled ad groups found in campaign ${campaignId}`);
+            }
+          }
+          
+          const adGroupId = String(targetAdGroup.id);
+          const matchType = action.type === 'exact_match' ? 'EXACT' : 'PHRASE';
+          
+          console.log(`🎯 Adding ${matchType} keyword "${action.searchTerm}" to ad group: ${targetAdGroup.name} (${adGroupId}) in campaign ${targetCampaign.name}`);
+          
+          const keywordApiUrl = `https://googleads.googleapis.com/v20/customers/${cleanCustomerId}/adGroupCriteria:mutate`;
+          
+          const keywordPayload = {
+            operations: [
+              {
+                create: {
+                  adGroup: `customers/${cleanCustomerId}/adGroups/${adGroupId}`,
+                  keyword: {
+                    text: action.searchTerm,
+                    matchType: matchType
+                  },
+                  cpcBidMicros: 1500000 // $1.50 starting bid
+                }
+              }
+            ]
+          };
 
-          // Fetch ad groups for the campaign
-          const adGroupsQuery = `
-            SELECT
-              ad_group.id,
-              ad_group.name,
-              ad_group.status
-            FROM ad_group
-            WHERE campaign.id = ${targetCampaign.campaign.id}
-              AND ad_group.status = 'ENABLED'
-            LIMIT 5
-          `;
-
-          const adGroupsResponse = await fetch(campaignsApiUrl, {
+          const keywordResponse = await fetch(keywordApiUrl, {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${access_token}`,
@@ -335,39 +415,28 @@ serve(async (req) => {
               'login-customer-id': loginCustomerId,
               'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ query: adGroupsQuery })
+            body: JSON.stringify(keywordPayload)
           });
 
-          let targetAdGroup = null;
-          if (adGroupsResponse.ok) {
-            const adGroupsData = await adGroupsResponse.json();
-            const adGroups = adGroupsData.results || [];
-            targetAdGroup = adGroups[0];
-          }
-
-          if (targetAdGroup) {
-            // Add keyword to the ad group
-            const keywordApiUrl = `https://googleads.googleapis.com/v20/customers/${cleanCustomerId}/adGroupCriteria:mutate`;
+          if (keywordResponse.ok) {
+            const result = await keywordResponse.json();
             
-            const matchType = action.type === 'exact_match' ? 'EXACT' : 'PHRASE';
-            const keywordPayload = {
-              operations: [
-                {
-                  create: {
-                    adGroup: `customers/${cleanCustomerId}/adGroups/${targetAdGroup.adGroup.id}`,
-                    keyword: {
-                      text: action.searchTerm,
-                      matchType: matchType
-                    },
-                    cpcBidMicros: 1500000 // $1.50 starting bid
-                  }
-                }
-              ]
-            };
+            // Verify the positive keyword was added
+            const verifyQuery = `
+              SELECT
+                ad_group_criterion.criterion_id,
+                keyword.text,
+                keyword.match_type,
+                ad_group_criterion.cpc_bid_micros
+              FROM ad_group_criterion
+              WHERE ad_group.id = ${adGroupId}
+                AND ad_group_criterion.type = 'KEYWORD'
+                AND keyword.text = '${action.searchTerm.replace(/'/g, "\\'")}'
+                AND keyword.match_type = '${matchType}'
+              LIMIT 1
+            `;
 
-            console.log(`📝 Adding ${matchType} keyword "${action.searchTerm}" to ad group ${targetAdGroup.adGroup.name}`);
-
-            const keywordResponse = await fetch(keywordApiUrl, {
+            const verifyResp = await fetch(campaignsApiUrl, {
               method: 'POST',
               headers: {
                 'Authorization': `Bearer ${access_token}`,
@@ -375,29 +444,37 @@ serve(async (req) => {
                 'login-customer-id': loginCustomerId,
                 'Content-Type': 'application/json'
               },
-              body: JSON.stringify(keywordPayload)
+              body: JSON.stringify({ query: verifyQuery })
             });
 
-            if (keywordResponse.ok) {
-              const result = await keywordResponse.json();
-              results.push({
-                action,
-                success: true,
-                result: result.results?.[0]?.resourceName || 'Keyword added',
-                message: `Successfully added "${action.searchTerm}" as ${matchType} keyword with $1.50 bid to ${targetAdGroup.adGroup.name}`
-              });
-              successCount++;
-              console.log(`✅ Successfully added ${matchType} keyword: ${action.searchTerm}`);
-            } else {
-              const errorText = await keywordResponse.text();
-              console.error(`❌ Keyword API error: ${keywordResponse.status} - ${errorText}`);
-              throw new Error(`Keyword API error: ${keywordResponse.status} - ${errorText}`);
+            let verified = false;
+            if (verifyResp.ok) {
+              const verifyData = await verifyResp.json();
+              verified = (verifyData.results || []).length > 0;
+              console.log(`🔎 Verification ${verified ? 'passed' : 'failed'} for ${matchType} keyword: "${action.searchTerm}"`);
             }
+            
+            results.push({
+              action,
+              success: true,
+              result: result.results?.[0]?.resourceName || 'Keyword added',
+              message: `Successfully added "${action.searchTerm}" as ${matchType} keyword with $1.50 bid to ${targetAdGroup.name}`,
+              campaignId,
+              campaignName: targetCampaign.name,
+              adGroupId,
+              adGroupName: targetAdGroup.name,
+              verified,
+              matchType
+            });
+            successCount++;
+            console.log(`✅ Successfully added ${matchType} keyword: "${action.searchTerm}" (verified: ${verified})`);
           } else {
-            throw new Error('No enabled ad groups found for keyword addition');
+            const errorText = await keywordResponse.text();
+            console.error(`❌ Keyword API error: ${keywordResponse.status} - ${errorText}`);
+            throw new Error(`Keyword API error: ${keywordResponse.status} - ${errorText}`);
           }
         } else {
-          console.log(`⚠️ Unsupported action type: ${action.type}`);
+          throw new Error(`Unsupported action type: ${action.type}`);
         }
 
       } catch (actionError) {
