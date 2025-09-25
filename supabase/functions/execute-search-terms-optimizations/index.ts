@@ -209,6 +209,8 @@ serve(async (req) => {
       console.log(`🔧 Processing action: ${action.type} for "${action.searchTerm}"`);
       
       try {
+        console.log(`🔍 Action details: ${JSON.stringify(action)}`);
+        
         if (action.type === 'negative_keyword') {
           // Find target campaign - prefer specified campaignId, fallback to first available
           const campaignIdUsed = action.campaignId || (campaigns[0]?.campaign?.id ? String(campaigns[0].campaign.id) : null);
