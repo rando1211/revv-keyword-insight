@@ -132,6 +132,7 @@ export const PowerAuditPanel = ({ selectedAccount }: PowerAuditPanelProps) => {
                 searchTermsAnalysis={auditResults.search_terms_analysis} 
                 selectedAccount={selectedAccount}
                 supabase={supabase}
+                onRefreshAudit={runAudit}
               />
             </TabsContent>
 
@@ -495,11 +496,13 @@ const CampaignsTab = ({ campaigns }: { campaigns: any[] }) => (
 const SearchTermsTab = ({ 
   searchTermsAnalysis, 
   selectedAccount, 
-  supabase 
+  supabase,
+  onRefreshAudit 
 }: { 
   searchTermsAnalysis: any; 
   selectedAccount: any; 
-  supabase: any; 
+  supabase: any;
+  onRefreshAudit?: () => void;
 }) => {
   const [isExecuting, setIsExecuting] = useState<Record<string, boolean>>({});
   const [executionResults, setExecutionResults] = useState<Record<string, any>>({});
@@ -621,15 +624,9 @@ const SearchTermsTab = ({
         
         // Auto-refresh audit data after successful optimization
         setTimeout(async () => {
-          try {
-            const { data: refreshData, error: refreshError } = await supabase.functions.invoke('enterprise-audit', {
-              body: { customerId: selectedAccount.customerId || selectedAccount.id }
-            });
-            if (!refreshError && refreshData) {
-              window.location.reload(); // Trigger parent component refresh
-            }
-          } catch (e) {
-            console.warn('Auto-refresh failed:', e);
+          if (onRefreshAudit) {
+            console.log('🔄 Refreshing audit data after optimization...');
+            onRefreshAudit();
           }
         }, 3000);
       } else {
@@ -691,15 +688,9 @@ const SearchTermsTab = ({
       
       // Auto-refresh audit data after successful optimization
       setTimeout(async () => {
-        try {
-          const { data: refreshData, error: refreshError } = await supabase.functions.invoke('enterprise-audit', {
-            body: { customerId: selectedAccount.customerId || selectedAccount.id }
-          });
-          if (!refreshError && refreshData) {
-            window.location.reload(); // Trigger parent component refresh
-          }
-        } catch (e) {
-          console.warn('Auto-refresh failed:', e);
+        if (onRefreshAudit) {
+          console.log('🔄 Refreshing audit data after adding negative keywords...');
+          onRefreshAudit();
         }
       }, 3000);
       
