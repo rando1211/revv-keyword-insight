@@ -862,7 +862,7 @@ export const SearchTermsAnalysisUI = ({ analysisData, onUpdateAnalysisData, sele
                 <h4 className="font-medium">Detailed Results:</h4>
                 {executionResults.results.map((result: any, index: number) => (
                   <div key={index} className={`p-3 rounded-lg border ${result.success ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
-                    <div className="flex items-center gap-2 mb-1">
+                    <div className="flex items-center gap-2 mb-2">
                       {result.success ? 
                         <CheckCircle2 className="h-4 w-4 text-green-600" /> : 
                         <AlertTriangle className="h-4 w-4 text-red-600" />
@@ -871,10 +871,46 @@ export const SearchTermsAnalysisUI = ({ analysisData, onUpdateAnalysisData, sele
                       <Badge variant={result.success ? "default" : "destructive"}>
                         {result.action.type.replace('_', ' ')}
                       </Badge>
+                      {result.matchType && (
+                        <Badge variant="outline" className="text-xs">
+                          {result.matchType}
+                        </Badge>
+                      )}
                     </div>
-                    <div className="text-sm text-muted-foreground">
+                    
+                    <div className="text-sm text-muted-foreground mb-2">
                       {result.message}
                     </div>
+                    
+                    {result.success && (
+                      <div className="space-y-1 text-xs text-muted-foreground">
+                        {result.campaignName && (
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">Campaign:</span>
+                            <span>{result.campaignName}</span>
+                          </div>
+                        )}
+                        {result.adGroupName && (
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">Ad Group:</span>
+                            <span>{result.adGroupName}</span>
+                          </div>
+                        )}
+                        {result.result && (
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">Google Ads ID:</span>
+                            <span className="font-mono text-xs">{result.result}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    
+                    {!result.success && result.error && (
+                      <div className="mt-2 p-2 bg-red-100 rounded text-xs">
+                        <div className="font-medium text-red-800 mb-1">Error Details:</div>
+                        <div className="text-red-700">{result.error}</div>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
