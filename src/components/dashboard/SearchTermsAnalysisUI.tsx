@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plus, Minus, Info, CheckCircle2, XCircle, Gauge, AlertTriangle, TrendingUp, Target, Activity, Eye, Loader2, Clock, Settings } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import ScalingKeywordReview from './ScalingKeywordReview';
 
 interface SearchTermsAnalysisUIProps {
   analysisData: any;
@@ -33,6 +34,8 @@ export const SearchTermsAnalysisUI = ({ analysisData, onUpdateAnalysisData, sele
   const [pendingActions, setPendingActions] = useState<PendingAction[]>([]);
   const [isExecuting, setIsExecuting] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [showScalingReview, setShowScalingReview] = useState(false);
+  const [scalingKeywords, setScalingKeywords] = useState<any[]>([]);
   const [executionResults, setExecutionResults] = useState<any>(null);
   const [showResults, setShowResults] = useState(false);
   const [autoExecuteEnabled, setAutoExecuteEnabled] = useState(false);
@@ -49,6 +52,8 @@ export const SearchTermsAnalysisUI = ({ analysisData, onUpdateAnalysisData, sele
     setExecutionResults(null);
     setShowResults(false);
     setAutoExecuteEnabled(false);
+    setShowScalingReview(false);
+    setScalingKeywords([]);
   }, [selectedAccount?.customerId]);
 
   // Auto-execution timer
@@ -177,6 +182,90 @@ export const SearchTermsAnalysisUI = ({ analysisData, onUpdateAnalysisData, sele
 
   const removePendingAction = (actionId: string) => {
     setPendingActions(prev => prev.filter(action => action.id !== actionId));
+  };
+
+  const prepareScalingKeywords = () => {
+    if (!analysisData?.convertingClusters) return;
+    
+    const scalingKeywords = analysisData.convertingClusters.flatMap((cluster: any) =>
+      cluster.exampleTerms.map((term: string) => ({
+        searchTerm: term,
+        campaignName: 'Auto-selected based on performance',
+        adGroupName: cluster.theme || 'High-Converting Terms',
+        campaignId: 'auto-select', // Will be determined by backend
+        adGroupId: 'auto-select', // Will be determined by backend
+        conversionRate: parseFloat(cluster.conversionRate) || 0,
+        reason: cluster.expandRecommendation || 'High-converting term identified for scaling',
+        impact: parseFloat(cluster.conversionRate) > 10 ? 'high' : parseFloat(cluster.conversionRate) > 5 ? 'medium' : 'low',
+        potentialTrafficIncrease: '+735% potential'
+      }))
+    );
+    
+    setScalingKeywords(scalingKeywords);
+    setShowScalingReview(true);
+  };
+
+  const handleScalingConfirm = async (selectedKeywords: any[]) => {
+    const actions = selectedKeywords.map(keyword => ({
+      id: `scaling_${Date.now()}_${Math.random()}`,
+      type: keyword.matchType.toLowerCase() + '_match' as 'exact_match' | 'phrase_match' | 'broad_match',
+      searchTerm: keyword.searchTerm,
+      reason: keyword.reason,
+      campaignId: keyword.campaignId,
+      adGroupId: keyword.adGroupId
+    }));
+
+    setIsExecuting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('execute-search-terms-optimizations', {
+        body: {
+          customerId: selectedAccount.customerId,
+          pendingActions: actions
+        }
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Keywords Scaled Successfully",
+        description: `${data.summary.successCount}/${data.summary.totalActions} keywords added for scaling`,
+      });
+
+      // Store execution results and show them
+      setExecutionResults(data);
+      setShowResults(true);
+      
+      // Update analysis data to remove scaled terms
+      if (onUpdateAnalysisData) {
+        const scaledSearchTerms = data.results
+          .filter((result: any) => result.success)
+          .map((result: any) => result.action.searchTerm);
+        
+        const updatedData = {
+          ...analysisData,
+          convertingClusters: analysisData.convertingClusters?.map((cluster: any) => ({
+            ...cluster,
+            exampleTerms: cluster.exampleTerms.filter((term: string) => !scaledSearchTerms.includes(term))
+          })).filter((cluster: any) => cluster.exampleTerms.length > 0) || []
+        };
+        
+        setTimeout(() => {
+          onUpdateAnalysisData(updatedData);
+        }, 100);
+      }
+      
+      setShowScalingReview(false);
+      setScalingKeywords([]);
+    } catch (error) {
+      console.error('Scaling error:', error);
+      toast({
+        title: "Scaling Failed",
+        description: error.message || "Some keywords could not be scaled. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsExecuting(false);
+    }
   };
 
   const executeActions = async () => {
@@ -668,30 +757,10 @@ export const SearchTermsAnalysisUI = ({ analysisData, onUpdateAnalysisData, sele
                   <Button
                     size="sm"
                     className="bg-green-600 hover:bg-green-700"
-                    onClick={() => {
-                      cluster.exampleTerms.forEach((term: string) => {
-                        if (!isOptimizationCompleted(term)) {
-                          addPendingAction({ searchTerm: term }, 'exact_match', cluster.expandRecommendation);
-                        }
-                      });
-                    }}
+                    onClick={prepareScalingKeywords}
                   >
                     <Plus className="h-3 w-3 mr-1" />
-                    Add All as Exact Match
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      cluster.exampleTerms.forEach((term: string) => {
-                        if (!isOptimizationCompleted(term)) {
-                          addPendingAction({ searchTerm: term }, 'phrase_match', cluster.expandRecommendation);
-                        }
-                      });
-                    }}
-                  >
-                    <Plus className="h-3 w-3 mr-1" />
-                    Add All as Phrase Match
+                    Review & Scale Keywords
                   </Button>
                   <Button
                     size="sm"
@@ -923,6 +992,23 @@ export const SearchTermsAnalysisUI = ({ analysisData, onUpdateAnalysisData, sele
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {/* Scaling Keywords Review Dialog */}
+      {showScalingReview && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+            <ScalingKeywordReview
+              keywords={scalingKeywords}
+              customerId={selectedAccount?.customerId || ''}
+              onConfirm={handleScalingConfirm}
+              onCancel={() => {
+                setShowScalingReview(false);
+                setScalingKeywords([]);
+              }}
+            />
+          </div>
+        </div>
       )}
 
       {/* Overall Recommendations */}
