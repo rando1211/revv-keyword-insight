@@ -227,7 +227,7 @@ const ScalingKeywordReview: React.FC<ScalingKeywordReviewProps> = ({
                     {keyword.clicks && <span>{keyword.clicks} clicks</span>}
                     {keyword.cost && <span>${keyword.cost.toFixed(2)} cost</span>}
                     {keyword.conversions && <span>{keyword.conversions} conversions</span>}
-                    {keyword.conversionRate && <span>{keyword.conversionRate.toFixed(1)}% CVR</span>}
+                    {keyword.conversionRate && <span>{(typeof keyword.conversionRate === 'number' ? keyword.conversionRate : parseFloat(keyword.conversionRate) || 0).toFixed(1)}% CVR</span>}
                     {keyword.potentialTrafficIncrease && (
                       <span className="text-green-600 font-medium">
                         {keyword.potentialTrafficIncrease} potential increase
