@@ -225,11 +225,11 @@ serve(async (req) => {
               {
                 create: {
                   campaign: `customers/${cleanCustomerId}/campaigns/${campaignIdUsed}`,
+                  negative: true,
                   keyword: {
                     text: action.searchTerm,
                     matchType: 'BROAD'
-                  },
-                  negative: true
+                  }
                 }
               }
             ]
