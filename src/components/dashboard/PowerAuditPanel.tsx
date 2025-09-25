@@ -38,10 +38,16 @@ export const PowerAuditPanel = ({ selectedAccount }: PowerAuditPanelProps) => {
       return;
     }
 
+    console.log('🔄 Starting audit refresh...');
     setIsLoading(true);
     try {
+      // Add timestamp to force fresh data
       const { data, error } = await supabase.functions.invoke('enterprise-audit', {
-        body: { customerId: selectedAccount.customerId }
+        body: { 
+          customerId: selectedAccount.customerId,
+          forceRefresh: true,
+          timestamp: Date.now()
+        }
       });
 
       if (error) throw error;
@@ -625,8 +631,10 @@ const SearchTermsTab = ({
         // Auto-refresh audit data after successful optimization
         setTimeout(async () => {
           if (onRefreshAudit) {
-            console.log('🔄 Refreshing audit data after optimization...');
+            console.log('🔄 Refreshing audit data after scaling optimization...');
             onRefreshAudit();
+          } else {
+            console.warn('⚠️ onRefreshAudit not available');
           }
         }, 3000);
       } else {
@@ -691,6 +699,8 @@ const SearchTermsTab = ({
         if (onRefreshAudit) {
           console.log('🔄 Refreshing audit data after adding negative keywords...');
           onRefreshAudit();
+        } else {
+          console.warn('⚠️ onRefreshAudit not available');
         }
       }, 3000);
       
