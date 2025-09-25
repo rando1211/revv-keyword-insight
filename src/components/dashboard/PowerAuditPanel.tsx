@@ -692,57 +692,6 @@ const SearchTermsTab = ({
     }
   };
 
-  const handleNegativeKeywordConfirm = async (selectedTerms: { term: string; matchType: string }[]) => {
-    try {
-      console.log('🚀 Executing negative keywords:', selectedTerms);
-      
-      const { data, error } = await supabase.functions.invoke('execute-negative-keywords', {
-        body: {
-          customerId: selectedAccount?.customerId,
-          negativeKeywords: selectedTerms
-        }
-      });
-
-      if (error) throw error;
-
-      console.log('✅ Negative keywords executed:', data);
-      
-      setExecutionResults(prev => ({
-        ...prev,
-        negativeKeywords: {
-          success: true,
-          data,
-          timestamp: new Date()
-        }
-      }));
-
-      toast({
-        title: "Negative Keywords Added Successfully",
-        description: `Added ${selectedTerms.length} negative keywords to prevent wasteful spend`,
-      });
-
-      setShowNegativeReview(false);
-      
-    } catch (error) {
-      console.error('❌ Failed to execute negative keywords:', error);
-      
-      setExecutionResults(prev => ({
-        ...prev,
-        negativeKeywords: {
-          success: false,
-          error: error instanceof Error ? error.message : String(error),
-          timestamp: new Date()
-        }
-      }));
-
-      toast({
-        title: "Failed to Add Negative Keywords",
-        description: error instanceof Error ? error.message : "An unknown error occurred",
-        variant: "destructive"
-      });
-    }
-  };
-
   return (
     <div className="space-y-6">
       {/* Header Cards with Key Metrics */}
