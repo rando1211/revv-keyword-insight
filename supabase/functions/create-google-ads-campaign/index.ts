@@ -269,13 +269,15 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('❌ Campaign creation error:', error);
-    console.error('❌ Error stack:', error.stack);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+    const errorStack = error instanceof Error ? error.stack : 'No stack trace available';
+    console.error('❌ Error stack:', errorStack);
     
     return new Response(
       JSON.stringify({
         success: false,
-        error: error.message || 'Unknown error occurred',
-        details: error.stack || 'No stack trace available',
+        error: errorMessage,
+        details: errorStack,
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

@@ -14,6 +14,7 @@ import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, Responsive
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { BudgetAnalysisTab, AIInsightsTab } from './PowerAuditPanelExtended';
 import { useTextToSpeech } from '@/hooks/useTextToSpeech';
+import NegativeKeywordReview from './NegativeKeywordReview';
 
 interface PowerAuditPanelProps {
   selectedAccount: GoogleAdsAccount | null;
@@ -23,6 +24,7 @@ export const PowerAuditPanel = ({ selectedAccount }: PowerAuditPanelProps) => {
   const [auditResults, setAuditResults] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('health');
+  const [showNegativeReview, setShowNegativeReview] = useState(false);
   const { toast } = useToast();
 
   const runAudit = async () => {
@@ -501,6 +503,7 @@ const SearchTermsTab = ({
   const [isExecuting, setIsExecuting] = useState<Record<string, boolean>>({});
   const [executionResults, setExecutionResults] = useState<Record<string, any>>({});
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [showNegativeReview, setShowNegativeReview] = useState(false);
   const [pendingOptimization, setPendingOptimization] = useState<{
     type: string;
     terms: any[];
@@ -638,6 +641,108 @@ const SearchTermsTab = ({
     }
   };
 
+  const handleNegativeKeywordConfirm = async (selectedTerms: { term: string; matchType: string }[]) => {
+    try {
+      console.log('🚀 Executing negative keywords:', selectedTerms);
+      
+      const { data, error } = await supabase.functions.invoke('execute-negative-keywords', {
+        body: {
+          customerId: selectedAccount?.customerId,
+          negativeKeywords: selectedTerms
+        }
+      });
+
+      if (error) throw error;
+
+      console.log('✅ Negative keywords executed:', data);
+      
+      setExecutionResults(prev => ({
+        ...prev,
+        negativeKeywords: {
+          success: true,
+          data,
+          timestamp: new Date()
+        }
+      }));
+
+      toast({
+        title: "Negative Keywords Added Successfully",
+        description: `Added ${selectedTerms.length} negative keywords to prevent wasteful spend`,
+      });
+
+      setShowNegativeReview(false);
+      
+    } catch (error) {
+      console.error('❌ Failed to execute negative keywords:', error);
+      
+      setExecutionResults(prev => ({
+        ...prev,
+        negativeKeywords: {
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
+          timestamp: new Date()
+        }
+      }));
+
+      toast({
+        title: "Failed to Add Negative Keywords",
+        description: error instanceof Error ? error.message : "An unknown error occurred",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleNegativeKeywordConfirm = async (selectedTerms: { term: string; matchType: string }[]) => {
+    try {
+      console.log('🚀 Executing negative keywords:', selectedTerms);
+      
+      const { data, error } = await supabase.functions.invoke('execute-negative-keywords', {
+        body: {
+          customerId: selectedAccount?.customerId,
+          negativeKeywords: selectedTerms
+        }
+      });
+
+      if (error) throw error;
+
+      console.log('✅ Negative keywords executed:', data);
+      
+      setExecutionResults(prev => ({
+        ...prev,
+        negativeKeywords: {
+          success: true,
+          data,
+          timestamp: new Date()
+        }
+      }));
+
+      toast({
+        title: "Negative Keywords Added Successfully",
+        description: `Added ${selectedTerms.length} negative keywords to prevent wasteful spend`,
+      });
+
+      setShowNegativeReview(false);
+      
+    } catch (error) {
+      console.error('❌ Failed to execute negative keywords:', error);
+      
+      setExecutionResults(prev => ({
+        ...prev,
+        negativeKeywords: {
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
+          timestamp: new Date()
+        }
+      }));
+
+      toast({
+        title: "Failed to Add Negative Keywords",
+        description: error instanceof Error ? error.message : "An unknown error occurred",
+        variant: "destructive"
+      });
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header Cards with Key Metrics */}
@@ -736,14 +841,10 @@ const SearchTermsTab = ({
                       variant="destructive" 
                       size="sm"
                       disabled={isExecuting.wasteful || !selectedAccount}
-                      onClick={() => handleOptimizationRequest('wasteful', wastefulTerms)}
+                      onClick={() => setShowNegativeReview(true)}
                     >
-                      {isExecuting.wasteful ? (
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      ) : (
-                        <Play className="h-4 w-4 mr-2" />
-                      )}
-                      {isExecuting.wasteful ? 'Executing...' : 'Execute Now'}
+                      <Play className="h-4 w-4 mr-2" />
+                      Review & Add Negatives
                     </Button>
                   </div>
                   <p className="text-xs text-red-800 mb-2">
@@ -1039,6 +1140,28 @@ const SearchTermsTab = ({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Negative Keyword Review Dialog */}
+      {showNegativeReview && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+            <NegativeKeywordReview
+              searchTerms={wastefulTerms.map(term => ({
+                query: term.search_term || term.searchTerm,
+                impressions: term.impressions || 0,
+                clicks: term.clicks || 0,
+                cost: term.cost || 0,
+                conversions: term.conversions || 0,
+                reason: term.waste_reason || term.reason || 'Identified as wasteful spend',
+                impact: term.severity === 'high' ? 'high' : term.severity === 'medium' ? 'medium' : 'low'
+              }))}
+              customerId={selectedAccount?.customerId || ''}
+              onConfirm={handleNegativeKeywordConfirm}
+              onCancel={() => setShowNegativeReview(false)}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };

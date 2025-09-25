@@ -289,26 +289,30 @@ function generateDailyBreakdown(data: any[]) {
     const date = row.segments?.date || 'unknown';
     const metrics = row.metrics || {};
     
-    if (!dailyData[date]) {
-      dailyData[date] = {
+    if (!dailyData[date as keyof typeof dailyData]) {
+      (dailyData as any)[date] = {
         impressions: 0,
         clicks: 0,
         conversions: 0,
         cost: 0
       };
     }
-    
-    dailyData[date].impressions += parseInt(metrics.impressions) || 0;
-    dailyData[date].clicks += parseInt(metrics.clicks) || 0;
-    dailyData[date].conversions += parseFloat(metrics.conversions) || 0;
-    dailyData[date].cost += (parseInt(metrics.cost_micros) || 0) / 1000000;
+
+    const metricsData = metrics as any;
+    (dailyData as any)[date].impressions += parseInt(metricsData.impressions) || 0;
+    (dailyData as any)[date].clicks += parseInt(metricsData.clicks) || 0;
+    (dailyData as any)[date].conversions += parseFloat(metricsData.conversions) || 0;
+    (dailyData as any)[date].cost += (parseInt(metricsData.cost_micros) || 0) / 1000000;
   });
 
-  return Object.entries(dailyData).map(([date, metrics]) => ({
-    date,
-    ...metrics,
-    ctr: metrics.impressions > 0 ? (metrics.clicks / metrics.impressions) * 100 : 0
-  }));
+  return Object.entries(dailyData).map(([date, metrics]) => {
+    const metricsData = metrics as any;
+    return {
+      date,
+      ...metricsData,
+      ctr: metricsData.impressions > 0 ? (metricsData.clicks / metricsData.impressions) * 100 : 0
+    };
+  });
 }
 
 function getHistoricalTimeframe(currentTimeframe: string): string {
@@ -319,7 +323,7 @@ function getHistoricalTimeframe(currentTimeframe: string): string {
     'LAST_90_DAYS': 'LAST_180_DAYS'
   };
   
-  return timeframeMap[currentTimeframe] || 'LAST_30_DAYS';
+  return timeframeMap[currentTimeframe as keyof typeof timeframeMap] || 'LAST_30_DAYS';
 }
 
 function categorizeImpact(ctrChange: number, conversionChange: number, efficiencyImprovement: number): string {

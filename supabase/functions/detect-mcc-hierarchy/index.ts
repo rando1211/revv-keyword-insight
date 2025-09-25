@@ -42,9 +42,9 @@ serve(async (req) => {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({
-        client_id: CLIENT_ID,
-        client_secret: CLIENT_SECRET,
-        refresh_token: REFRESH_TOKEN,
+        client_id: CLIENT_ID!,
+        client_secret: CLIENT_SECRET!,
+        refresh_token: REFRESH_TOKEN!,
         grant_type: "refresh_token",
       }),
     });
@@ -88,7 +88,7 @@ serve(async (req) => {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${accessToken}`,
-        "developer-token": DEVELOPER_TOKEN,
+        "developer-token": DEVELOPER_TOKEN!,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ query: accessibleCustomersQuery }),
