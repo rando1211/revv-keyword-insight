@@ -17,6 +17,10 @@ interface SearchTerm {
   conversions: number;
   reason: string;
   impact: 'high' | 'medium' | 'low';
+  campaignName?: string;
+  adGroupName?: string;
+  campaignId?: string;
+  adGroupId?: string;
 }
 
 interface NegativeKeywordReviewProps {
@@ -34,6 +38,7 @@ const NegativeKeywordReview: React.FC<NegativeKeywordReviewProps> = ({
 }) => {
   const [selectedTerms, setSelectedTerms] = useState<Set<string>>(new Set());
   const [matchTypes, setMatchTypes] = useState<Record<string, string>>({});
+  const [negativeKeywordLevels, setNegativeKeywordLevels] = useState<Record<string, 'campaign' | 'adgroup'>>({});
   const [isExecuting, setIsExecuting] = useState(false);
 
   const handleTermToggle = (term: string) => {
@@ -41,11 +46,15 @@ const NegativeKeywordReview: React.FC<NegativeKeywordReviewProps> = ({
     if (newSelected.has(term)) {
       newSelected.delete(term);
       const newMatchTypes = { ...matchTypes };
+      const newLevels = { ...negativeKeywordLevels };
       delete newMatchTypes[term];
+      delete newLevels[term];
       setMatchTypes(newMatchTypes);
+      setNegativeKeywordLevels(newLevels);
     } else {
       newSelected.add(term);
       setMatchTypes(prev => ({ ...prev, [term]: 'BROAD' }));
+      setNegativeKeywordLevels(prev => ({ ...prev, [term]: 'campaign' }));
     }
     setSelectedTerms(newSelected);
   };
@@ -54,17 +63,26 @@ const NegativeKeywordReview: React.FC<NegativeKeywordReviewProps> = ({
     setMatchTypes(prev => ({ ...prev, [term]: matchType }));
   };
 
+  const handleLevelChange = (term: string, level: 'campaign' | 'adgroup') => {
+    setNegativeKeywordLevels(prev => ({ ...prev, [term]: level }));
+  };
+
   const handleSelectAll = () => {
     if (selectedTerms.size === searchTerms.length) {
       setSelectedTerms(new Set());
       setMatchTypes({});
+      setNegativeKeywordLevels({});
     } else {
       const allTerms = new Set(searchTerms.map(st => st.query));
       const allMatchTypes = Object.fromEntries(
         searchTerms.map(st => [st.query, 'BROAD'])
       );
+      const allLevels = Object.fromEntries(
+        searchTerms.map(st => [st.query, 'campaign' as const])
+      );
       setSelectedTerms(allTerms);
       setMatchTypes(allMatchTypes);
+      setNegativeKeywordLevels(allLevels);
     }
   };
 
@@ -76,10 +94,16 @@ const NegativeKeywordReview: React.FC<NegativeKeywordReviewProps> = ({
 
     setIsExecuting(true);
     try {
-      const selectedActions = Array.from(selectedTerms).map(term => ({
-        term,
-        matchType: matchTypes[term] || 'BROAD'
-      }));
+      const selectedActions = Array.from(selectedTerms).map(term => {
+        const searchTerm = searchTerms.find(st => st.query === term);
+        return {
+          term,
+          matchType: matchTypes[term] || 'BROAD',
+          level: negativeKeywordLevels[term] || 'campaign',
+          campaignId: searchTerm?.campaignId,
+          adGroupId: searchTerm?.adGroupId
+        };
+      });
 
       await onConfirm(selectedActions);
       toast.success(`Successfully processed ${selectedActions.length} negative keywords`);
@@ -119,7 +143,7 @@ const NegativeKeywordReview: React.FC<NegativeKeywordReviewProps> = ({
           </Badge>
         </CardTitle>
         <p className="text-muted-foreground">
-          Select which search terms to add as negative keywords. Campaign-level negatives will prevent these terms from triggering your ads.
+          Select which search terms to add as negative keywords. Choose between campaign-level (broader impact) or ad group-level (more targeted) negatives.
         </p>
       </CardHeader>
 
@@ -173,21 +197,52 @@ const NegativeKeywordReview: React.FC<NegativeKeywordReviewProps> = ({
                     </div>
                     
                     {selectedTerms.has(searchTerm.query) && (
-                      <Select
-                        value={matchTypes[searchTerm.query] || 'BROAD'}
-                        onValueChange={(value) => handleMatchTypeChange(searchTerm.query, value)}
-                      >
-                        <SelectTrigger className="w-28 h-8">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="BROAD">Broad</SelectItem>
-                          <SelectItem value="PHRASE">Phrase</SelectItem>
-                          <SelectItem value="EXACT">Exact</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <div className="flex items-center space-x-2">
+                        <Select
+                          value={negativeKeywordLevels[searchTerm.query] || 'campaign'}
+                          onValueChange={(value: 'campaign' | 'adgroup') => handleLevelChange(searchTerm.query, value)}
+                        >
+                          <SelectTrigger className="w-32 h-8">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="campaign">Campaign</SelectItem>
+                            <SelectItem value="adgroup">Ad Group</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Select
+                          value={matchTypes[searchTerm.query] || 'BROAD'}
+                          onValueChange={(value) => handleMatchTypeChange(searchTerm.query, value)}
+                        >
+                          <SelectTrigger className="w-28 h-8">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="BROAD">Broad</SelectItem>
+                            <SelectItem value="PHRASE">Phrase</SelectItem>
+                            <SelectItem value="EXACT">Exact</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                     )}
                   </div>
+                  
+                  {/* Ad Group Information */}
+                  {(searchTerm.campaignName || searchTerm.adGroupName) && (
+                    <div className="flex items-center space-x-2 text-xs">
+                      <Badge variant="secondary" className="text-xs">
+                        {searchTerm.campaignName || 'Unknown Campaign'}
+                      </Badge>
+                      {searchTerm.adGroupName && (
+                        <>
+                          <span className="text-muted-foreground">→</span>
+                          <Badge variant="outline" className="text-xs">
+                            {searchTerm.adGroupName}
+                          </Badge>
+                        </>
+                      )}
+                    </div>
+                  )}
                   
                   <p className="text-sm text-muted-foreground">
                     {searchTerm.reason}
