@@ -25,9 +25,9 @@ serve(async (req) => {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({
-        client_id: CLIENT_ID,
-        client_secret: CLIENT_SECRET,
-        refresh_token: REFRESH_TOKEN,
+        client_id: CLIENT_ID || '',
+        client_secret: CLIENT_SECRET || '',
+        refresh_token: REFRESH_TOKEN || '',
         grant_type: "refresh_token",
       }),
     });
@@ -57,7 +57,7 @@ serve(async (req) => {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${tokenData.access_token}`,
-          "developer-token": DEVELOPER_TOKEN,
+          "developer-token": DEVELOPER_TOKEN || "",
           "login-customer-id": SHARED_MCC_ID,
           "Content-Type": "application/json",
         },
@@ -93,7 +93,7 @@ serve(async (req) => {
     console.error("Diagnostic Error:", error);
     return new Response(
       JSON.stringify({ 
-        error: error.message,
+        error: error instanceof Error ? error.message : 'Unknown error occurred',
         success: false
       }),
       { 

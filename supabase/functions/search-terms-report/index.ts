@@ -118,7 +118,7 @@ serve(async (req) => {
             try {
               customerData = await customerResponse.json();
             } catch (error) {
-              console.log(`⚠️ Failed to parse manager ${managerId} response as JSON:`, error.message);
+              console.log(`⚠️ Failed to parse manager ${managerId} response as JSON:`, error instanceof Error ? error.message : 'Unknown error');
               continue;
             }
             
@@ -134,7 +134,7 @@ serve(async (req) => {
             console.log(`⚠️ Manager ${managerId} request failed:`, customerResponse.status);
           }
         } catch (error) {
-          console.log(`⚠️ Error checking manager ${managerId}:`, error.message);
+          console.log(`⚠️ Error checking manager ${managerId}:`, error instanceof Error ? error.message : 'Unknown error');
           continue;
         }
       }
@@ -239,7 +239,7 @@ serve(async (req) => {
           }
           
           // Extract and log search terms
-          const terms = searchTerms.map(result => {
+          const terms = searchTerms.map((result: any) => {
             const term = result.searchTermView?.searchTerm || 
                         result.search_term_view?.search_term ||
                         result.searchTerm?.search_term ||
@@ -274,7 +274,7 @@ serve(async (req) => {
     console.error('Error:', error);
     return new Response(JSON.stringify({
       success: false,
-      error: error.message
+      error: error instanceof Error ? error.message : 'Unknown error occurred'
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

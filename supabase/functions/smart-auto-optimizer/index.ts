@@ -126,7 +126,7 @@ serve(async (req) => {
           }
         }
       } catch (error) {
-        console.log(`❌ ${potentialManagerId} is not a manager or error occurred:`, error.message);
+        console.log(`❌ ${potentialManagerId} is not a manager or error occurred:`, error instanceof Error ? error.message : 'Unknown error');
       }
     }
     
@@ -170,7 +170,7 @@ serve(async (req) => {
     
     // Add campaign filter if specific campaigns are selected
     if (selectedCampaignIds && selectedCampaignIds.length > 0) {
-      const campaignFilter = selectedCampaignIds.map(id => `'${id}'`).join(',');
+      const campaignFilter = selectedCampaignIds.map((id: string) => `'${id}'`).join(',');
       searchTermsQuery += ` AND campaign.id IN (${campaignFilter})`;
       console.log('🎯 Added campaign filter to search terms query');
     }
@@ -317,7 +317,7 @@ serve(async (req) => {
     
     // 3. Budget Reallocation (always suggest if multiple campaigns/terms exist)
     if (searchTerms.length >= 5) {
-      const campaignIds = [...new Set(searchTerms.map(term => term.campaign?.id))];
+      const campaignIds = [...new Set(searchTerms.map((term: any) => term.campaign?.id))];
       
       actions.push({
         id: `budget_reallocation_${Date.now()}`,
@@ -368,7 +368,7 @@ serve(async (req) => {
     console.error('🔥 Smart Auto-Optimizer Error:', error);
     return new Response(JSON.stringify({
       success: false,
-      error: error.message,
+      error: error instanceof Error ? error.message : 'Unknown error occurred',
       actions: []
     }), {
       status: 500,
