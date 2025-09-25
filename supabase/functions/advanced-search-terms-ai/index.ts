@@ -188,19 +188,53 @@ serve(async (req) => {
       LIMIT ${searchTermLimit}
     `;
 
+    // Fetch keywords for ad group context
+    const keywordsQuery = `
+      SELECT
+        ad_group.id,
+        ad_group.name,
+        campaign.id as campaign_id,
+        campaign.name as campaign_name,
+        ad_group_criterion.keyword.text,
+        ad_group_criterion.keyword.match_type,
+        metrics.clicks,
+        metrics.conversions,
+        metrics.cost_micros
+      FROM keyword_view
+      WHERE segments.date DURING LAST_30_DAYS
+        AND campaign.status = 'ENABLED'
+        AND ad_group.status = 'ENABLED'
+        AND ad_group_criterion.status = 'ENABLED'
+        ${campaignFilter}
+      ORDER BY metrics.clicks DESC
+      LIMIT ${searchTermLimit * 2}
+    `;
+
     console.log('📊 Fetching search terms data...');
     console.log('🔍 Search Terms Query:', searchTermsQuery);
 
-    const searchTermsResponse = await fetch(apiUrl, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${access_token}`,
-        'developer-token': developerToken,
-        'login-customer-id': loginCustomerId, // Use dynamic manager detection
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ query: searchTermsQuery })
-    });
+    const [searchTermsResponse, keywordsResponse] = await Promise.all([
+      fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${access_token}`,
+          'developer-token': developerToken,
+          'login-customer-id': loginCustomerId,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ query: searchTermsQuery })
+      }),
+      fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${access_token}`,
+          'developer-token': developerToken,
+          'login-customer-id': loginCustomerId,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ query: keywordsQuery })
+      })
+    ]);
 
     if (!searchTermsResponse.ok) {
       const errorText = await searchTermsResponse.text();
@@ -208,33 +242,68 @@ serve(async (req) => {
       throw new Error(`Google Ads API failed: ${searchTermsResponse.status} - ${errorText}`);
     }
 
-    let searchTermsData;
+    let searchTermsData, keywordsData;
     try {
-      searchTermsData = await searchTermsResponse.json();
+      [searchTermsData, keywordsData] = await Promise.all([
+        searchTermsResponse.json(),
+        keywordsResponse.ok ? keywordsResponse.json() : { results: [] }
+      ]);
     } catch (error) {
       console.error('Failed to parse Google Ads API response as JSON:', error);
-      const textResponse = await searchTermsResponse.text();
-      console.error('API response text:', textResponse);
       throw new Error('Invalid Google Ads API response format');
     }
-    console.log('📊 Raw API Response Sample:', JSON.stringify(searchTermsData.results?.slice(0, 2), null, 2));
-    
+
     const searchTerms = searchTermsData.results || [];
-    console.log(`📊 Found ${searchTerms.length} search terms for analysis`);
+    const keywords = keywordsData.results || [];
+    console.log(`📊 Found ${searchTerms.length} search terms and ${keywords.length} keywords for analysis`);
+    
+    // Build ad group context map from keywords
+    const adGroupContext = new Map();
+    keywords.forEach((keyword: any) => {
+      const adGroupId = keyword.adGroup?.id;
+      const adGroupName = keyword.adGroup?.name;
+      const campaignName = keyword.campaign?.name;
+      const keywordText = keyword.adGroupCriterion?.keyword?.text;
+      const matchType = keyword.adGroupCriterion?.keyword?.matchType;
+      
+      if (!adGroupContext.has(adGroupId)) {
+        adGroupContext.set(adGroupId, {
+          adGroupName,
+          campaignName,
+          keywords: []
+        });
+      }
+      
+      if (keywordText) {
+        adGroupContext.get(adGroupId).keywords.push({
+          text: keywordText,
+          matchType: matchType || 'UNKNOWN',
+          clicks: parseInt(keyword.metrics?.clicks || '0'),
+          conversions: parseFloat(keyword.metrics?.conversions || '0')
+        });
+      }
+    });
+    
+    console.log(`🎯 Built context for ${adGroupContext.size} ad groups`);
 
     // Transform search terms data into structured format for AI analysis
     const structuredData = {
       campaignGoal,
-      searchTerms: searchTerms.map((term: any) => {
+      adGroupAnalysis: searchTerms.map((term: any) => {
         const searchTerm = term.searchTermView?.searchTerm || '';
         const campaignId = term.campaign?.id || '';
         const campaignName = term.campaign?.name || '';
+        const adGroupId = term.adGroup?.id || '';
         const adGroupName = term.adGroup?.name || 'Unknown Ad Group';
         const clicks = parseInt(term.metrics?.clicks || '0');
         const conversions = parseFloat(term.metrics?.conversions || '0');
         const costMicros = parseInt(term.metrics?.costMicros || '0');
         
-        console.log(`🔍 Term: "${searchTerm}" -> Clicks: ${clicks}, Conversions: ${conversions}, Campaign: "${campaignName}" -> Ad Group: "${adGroupName}"`);
+        // Get ad group context (keywords it's targeting)
+        const context = adGroupContext.get(adGroupId) || { keywords: [] };
+        const targetingKeywords = context.keywords.slice(0, 5); // Top 5 keywords for context
+        
+        console.log(`🔍 Term: "${searchTerm}" -> Clicks: ${clicks}, Conversions: ${conversions}, Campaign: "${campaignName}" -> Ad Group: "${adGroupName}" -> Keywords: ${targetingKeywords.map((k: { text: string }) => k.text).join(', ')}`);
         
         const device = term.segments?.device || 'UNKNOWN';
 
@@ -242,7 +311,9 @@ serve(async (req) => {
           searchTerm,
           campaignId,
           campaignName,
+          adGroupId,
           adGroupName,
+          targetingKeywords, // What this ad group is actually targeting
           clicks,
           impressions: parseInt(term.metrics?.impressions || '0'),
           ctr: parseFloat(term.metrics?.ctr || '0'),
@@ -256,7 +327,7 @@ serve(async (req) => {
     };
 
     // Calculate benchmarks for anomaly detection
-    const allTerms = structuredData.searchTerms;
+    const allTerms = structuredData.adGroupAnalysis;
     const avgCtr = allTerms.reduce((sum: number, term: any) => sum + term.ctr, 0) / allTerms.length;
     const avgImpressions = allTerms.reduce((sum: number, term: any) => sum + term.impressions, 0) / allTerms.length;
     const avgCost = allTerms.reduce((sum: number, term: any) => sum + term.cost, 0) / allTerms.length;
@@ -273,28 +344,33 @@ serve(async (req) => {
     // AI Analysis using the specific prompt template
     console.log('🤖 Starting advanced AI analysis with semantic analysis...');
     
-    const aiPrompt = `You are a Google Ads Optimization AI Assistant specialized in analyzing Search Terms Reports for PPC campaigns.
+    const aiPrompt = `You are a Google Ads Optimization AI Assistant specialized in analyzing Search Terms Reports for PPC campaigns with AD GROUP-LEVEL CONTEXT.
+
+🎯 NEW ENHANCED ANALYSIS: You now have access to each ad group's targeting keywords to make PRECISE relevance decisions.
 
 🚨 CRITICAL CAMPAIGN CONTEXT - READ CAREFULLY:
 - Campaign Goal: ${campaignGoal || 'Generate more leads'}  
 - Campaign Sells: ${campaignContext || 'Not specified - use general analysis'}
 
-🔥 MANDATORY RULE: Before marking ANY term as "irrelevant", check if it relates to what this campaign sells.
+🔥 ENHANCED RELEVANCE ANALYSIS RULES:
+1. For each search term, check what keywords the AD GROUP is targeting
+2. If search term matches or is closely related to ad group's keywords = RELEVANT
+3. If search term is unrelated to ad group's specific keywords = POTENTIALLY IRRELEVANT
+4. Consider match types: broad match keywords may legitimately trigger broader terms
 
-EXAMPLES:
-- If campaign sells "Personal Water Craft (PWCs), Jet Skis, Sea-Doo" then terms like "jet ski for sale", "sea doo", "waverunner", "personal watercraft", "pwc" are 100% RELEVANT
-- If campaign sells "Motorcycles" then "jet ski" terms would be irrelevant
-- If campaign sells "Boats" then "boat rental", "fishing boat" are RELEVANT
-
-❌ DO NOT mark terms as irrelevant if they relate to what the campaign actually sells, even if they seem unrelated to a general business type.
-
-✅ ONLY mark terms as irrelevant if they are truly unrelated to the specific products/services this campaign promotes.
+EXAMPLES OF AD GROUP-LEVEL ANALYSIS:
+- Ad Group targeting "boston medical group" + "medical services boston" 
+  → Search term "boston restaurants" = IRRELEVANT (no medical intent)
+  → Search term "medical group boston" = RELEVANT (matches targeting)
+  
+- Ad Group targeting "jet ski rental" + "personal watercraft rental"
+  → Search term "boat rental" = POTENTIALLY IRRELEVANT (different vehicle type)
+  → Search term "jet ski for rent" = RELEVANT (matches intent)
 
 🔴 CRITICAL: HIGH CLICKS NO CONVERSIONS RULES:
 - ONLY include terms in "highClicksNoConv" if conversions = 0 (zero) 
 - If conversions > 0, DO NOT include in highClicksNoConv
 - Check the "conversions" field carefully - it contains decimal values
-- Example: If conversions = 8.666796, this means 8.67 conversions, NOT zero conversions
 
 Campaign Goal: ${campaignGoal}
 Campaign Context: ${campaignContext || 'General analysis - be conservative with irrelevant classifications'}
@@ -306,11 +382,11 @@ Performance Benchmarks:
 
 ⚠️ CONVERSION DATA VALIDATION:
 Before categorizing any term, check these examples from the data:
-${structuredData.searchTerms.slice(0, 5).map((term: any) => 
-  `- "${term.searchTerm}": clicks=${term.clicks}, conversions=${term.conversions} (${term.conversions > 0 ? 'HAS CONVERSIONS' : 'NO CONVERSIONS'})`
+${structuredData.adGroupAnalysis.slice(0, 5).map((term: any) => 
+  `- "${term.searchTerm}" in "${term.adGroupName}": clicks=${term.clicks}, conversions=${term.conversions}, targeting=[${term.targetingKeywords.map((k: { text: string }) => k.text).join(', ')}]`
 ).join('\n')}
 
-Search Terms Data: ${JSON.stringify(structuredData.searchTerms.slice(0, 20), null, 2)}
+Ad Group Analysis Data: ${JSON.stringify(structuredData.adGroupAnalysis.slice(0, 15), null, 2)}
 
 Provide your analysis in the following structured format. Return ONLY valid JSON without any markdown formatting:
 
@@ -321,7 +397,9 @@ Provide your analysis in the following structured format. Return ONLY valid JSON
       "clicks": number,
       "cost": number,
       "adGroupName": "ad group name",
-      "reason": "brief explanation why irrelevant"
+      "adGroupId": "ad group id",
+      "targetingKeywords": ["keyword1", "keyword2"],
+      "reason": "brief explanation why irrelevant to ad group keywords"
     }
   ],
   "highClicksNoConv": [
@@ -330,6 +408,8 @@ Provide your analysis in the following structured format. Return ONLY valid JSON
       "clicks": number,
       "cost": number,
       "adGroupName": "ad group name",
+      "adGroupId": "ad group id",
+      "targetingKeywords": ["keyword1", "keyword2"],
       "wastedSpend": number
     }
   ],

@@ -115,7 +115,7 @@ serve(async (req) => {
     const hierarchyData = [];
 
     // Known MCC relationships based on working configurations
-    const knownMCCMappings = {
+    const knownMCCMappings: { [key: string]: string } = {
       '9918849848': '9301596383', // This customer is managed by this MCC
     };
 
@@ -171,7 +171,7 @@ serve(async (req) => {
             method: "POST",
             headers: {
               "Authorization": `Bearer ${accessToken}`,
-              "developer-token": DEVELOPER_TOKEN,
+              "developer-token": DEVELOPER_TOKEN || "",
               "login-customer-id": record.manager_customer_id,
               "Content-Type": "application/json",
             },
@@ -186,7 +186,7 @@ serve(async (req) => {
             record.account_name = `❌ Unverified Client ${record.customer_id}`;
           }
         } catch (error) {
-          console.log(`❌ Error verifying ${record.customer_id}:`, error.message);
+          console.log(`❌ Error verifying ${record.customer_id}:`, (error as Error).message);
           record.account_name = `❌ Error Client ${record.customer_id}`;
         }
       }
@@ -268,7 +268,7 @@ serve(async (req) => {
     
     return new Response(
       JSON.stringify({ 
-        error: error.message || 'Unknown error occurred',
+        error: (error as Error).message || 'Unknown error occurred',
         success: false,
         hierarchy_detected: false
       }),
