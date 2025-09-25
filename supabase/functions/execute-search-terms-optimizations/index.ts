@@ -32,38 +32,83 @@ serve(async (req) => {
     console.log('📝 Actions to execute:', pendingActions.length);
     console.log('🧪 First pending action:', JSON.stringify(pendingActions?.[0] || null));
 
-    // Get Google Ads API credentials from environment
-    const clientId = Deno.env.get('Client ID') || Deno.env.get('CLIENT_ID');
-    const clientSecret = Deno.env.get('Secret') || Deno.env.get('CLIENT_SECRET');
-    const refreshToken = Deno.env.get('Refresh token') || Deno.env.get('REFRESH_TOKEN');
-    const developerToken = Deno.env.get('GOOGLE_DEVELOPER_TOKEN') || Deno.env.get('Developer Token') || Deno.env.get('DEVELOPER_TOKEN');
+    // Get user's Google Ads API credentials
+    console.log('🔄 Getting user credentials...');
+    const authHeader = req.headers.get('Authorization');
     
-    if (!clientId || !clientSecret || !refreshToken || !developerToken) {
-      throw new Error('Missing Google Ads API credentials');
+    let credentialsResponse;
+    if (authHeader) {
+      try {
+        credentialsResponse = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/get-user-credentials`, {
+          method: 'POST',
+          headers: {
+            'Authorization': authHeader,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (credentialsResponse.ok) {
+          const credData = await credentialsResponse.json();
+          if (credData?.success) {
+            const { credentials } = credData;
+            var access_token = credentials.access_token;
+            var developerToken = credentials.developer_token;
+            var userCustomerId = credentials.customer_id;
+            console.log(`✅ Using ${credentials.uses_own_credentials ? 'user' : 'shared'} credentials`);
+          } else {
+            throw new Error('Failed to get credentials from user service');
+          }
+        } else {
+          throw new Error('Credentials service unavailable');
+        }
+      } catch (error) {
+        console.error('Error getting user credentials:', error);
+        // Fall back to environment variables
+      }
     }
 
-    // Get OAuth access token
-    console.log('🔑 Refreshing OAuth token...');
-    const oauthResponse = await fetch('https://oauth2.googleapis.com/token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        client_id: clientId,
-        client_secret: clientSecret,
-        refresh_token: refreshToken,
-        grant_type: 'refresh_token'
-      })
-    });
+    // Fallback to environment variables if user credentials not available
+    if (!access_token || !developerToken) {
+      console.log('ℹ️ Falling back to shared credentials...');
+      const clientId = Deno.env.get('Client ID') || Deno.env.get('CLIENT_ID');
+      const clientSecret = Deno.env.get('Secret') || Deno.env.get('CLIENT_SECRET');
+      const refreshToken = Deno.env.get('Refresh token') || Deno.env.get('REFRESH_TOKEN');
+      developerToken = Deno.env.get('GOOGLE_DEVELOPER_TOKEN') || Deno.env.get('Developer Token') || Deno.env.get('DEVELOPER_TOKEN');
+      
+      if (!clientId || !clientSecret || !refreshToken || !developerToken) {
+        throw new Error('No Google Ads API credentials available');
+      }
 
-    if (!oauthResponse.ok) {
-      throw new Error(`OAuth failed: ${oauthResponse.status}`);
+      // Get OAuth access token
+      console.log('🔑 Refreshing OAuth token...');
+      const oauthResponse = await fetch('https://oauth2.googleapis.com/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          client_id: clientId,
+          client_secret: clientSecret,
+          refresh_token: refreshToken,
+          grant_type: 'refresh_token'
+        })
+      });
+
+      if (!oauthResponse.ok) {
+        throw new Error(`OAuth failed: ${oauthResponse.status}`);
+      }
+
+      const tokenData = await oauthResponse.json();
+      access_token = tokenData.access_token;
+      console.log('✅ Fresh access token obtained');
     }
 
-    const { access_token } = await oauthResponse.json();
-    console.log('✅ Fresh access token obtained');
-
+    // Use provided customerId or fall back to user's configured customer ID
+    const targetCustomerId = customerId || userCustomerId;
+    if (!targetCustomerId) {
+      throw new Error('No customer ID available');
+    }
+    
     // Clean customer ID (remove 'customers/' prefix if present)
-    const cleanCustomerId = customerId.replace('customers/', '').replace(/-/g, '');
+    const cleanCustomerId = targetCustomerId.replace('customers/', '').replace(/-/g, '');
 
     // First, fetch campaigns to get campaign IDs for actions that need them
     // Get accessible customers to find correct manager (same pattern as other functions)

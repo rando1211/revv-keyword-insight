@@ -18,7 +18,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { SubscriptionManager } from '@/components/subscription/SubscriptionManager';
 import { OnboardingTour } from '@/components/onboarding/OnboardingTour';
 import { useOnboarding } from '@/hooks/useOnboarding';
-import { UserApiCredentialsSetup } from '@/components/dashboard/UserApiCredentialsSetup';
+import { ApiCredentialsManager } from '@/components/dashboard/ApiCredentialsManager';
 import { MCCHierarchyManager } from '@/components/dashboard/MCCHierarchyManager';
 import { CampaignBuilderWizard } from '@/components/campaign-builder/CampaignBuilderWizard';
 
@@ -402,7 +402,7 @@ Simulation by REVV Marketing ROI Calculator
           </TabsContent>
 
           <TabsContent value="api-setup" className="space-y-6">
-            <UserApiCredentialsSetup />
+            <ApiCredentialsManager />
             <MCCHierarchyManager />
           </TabsContent>
         

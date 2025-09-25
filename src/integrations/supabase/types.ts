@@ -139,6 +139,7 @@ export type Database = {
       }
       user_google_ads_credentials: {
         Row: {
+          access_token: string | null
           client_id: string | null
           client_secret: string | null
           created_at: string
@@ -147,10 +148,13 @@ export type Database = {
           id: string
           is_configured: boolean | null
           refresh_token: string | null
+          token_expires_at: string | null
           updated_at: string
           user_id: string
+          uses_own_credentials: boolean | null
         }
         Insert: {
+          access_token?: string | null
           client_id?: string | null
           client_secret?: string | null
           created_at?: string
@@ -159,10 +163,13 @@ export type Database = {
           id?: string
           is_configured?: boolean | null
           refresh_token?: string | null
+          token_expires_at?: string | null
           updated_at?: string
           user_id: string
+          uses_own_credentials?: boolean | null
         }
         Update: {
+          access_token?: string | null
           client_id?: string | null
           client_secret?: string | null
           created_at?: string
@@ -171,8 +178,10 @@ export type Database = {
           id?: string
           is_configured?: boolean | null
           refresh_token?: string | null
+          token_expires_at?: string | null
           updated_at?: string
           user_id?: string
+          uses_own_credentials?: boolean | null
         }
         Relationships: []
       }
