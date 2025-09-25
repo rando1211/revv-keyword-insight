@@ -156,8 +156,9 @@ export const CampaignSelection = ({ account, onBack }: CampaignSelectionProps) =
     }
   };
 
-  const formatCurrency = (micros: number) => {
-    return `$${(micros / 1000000).toFixed(2)}`;
+  const formatCurrency = (cost: number) => {
+    // Cost is already in dollars from the API, not micros
+    return `$${cost.toFixed(2)}`;
   };
 
   if (loading) {
