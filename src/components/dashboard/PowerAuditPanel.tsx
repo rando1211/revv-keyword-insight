@@ -1102,7 +1102,11 @@ const SearchTermsTab = ({
                 cost: term.cost || 0,
                 conversions: term.conversions || 0,
                 reason: term.waste_reason || term.reason || 'Identified as wasteful spend',
-                impact: term.severity === 'high' ? 'high' : term.severity === 'medium' ? 'medium' : 'low'
+                impact: term.severity === 'high' ? 'high' : term.severity === 'medium' ? 'medium' : 'low',
+                campaignName: term.campaign_name || 'Unknown Campaign',
+                adGroupName: term.ad_group_name || 'Unknown Ad Group',
+                campaignId: term.campaign_id || '',
+                adGroupId: term.ad_group_id || ''
               }))}
               customerId={selectedAccount?.customerId || ''}
               onConfirm={handleNegativeKeywordConfirm}

@@ -191,6 +191,7 @@ serve(async (req) => {
         search_term_view.search_term,
         campaign.id,
         campaign.name,
+        ad_group.id,
         ad_group.name,
         metrics.clicks,
         metrics.impressions,
@@ -1045,6 +1046,7 @@ function analyzeSearchTermsStrategically(searchTerms: any[], campaigns: any[]) {
     
     const searchTerm = term.searchTermView.searchTerm;
     const campaignName = term.campaign.name;
+    const adGroupName = term.adGroup?.name || 'Unknown Ad Group';
     
     // More comprehensive wasteful term detection
     let isWasteful = false;
@@ -1096,6 +1098,8 @@ function analyzeSearchTermsStrategically(searchTerms: any[], campaigns: any[]) {
         search_term: searchTerm,
         campaign_name: campaignName,
         campaign_id: term.campaign.id,
+        ad_group_name: term.adGroup?.name || 'Unknown Ad Group',
+        ad_group_id: term.adGroup?.id || '',
         cost,
         clicks,
         conversions,
@@ -1116,6 +1120,9 @@ function analyzeSearchTermsStrategically(searchTerms: any[], campaigns: any[]) {
       highPerformingTerms.push({
         search_term: searchTerm,
         campaign_name: campaignName,
+        campaign_id: term.campaign.id,
+        ad_group_name: term.adGroup?.name || 'Unknown Ad Group',
+        ad_group_id: term.adGroup?.id || '',
         cost,
         conversions,
         ctr: (ctr * 100).toFixed(2) + '%',
