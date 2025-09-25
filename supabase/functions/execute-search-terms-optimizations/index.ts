@@ -250,11 +250,48 @@ serve(async (req) => {
 
           if (negativeResponse.ok) {
             const result = await negativeResponse.json();
+
+            // Verify the negative keyword exists (read-after-write)
+            const verifyQuery = `
+              SELECT
+                campaign_criterion.criterion_id,
+                campaign_criterion.negative,
+                keyword.text,
+                keyword.match_type
+              FROM campaign_criterion
+              WHERE campaign.id = ${campaignIdUsed}
+                AND campaign_criterion.negative = true
+                AND campaign_criterion.type = 'KEYWORD'
+                AND keyword.text = '${action.searchTerm.replace(/'/g, "\\'")}'
+              LIMIT 1
+            `;
+
+            const verifyResp = await fetch(campaignsApiUrl, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${access_token}`,
+                'developer-token': developerToken,
+                'login-customer-id': loginCustomerId,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({ query: verifyQuery })
+            });
+
+            let verified = false;
+            if (verifyResp.ok) {
+              const verifyData = await verifyResp.json();
+              verified = (verifyData.results || []).length > 0;
+              console.log(`🔎 Verification ${verified ? 'passed' : 'failed'} for negative: "${action.searchTerm}"`);
+            } else {
+              console.warn(`⚠️ Verification query failed (${verifyResp.status}) for "${action.searchTerm}"`);
+            }
+
             results.push({
               action,
               success: true,
               result: result.results?.[0]?.resourceName || 'Negative keyword added',
-              message: `Successfully added "${action.searchTerm}" as negative keyword to campaign ${campaignIdUsed}`
+              message: `Successfully added "${action.searchTerm}" as negative keyword to campaign ${campaignIdUsed}`,
+              verified
             });
             successCount++;
             console.log(`✅ Successfully added negative keyword: ${action.searchTerm}`);
