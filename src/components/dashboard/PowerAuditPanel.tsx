@@ -15,6 +15,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { BudgetAnalysisTab, AIInsightsTab } from './PowerAuditPanelExtended';
 import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 import NegativeKeywordReview from './NegativeKeywordReview';
+import ScalingKeywordReview from './ScalingKeywordReview';
 
 interface PowerAuditPanelProps {
   selectedAccount: GoogleAdsAccount | null;
@@ -504,6 +505,8 @@ const SearchTermsTab = ({
   const [executionResults, setExecutionResults] = useState<Record<string, any>>({});
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [showNegativeReview, setShowNegativeReview] = useState(false);
+  const [showScalingReview, setShowScalingReview] = useState(false);
+  const [scalingKeywords, setScalingKeywords] = useState<any[]>([]);
   const [pendingOptimization, setPendingOptimization] = useState<{
     type: string;
     terms: any[];
@@ -824,7 +827,25 @@ const SearchTermsTab = ({
                       variant="default" 
                       size="sm"
                       disabled={isExecuting.scaling || !selectedAccount}
-                      onClick={() => handleOptimizationRequest('scaling', highPerformingTerms)}
+                      onClick={() => {
+                        const keywords = highPerformingTerms.map((term: any) => ({
+                          searchTerm: term.search_term || term.searchTerm || term.term,
+                          campaignName: term.campaign_name || 'Auto-selected based on performance',
+                          adGroupName: term.ad_group_name || 'Best performing ad group',
+                          campaignId: term.campaign_id || '',
+                          adGroupId: term.ad_group_id || '',
+                          impressions: term.impressions,
+                          clicks: term.clicks,
+                          cost: term.cost,
+                          conversions: term.conversions,
+                          conversionRate: term.ctr || term.conversion_rate || 0,
+                          reason: term.reason || 'High-performing search term identified for scaling',
+                          impact: (term.conversions || 0) > 5 ? 'high' : (term.conversions || 0) > 2 ? 'medium' : 'low',
+                          potentialTrafficIncrease: '+300% potential'
+                        }));
+                        setScalingKeywords(keywords);
+                        setShowScalingReview(true);
+                      }}
                       className="bg-green-600 hover:bg-green-700"
                     >
                       {isExecuting.scaling ? (
@@ -1111,6 +1132,56 @@ const SearchTermsTab = ({
               customerId={selectedAccount?.customerId || ''}
               onConfirm={handleNegativeKeywordConfirm}
               onCancel={() => setShowNegativeReview(false)}
+            />
+          </div>
+        </div>
+      )}
+      {/* Scaling Keyword Review Dialog */}
+      {showScalingReview && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+            <ScalingKeywordReview
+              keywords={scalingKeywords}
+              customerId={selectedAccount?.customerId || ''}
+              onConfirm={async (selectedKeywords) => {
+                try {
+                  const actions = selectedKeywords.map((k: any) => ({
+                    id: `scaling_${Date.now()}_${Math.random()}`,
+                    type: (k.matchType || 'EXACT').toLowerCase() + '_match',
+                    searchTerm: k.searchTerm,
+                    reason: k.reason || 'scaling search term optimization',
+                    campaignId: k.campaignId || '',
+                    adGroupId: k.adGroupId || ''
+                  }));
+
+                  const { data, error } = await supabase.functions.invoke('execute-search-terms-optimizations', {
+                    body: {
+                      customerId: selectedAccount.customerId,
+                      pendingActions: actions
+                    }
+                  });
+
+                  if (error) throw error;
+
+                  toast({
+                    title: "Keywords Scaled Successfully",
+                    description: `${data.summary.successCount}/${data.summary.totalActions} keywords added for scaling`,
+                  });
+                } catch (err: any) {
+                  toast({
+                    title: "Scaling Failed",
+                    description: err?.message || "Some keywords could not be scaled.",
+                    variant: "destructive",
+                  });
+                } finally {
+                  setShowScalingReview(false);
+                  setScalingKeywords([]);
+                }
+              }}
+              onCancel={() => {
+                setShowScalingReview(false);
+                setScalingKeywords([]);
+              }}
             />
           </div>
         </div>
