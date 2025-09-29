@@ -207,19 +207,29 @@ serve(async (req) => {
       LIMIT 100
     `;
 
-    // Keywords query for match type analysis - more flexible
+    // Keywords query for match type analysis
     const keywordsQuery = `
       SELECT
-        campaign.id, campaign.name, ad_group.id as ad_group_id,
-        ad_group_criterion.keyword.text, ad_group_criterion.keyword.match_type,
+        campaign.id,
+        campaign.name,
+        ad_group.id,
+        ad_group.name,
+        ad_group_criterion.criterion_id,
+        ad_group_criterion.keyword.text,
+        ad_group_criterion.keyword.match_type,
         ad_group_criterion.quality_info.quality_score,
-        metrics.impressions, metrics.clicks, metrics.cost_micros,
-        metrics.conversions, metrics.conversions_value,
-        segments.date
-      FROM keyword_view
+        ad_group_criterion.status,
+        metrics.impressions,
+        metrics.clicks,
+        metrics.cost_micros,
+        metrics.conversions,
+        metrics.conversions_value
+      FROM ad_group_criterion
       WHERE campaign.status = 'ENABLED'
+        AND ad_group.status = 'ENABLED'
         AND ad_group_criterion.status = 'ENABLED'
-        AND segments.date BETWEEN '${windows.current.start}' AND '${windows.current.end}'
+        AND ad_group_criterion.type = 'KEYWORD'
+        AND segments.date DURING LAST_30_DAYS
       ORDER BY metrics.cost_micros DESC
       LIMIT 500
     `;
