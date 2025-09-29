@@ -327,6 +327,10 @@ serve(async (req) => {
       }
     }
 
+    // Debug: log sample structures
+    console.log('🔍 Sample QS row:', JSON.stringify(qsRows[0], null, 2));
+    console.log('🔍 Sample metrics row:', JSON.stringify(metricsRows[0], null, 2));
+
     // Merge QS with metrics using a robust composite key
     const makeKey = (row: any) => {
       const cId = row?.campaign?.id || row?.campaign?.resourceName?.split('/').pop();
@@ -339,12 +343,16 @@ serve(async (req) => {
     const qsByKey = new Map<string, any>();
     for (const r of qsRows) {
       const k = makeKey(r);
-      if (k) qsByKey.set(k, r);
+      if (k) {
+        qsByKey.set(k, r);
+        console.log('🔑 QS key:', k, 'has QS:', r?.adGroupCriterion?.qualityInfo?.qualityScore || r?.ad_group_criterion?.quality_info?.quality_score);
+      }
     }
 
     let keywordsResults = metricsRows.map((r: any) => {
       const k = makeKey(r);
       const qs = qsByKey.get(k);
+      console.log('🔑 Metrics key:', k, 'found QS:', !!qs);
       if (qs?.adGroupCriterion?.qualityInfo?.qualityScore) {
         r.adGroupCriterion = r.adGroupCriterion || {};
         r.adGroupCriterion.qualityInfo = { qualityScore: qs.adGroupCriterion.qualityInfo.qualityScore };
