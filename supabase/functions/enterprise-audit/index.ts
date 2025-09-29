@@ -213,19 +213,26 @@ serve(async (req) => {
       SELECT
         campaign.id,
         campaign.name,
+        campaign.advertising_channel_type,
         ad_group.id,
         ad_group.name,
         ad_group_criterion.criterion_id,
         ad_group_criterion.keyword.text,
         ad_group_criterion.keyword.match_type,
         ad_group_criterion.quality_info.quality_score,
-        ad_group_criterion.status
+        ad_group_criterion.quality_info.search_predicted_ctr,
+        ad_group_criterion.quality_info.creative_quality_score,
+        ad_group_criterion.quality_info.post_click_quality_score,
+        ad_group_criterion.status,
+        ad_group_criterion.negative
       FROM ad_group_criterion
       WHERE campaign.status IN (ENABLED, PAUSED)
+        AND campaign.advertising_channel_type = SEARCH
         AND ad_group.status IN (ENABLED, PAUSED)
         AND ad_group_criterion.status IN (ENABLED, PAUSED)
         AND ad_group_criterion.type = KEYWORD
-      LIMIT 1000
+        AND ad_group_criterion.negative = FALSE
+      LIMIT 2000
     `;
 
     const keywordsMetricsQuery = `
@@ -313,9 +320,15 @@ serve(async (req) => {
 
     // Count how many QS rows actually include a score
     const qsPresent = qsRows.filter((r: any) =>
-      (r?.adGroupCriterion?.qualityInfo?.qualityScore ?? r?.ad_group_criterion?.quality_info?.quality_score) !== undefined
+      (r?.adGroupCriterion?.qualityInfo?.qualityScore ?? r?.ad_group_criterion?.quality_info?.quality_score) != null
     ).length;
-    console.log('📈 QS rows with quality score value:', qsPresent, '/', qsRows.length);
+    const bucketPresent = qsRows.filter((r: any) => {
+      const qi = r?.adGroupCriterion?.qualityInfo;
+      const qis = r?.ad_group_criterion?.quality_info;
+      return Boolean(qi?.searchPredictedCtr || qi?.creativeQualityScore || qi?.postClickQualityScore ||
+        qis?.search_predicted_ctr || qis?.creative_quality_score || qis?.post_click_quality_score);
+    }).length;
+    console.log('📈 QS rows with quality score value:', qsPresent, '/', qsRows.length, ' | with bucket fields:', bucketPresent);
 
     if (!keywordsQSResponse.ok) {
       try {
@@ -360,14 +373,27 @@ serve(async (req) => {
       const k = makeKey(r);
       const qs = qsByKey.get(k);
       console.log('🔑 Metrics key:', k, 'found QS:', !!qs);
-      if (qs?.adGroupCriterion?.qualityInfo?.qualityScore) {
+      const qiCamel = qs?.adGroupCriterion?.qualityInfo;
+      const qiSnake = qs?.ad_group_criterion?.quality_info;
+      const numericQS = qiCamel?.qualityScore ?? qiSnake?.quality_score;
+      if (numericQS != null) {
         r.adGroupCriterion = r.adGroupCriterion || {};
-        r.adGroupCriterion.qualityInfo = { qualityScore: qs.adGroupCriterion.qualityInfo.qualityScore };
-        r.qualityScore = Number(qs.adGroupCriterion.qualityInfo.qualityScore);
-      } else if (qs?.ad_group_criterion?.quality_info?.quality_score) {
-        r.adGroupCriterion = r.adGroupCriterion || {};
-        r.adGroupCriterion.qualityInfo = { qualityScore: qs.ad_group_criterion.quality_info.quality_score };
-        r.qualityScore = Number(qs.ad_group_criterion.quality_info.quality_score);
+        r.adGroupCriterion.qualityInfo = { qualityScore: numericQS };
+        r.qualityScore = Number(numericQS);
+      } else {
+        const mapBucket = (b?: string) => b === 'ABOVE_AVERAGE' ? 10 : b === 'AVERAGE' ? 7 : b === 'BELOW_AVERAGE' ? 3 : 0;
+        const buckets = [
+          qiCamel?.searchPredictedCtr ?? qiSnake?.search_predicted_ctr,
+          qiCamel?.creativeQualityScore ?? qiSnake?.creative_quality_score,
+          qiCamel?.postClickQualityScore ?? qiSnake?.post_click_quality_score,
+        ].map(mapBucket).filter((n) => n > 0);
+        if (buckets.length) {
+          const bucketsNum: number[] = (buckets as number[]);
+          const avg = Math.round(bucketsNum.reduce((a: number, b: number) => a + b, 0) / bucketsNum.length);
+          r.adGroupCriterion = r.adGroupCriterion || {};
+          r.adGroupCriterion.qualityInfo = { qualityScore: avg };
+          r.qualityScore = avg;
+        }
       }
       return r;
     });
