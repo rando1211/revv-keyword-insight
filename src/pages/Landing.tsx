@@ -141,7 +141,7 @@ const Landing = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 relative overflow-hidden">
       {/* Animated Background Elements */}
-      <div className="absolute inset-0 overflow-hidden">
+      <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
         <div className="absolute -top-40 -right-40 w-80 h-80 bg-primary/20 rounded-full blur-3xl animate-pulse"></div>
         <div className="absolute top-40 -left-40 w-60 h-60 bg-accent/15 rounded-full blur-3xl animate-pulse delay-1000"></div>
         <div className="absolute bottom-40 right-1/3 w-40 h-40 bg-primary/10 rounded-full blur-2xl animate-pulse delay-2000"></div>
