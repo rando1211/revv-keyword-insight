@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { 
   TrendingUp, 
   TrendingDown, 
@@ -13,7 +14,8 @@ import {
   Users,
   Zap,
   Target,
-  DollarSign
+  DollarSign,
+  Circle
 } from 'lucide-react';
 
 // Budget Analysis Tab Component
