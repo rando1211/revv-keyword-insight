@@ -17,106 +17,19 @@ import {
 } from 'lucide-react';
 
 // Budget Analysis Tab Component
+// TODO: Budget analysis temporarily disabled - backend logic is preserved in enterprise-audit edge function
+// To restore: Fix campaign_budget.amount_micros parsing and uncomment the full budget analysis UI below
 export const BudgetAnalysisTab = ({ budgetAnalysis, campaigns }: { budgetAnalysis: any, campaigns: any[] }) => {
   return (
-    <div className="space-y-6">
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Budget Limited</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-orange-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-orange-500">
-              {Math.round(budgetAnalysis?.budget_limited_percentage || 0)}%
-            </div>
-            <p className="text-xs text-muted-foreground">
-              of campaigns are budget constrained
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Underutilized</CardTitle>
-            <Clock className="h-4 w-4 text-blue-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-blue-500">
-              {budgetAnalysis?.underutilized_campaigns || 0}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              campaigns using &lt;50% of budget
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Average Utilization</CardTitle>
-            <Target className="h-4 w-4 text-green-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-500">
-              {Math.round((budgetAnalysis?.average_utilization || 0) * 100)}%
-            </div>
-            <p className="text-xs text-muted-foreground">
-              overall budget utilization
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Budget Pacing by Campaign */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Campaign Budget Analysis</CardTitle>
-          <CardDescription>
-            Budget utilization and pacing insights by campaign
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            {campaigns?.slice(0, 10).map((campaign: any, index: number) => {
-              const currentSpend = campaign.current_spend || 0;
-              
-              return (
-                <div key={index} className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium truncate flex-1">
-                      {campaign.name}
-                    </span>
-                    <div className="flex items-center space-x-2">
-                      <span className="text-sm text-muted-foreground">
-                        ${currentSpend?.toFixed(2)} spent
-                      </span>
-                      <Badge variant={
-                        campaign.performance_trend === 'improving' ? "default" : 
-                        campaign.performance_trend === 'declining' ? "destructive" : 
-                        "secondary"
-                      }>
-                        {campaign.performance_trend === 'improving' ? '↑ Improving' : 
-                         campaign.performance_trend === 'declining' ? '↓ Declining' : 
-                         '→ Stable'}
-                      </Badge>
-                    </div>
-                  </div>
-                  {campaign.budget_limited && (
-                    <p className="text-xs text-orange-600 flex items-center gap-1">
-                      <AlertTriangle className="h-3 w-3" />
-                      Budget limited - Lost impression share: {campaign.metrics?.budget_lost_impression_share?.toFixed(1)}%
-                    </p>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-          
-          {/* TODO: Budget comparison temporarily disabled - can be restored by uncommenting 
-              and fixing the campaign_budget.amount_micros parsing in enterprise-audit edge function */}
-        </CardContent>
-      </Card>
-    </div>
+    <Card>
+      <CardContent className="text-center py-8">
+        <DollarSign className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+        <h3 className="text-lg font-medium text-muted-foreground">Budget Analysis Coming Soon</h3>
+        <p className="text-muted-foreground">
+          Budget pacing and utilization insights are temporarily disabled while we refine the data collection.
+        </p>
+      </CardContent>
+    </Card>
   );
 };
 
