@@ -225,10 +225,10 @@ serve(async (req) => {
         metrics.conversions,
         metrics.conversions_value
       FROM ad_group_criterion
-      WHERE campaign.status = 'ENABLED'
-        AND ad_group.status = 'ENABLED'
-        AND ad_group_criterion.status = 'ENABLED'
-        AND ad_group_criterion.type = 'KEYWORD'
+      WHERE campaign.status IN (ENABLED, PAUSED)
+        AND ad_group.status IN (ENABLED, PAUSED)
+        AND ad_group_criterion.status IN (ENABLED, PAUSED)
+        AND ad_group_criterion.type = KEYWORD
         AND segments.date DURING LAST_30_DAYS
       ORDER BY metrics.cost_micros DESC
       LIMIT 500
