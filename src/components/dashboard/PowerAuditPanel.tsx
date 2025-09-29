@@ -1132,6 +1132,11 @@ const KeywordsTab = ({ keywordAnalysis, bidStrategyAnalysis }: { keywordAnalysis
           <CardTitle>Quality Score Issues</CardTitle>
         </CardHeader>
         <CardContent>
+          {keywordAnalysis.quality_score_issues?.some((i: any) => i.quality_score === 'N/A') && (
+            <div className="mb-3 text-xs text-muted-foreground">
+              Google Ads didn’t return Quality Score for some keywords. We’re flagging likely QS issues based on low CTR + spend.
+            </div>
+          )}
           <div className="space-y-2">
             {keywordAnalysis.quality_score_issues?.slice(0, 10).map((issue: any, index: number) => (
               <div key={index} className="flex justify-between items-center p-2 bg-orange-50 rounded">
@@ -1140,7 +1145,11 @@ const KeywordsTab = ({ keywordAnalysis, bidStrategyAnalysis }: { keywordAnalysis
                   <div className="text-sm text-muted-foreground">{issue.campaign_name}</div>
                 </div>
                 <div className="text-right">
-                  <Badge variant="destructive">QS: {issue.quality_score}</Badge>
+                  {issue.quality_score === 'N/A' ? (
+                    <Badge variant="secondary">QS unavailable</Badge>
+                  ) : (
+                    <Badge variant="destructive">QS: {issue.quality_score}</Badge>
+                  )}
                   <div className="text-xs text-muted-foreground">${issue.cost?.toFixed(2)} cost</div>
                 </div>
               </div>

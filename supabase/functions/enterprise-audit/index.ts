@@ -1436,9 +1436,9 @@ function analyzeKeywordStrategy(keywords: any[], campaigns: any[]) {
   console.log('⚠️ Keywords with low QS (<= 6):', keywordsWithLowQS);
   console.log('📊 Quality score issues found:', qualityScoreIssues.length);
 
-  // Heuristic fallback if API does not return quality scores
-  if (qualityScoreIssues.length === 0) {
-    console.log('🛟 No QS issues detected from API. Falling back to heuristic detection.');
+  // Heuristic fallback only if API returned no QS at all
+  if (keywordsWithQS === 0 && qualityScoreIssues.length === 0) {
+    console.log('🛟 No QS data available from API. Falling back to heuristic detection.');
     const heuristicIssues: any[] = [];
     for (const kw of keywords) {
       const cost = parseFloat(kw.metrics.costMicros || '0') / 1000000;
