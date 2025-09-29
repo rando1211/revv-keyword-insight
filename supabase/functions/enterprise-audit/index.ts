@@ -282,8 +282,66 @@ serve(async (req) => {
       keywordsResponse.ok ? keywordsResponse.json() : { results: [] }
     ]);
 
+    // Log and build resilient keyword results with a fallback query when needed
     console.log('📊 Search terms data count:', searchTermsData.results?.length || 0);
-    console.log('📊 Keywords data count:', keywordsData.results?.length || 0);
+    let keywordsResults = keywordsData.results || [];
+    if (!keywordsResponse.ok) {
+      try {
+        const kwErr = await keywordsResponse.text();
+        console.log('❌ Keywords API Error:', kwErr);
+      } catch (_) {
+        console.log('❌ Keywords API Error: <no body>');
+      }
+    }
+    console.log('📊 Keywords data count:', keywordsResults.length);
+
+    // If no keywords returned, try a simpler fallback using keyword_view
+    if (keywordsResults.length === 0) {
+      const fallbackKeywordsQuery = `
+        SELECT
+          campaign.id,
+          campaign.name,
+          ad_group.id,
+          ad_group.name,
+          ad_group_criterion.criterion_id,
+          ad_group_criterion.keyword.text,
+          ad_group_criterion.keyword.match_type,
+          ad_group_criterion.status,
+          metrics.impressions,
+          metrics.clicks,
+          metrics.cost_micros,
+          metrics.conversions,
+          metrics.conversions_value
+        FROM keyword_view
+        WHERE segments.date DURING LAST_30_DAYS
+          AND campaign.status IN (ENABLED, PAUSED)
+          AND ad_group.status IN (ENABLED, PAUSED)
+          AND metrics.impressions > 0
+        ORDER BY metrics.cost_micros DESC
+        LIMIT 500
+      `;
+
+      const fallbackRes = await fetch(apiUrl, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ query: fallbackKeywordsQuery })
+      });
+      console.log('🛟 Fallback keywords status:', fallbackRes.status);
+      if (fallbackRes.ok) {
+        const fbJson = await fallbackRes.json();
+        console.log('🛟 Fallback keywords count:', fbJson.results?.length || 0);
+        if (fbJson.results?.length) {
+          keywordsResults = fbJson.results;
+        }
+      } else {
+        try {
+          const fbErr = await fallbackRes.text();
+          console.log('❌ Fallback keywords error:', fbErr);
+        } catch (_) {
+          console.log('❌ Fallback keywords error: <no body>');
+        }
+      }
+    }
 
     // Enhanced ads and assets queries
     const adsQuery = `
@@ -333,7 +391,7 @@ serve(async (req) => {
     // Add detailed debugging for campaign data
     console.log('📊 Campaign data sample:', campaignData.results?.[0] || 'No campaigns');
     console.log('📊 Search terms sample:', searchTermsData.results?.[0] || 'No search terms');
-    console.log('📊 Keywords sample:', keywordsData.results?.[0] || 'No keywords');
+    console.log('📊 Keywords sample:', keywordsResults?.[0] || 'No keywords');
 
     // Process comprehensive strategic analysis
     console.log('🔄 Processing enterprise strategic analysis...');
@@ -343,7 +401,7 @@ serve(async (req) => {
       adsData.results || [],
       assetsData.results || [],
       searchTermsData.results || [],
-      keywordsData.results || [],
+      keywordsResults || [],
       windows,
       openaiApiKey
     );
