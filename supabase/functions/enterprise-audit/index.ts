@@ -1311,11 +1311,25 @@ function analyzeKeywordStrategy(keywords: any[], campaigns: any[]) {
   const qualityScoreIssues: any[] = [];
   const opportunities: any[] = [];
   
+  console.log('🔍 Analyzing', keywords.length, 'keywords for quality scores...');
+  let keywordsWithQS = 0;
+  let keywordsWithLowQS = 0;
+  
   keywords.forEach(kw => {
     const cost = parseFloat(kw.metrics.costMicros || '0') / 1000000;
     const conversions = parseFloat(kw.metrics.conversions || '0');
-    const matchType = kw.adGroupCriterion.keyword.matchType.toLowerCase();
-    const qualityScore = parseInt(kw.adGroupCriterion.qualityInfo?.qualityScore || '0');
+    const matchType = kw.adGroupCriterion?.keyword?.matchType?.toLowerCase() || 
+                      kw.keywordView?.resource?.matchType?.toLowerCase() || 'unknown';
+    
+    // Try multiple paths for quality score
+    let qualityScore = 0;
+    if (kw.adGroupCriterion?.qualityInfo?.qualityScore) {
+      qualityScore = parseInt(kw.adGroupCriterion.qualityInfo.qualityScore);
+    } else if (kw.adGroupCriterion?.quality_info?.quality_score) {
+      qualityScore = parseInt(kw.adGroupCriterion.quality_info.quality_score);
+    }
+    
+    if (qualityScore > 0) keywordsWithQS++;
     
     // Use keyword's campaign info directly; do not depend on campaign list
     const campaign = kw.campaign;
@@ -1327,28 +1341,37 @@ function analyzeKeywordStrategy(keywords: any[], campaigns: any[]) {
       (matchTypeAnalysis as any)[matchType].conversions += conversions;
     }
     
-    // Identify quality score issues
-    if (qualityScore > 0 && qualityScore < 5 && cost > 20) {
+    // Identify quality score issues - RELAXED CRITERIA
+    if (qualityScore > 0 && qualityScore <= 6 && cost > 10) {
+      keywordsWithLowQS++;
       qualityScoreIssues.push({
-        keyword: kw.adGroupCriterion.keyword.text,
-        campaign_name: kw.campaign.name,
+        keyword: kw.adGroupCriterion?.keyword?.text || 'Unknown',
+        campaign_name: kw.campaign?.name || 'Unknown Campaign',
         quality_score: qualityScore,
         cost,
-        recommendation: 'Improve ad relevance and landing page'
+        recommendation: qualityScore < 4 
+          ? 'Critical: Improve ad relevance and landing page immediately'
+          : qualityScore < 6
+          ? 'Improve ad copy relevance or landing page experience'
+          : 'Monitor and optimize for better QS'
       });
     }
     
     // Identify scaling opportunities
     if (conversions > 0 && cost > 50 && matchType === 'exact') {
       opportunities.push({
-        keyword: kw.adGroupCriterion.keyword.text,
-        campaign_name: kw.campaign.name,
+        keyword: kw.adGroupCriterion?.keyword?.text || 'Unknown',
+        campaign_name: kw.campaign?.name || 'Unknown Campaign',
         conversions,
         cost,
         opportunity: 'Scale with phrase match variant'
       });
     }
   });
+  
+  console.log('✅ Keywords with quality scores:', keywordsWithQS, '/', keywords.length);
+  console.log('⚠️ Keywords with low QS (<= 6):', keywordsWithLowQS);
+  console.log('📊 Quality score issues found:', qualityScoreIssues.length);
   
   return {
     match_type_analysis: matchTypeAnalysis,
