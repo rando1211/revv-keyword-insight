@@ -8,11 +8,16 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Loader2, CheckCircle, TrendingUp, AlertTriangle, Download, Share2 } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export default function AuditReport() {
   const { token } = useParams<{ token: string }>();
   const [auditData, setAuditData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [needsAccountSelection, setNeedsAccountSelection] = useState(false);
+  const [googleAdsAccounts, setGoogleAdsAccounts] = useState<any[]>([]);
+  const [selectedAccount, setSelectedAccount] = useState<string>('');
+  const [isLoadingAccounts, setIsLoadingAccounts] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -52,7 +57,15 @@ export default function AuditReport() {
 
       setAuditData(data);
 
-      // If status is pending, we might need to generate the report
+      // If status is pending and no customer_id, need to fetch accounts
+      if (data.status === 'pending' && !data.customer_id) {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          await fetchGoogleAdsAccounts();
+        }
+      }
+      
+      // If status is pending and has customer_id, generate report
       if (data.status === 'pending' && data.customer_id) {
         await generateAuditReport(data.id, data.customer_id);
       }
@@ -65,6 +78,73 @@ export default function AuditReport() {
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const fetchGoogleAdsAccounts = async () => {
+    setIsLoadingAccounts(true);
+    setNeedsAccountSelection(true);
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('fetch-google-ads-accounts');
+      
+      if (error) throw error;
+      
+      if (data?.accounts && data.accounts.length > 0) {
+        setGoogleAdsAccounts(data.accounts);
+        
+        // Auto-select if only one account
+        if (data.accounts.length === 1) {
+          const accountId = data.accounts[0].id;
+          setSelectedAccount(accountId);
+          await handleAccountSelected(accountId);
+        }
+      } else {
+        toast({
+          title: "No Accounts Found",
+          description: "We couldn't find any Google Ads accounts linked to your Google account",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching Google Ads accounts:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch your Google Ads accounts",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoadingAccounts(false);
+    }
+  };
+
+  const handleAccountSelected = async (customerId: string) => {
+    if (!auditData) return;
+    
+    try {
+      // Update the audit lead with the selected customer ID
+      const { error } = await supabase
+        .from('audit_leads')
+        .update({ 
+          customer_id: customerId,
+          account_name: googleAdsAccounts.find(acc => acc.id === customerId)?.name || customerId
+        })
+        .eq('id', auditData.id);
+
+      if (error) throw error;
+
+      setNeedsAccountSelection(false);
+      
+      // Now generate the audit
+      await generateAuditReport(auditData.id, customerId);
+      
+    } catch (error) {
+      console.error('Error updating account selection:', error);
+      toast({
+        title: "Error",
+        description: "Failed to select account",
+        variant: "destructive",
+      });
     }
   };
 
@@ -112,6 +192,59 @@ export default function AuditReport() {
             <Loader2 className="h-12 w-12 animate-spin mx-auto text-primary" />
             <p className="text-muted-foreground">Loading your audit report...</p>
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Account selection UI
+  if (needsAccountSelection) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <div className="container mx-auto px-4 py-12">
+          <Card className="max-w-2xl mx-auto">
+            <CardHeader>
+              <CardTitle>Select Your Google Ads Account</CardTitle>
+              <CardDescription>
+                Choose the account you'd like to audit
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {isLoadingAccounts ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                </div>
+              ) : googleAdsAccounts.length > 0 ? (
+                <>
+                  <Select value={selectedAccount} onValueChange={setSelectedAccount}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select an account" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {googleAdsAccounts.map((account) => (
+                        <SelectItem key={account.id} value={account.id}>
+                          {account.name} ({account.id})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  
+                  <Button 
+                    onClick={() => handleAccountSelected(selectedAccount)}
+                    disabled={!selectedAccount}
+                    className="w-full"
+                  >
+                    Generate Free Audit
+                  </Button>
+                </>
+              ) : (
+                <p className="text-center text-muted-foreground">
+                  No Google Ads accounts found
+                </p>
+              )}
+            </CardContent>
+          </Card>
         </div>
       </div>
     );
