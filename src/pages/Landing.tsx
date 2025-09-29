@@ -138,6 +138,15 @@ const Landing = () => {
       }, steps.slice(0, index).reduce((acc, s) => acc + s.duration, 0));
     });
   };
+
+  // Redirect back to report if OAuth callback drops us here
+  useEffect(() => {
+    const pending = localStorage.getItem('pending_audit_token');
+    if (pending) {
+      localStorage.removeItem('pending_audit_token');
+      navigate(`/audit-report/${pending}`);
+    }
+  }, [navigate]);
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 relative overflow-hidden">
       {/* Animated Background Elements */}
