@@ -110,9 +110,8 @@ export const PowerAuditPanel = ({ selectedAccount }: PowerAuditPanelProps) => {
 
         {auditResults && (
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-8">
+            <TabsList className="grid w-full grid-cols-7">
               <TabsTrigger value="health">Health Score</TabsTrigger>
-              <TabsTrigger value="performance">Performance Map</TabsTrigger>
               <TabsTrigger value="campaigns">Campaigns</TabsTrigger>
               <TabsTrigger value="search-terms">Search Terms</TabsTrigger>
               <TabsTrigger value="keywords">Keywords</TabsTrigger>
@@ -123,10 +122,6 @@ export const PowerAuditPanel = ({ selectedAccount }: PowerAuditPanelProps) => {
 
             <TabsContent value="health" className="space-y-4">
               <HealthScoreTab results={auditResults} />
-            </TabsContent>
-
-            <TabsContent value="performance" className="space-y-4">
-              <PerformanceMapTab performanceMap={auditResults.performance_map} />
             </TabsContent>
 
             <TabsContent value="campaigns" className="space-y-4">
@@ -308,111 +303,6 @@ const HealthScoreTab = ({ results }: { results: any }) => {
   );
 };
 
-// Performance Map Tab Component
-const PerformanceMapTab = ({ performanceMap }: { performanceMap: any[] }) => {
-  const getQuadrantColor = (quadrant: string) => {
-    switch (quadrant) {
-      case 'up_efficient': return '#10b981'; // green
-      case 'up_expensive': return '#f59e0b'; // amber
-      case 'down_cheap': return '#6366f1'; // indigo
-      case 'down_expensive': return '#ef4444'; // red
-      default: return '#6b7280'; // gray
-    }
-  };
-
-  return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <BarChart3 className="h-5 w-5" />
-            <span>Campaign Performance Map</span>
-          </CardTitle>
-          <CardDescription>
-            Visualize conversion changes vs efficiency changes. Bubble size = spend.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="h-96">
-            <ResponsiveContainer width="100%" height="100%">
-              <ScatterChart data={performanceMap?.map(entry => ({
-                ...entry,
-                // Make bubbles much bigger by scaling spend
-                spend: Math.max(500, entry.spend * 50) // Scale up significantly for visibility
-              }))}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis 
-                  type="number" 
-                  dataKey="conversion_change_pct" 
-                  name="Conversion Change %" 
-                  axisLine={false}
-                  tickLine={false}
-                />
-                <YAxis 
-                  type="number" 
-                  dataKey="cpa_change_pct" 
-                  name="CPA Change %" 
-                  axisLine={false}
-                  tickLine={false}
-                />
-          <Tooltip 
-            cursor={{ strokeDasharray: '3 3' }}
-            content={({ active, payload }) => {
-              if (active && payload && payload[0]) {
-                const data = payload[0].payload;
-                return (
-                  <div className="bg-background border rounded p-3 shadow-lg">
-                    <p className="font-medium text-lg">{data.name}</p>
-                    <div className="mt-2 space-y-1">
-                      <p className="text-sm">Conversions: {data.conversion_change_pct > 0 ? '+' : ''}{data.conversion_change_pct.toFixed(1)}%</p>
-                      <p className="text-sm">CPA: {data.cpa_change_pct > 0 ? '+' : ''}{data.cpa_change_pct.toFixed(1)}%</p>
-                      <p className="text-sm">Spend: ${data.actual_spend?.toLocaleString() || data.spend.toLocaleString()}</p>
-                      <p className="text-sm">Channel: {data.channel}</p>
-                      <p className="text-sm">Conversions: {data.conversions?.toFixed(1) || 'N/A'}</p>
-                      <p className="text-sm">CPA: ${data.cpa?.toFixed(2) || 'N/A'}</p>
-                    </div>
-                  </div>
-                );
-              }
-              return null;
-            }}
-          />
-                <Scatter dataKey="spend" fill="#8884d8">
-                  {performanceMap?.map((entry, index) => (
-                    <Cell 
-                      key={`cell-${index}`} 
-                      fill={getQuadrantColor(entry.efficiency_quadrant)}
-                    />
-                  ))}
-                </Scatter>
-              </ScatterChart>
-            </ResponsiveContainer>
-          </div>
-          
-          {/* Legend */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-4">
-            <div className="flex items-center space-x-2">
-              <div className="w-3 h-3 rounded-full bg-green-500"></div>
-              <span className="text-sm">Up & Efficient</span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <div className="w-3 h-3 rounded-full bg-amber-500"></div>
-              <span className="text-sm">Up but Expensive</span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <div className="w-3 h-3 rounded-full bg-indigo-500"></div>
-              <span className="text-sm">Down but Cheap</span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <div className="w-3 h-3 rounded-full bg-red-500"></div>
-              <span className="text-sm">Down & Expensive</span>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  );
-};
 
 // Campaigns Tab Component
 const CampaignsTab = ({ campaigns }: { campaigns: any[] }) => (
