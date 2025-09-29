@@ -78,8 +78,11 @@ export const BudgetAnalysisTab = ({ budgetAnalysis, campaigns }: { budgetAnalysi
         <CardContent>
           <div className="space-y-3">
             {campaigns?.slice(0, 10).map((campaign: any, index: number) => {
-              const utilizationRate = campaign.daily_budget > 0 ? campaign.current_spend / (campaign.daily_budget * 30) : 0;
-              const cappedRate = Math.min(utilizationRate, 1.5); // Allow showing over 100% but cap display
+              // Use pre-calculated values from the audit
+              const utilizationRate = campaign.utilization_rate || 0;
+              const dailyBudget = campaign.daily_budget || 0;
+              const currentSpend = campaign.current_spend || 0;
+              const monthlyBudget = dailyBudget * 30;
               
               return (
                 <div key={index} className="space-y-2">
@@ -89,16 +92,24 @@ export const BudgetAnalysisTab = ({ budgetAnalysis, campaigns }: { budgetAnalysi
                     </span>
                     <div className="flex items-center space-x-2">
                       <span className="text-sm text-muted-foreground">
-                        ${campaign.current_spend?.toLocaleString()} / ${(campaign.daily_budget * 30)?.toLocaleString()}
+                        ${currentSpend?.toFixed(2)} / ${monthlyBudget?.toFixed(2)}
                       </span>
-                      <Badge variant={utilizationRate > 1 ? "destructive" : utilizationRate > 0.9 ? "default" : utilizationRate < 0.5 ? "secondary" : "outline"}>
+                      <Badge variant={
+                        utilizationRate > 1 ? "destructive" : 
+                        utilizationRate > 0.9 ? "default" : 
+                        utilizationRate < 0.5 ? "secondary" : 
+                        "outline"
+                      }>
                         {Math.round(utilizationRate * 100)}%
                       </Badge>
                     </div>
                   </div>
                   <Progress value={Math.min(utilizationRate * 100, 100)} className="h-2" />
                   {campaign.budget_limited && (
-                    <p className="text-xs text-orange-600">⚠️ Budget limited</p>
+                    <p className="text-xs text-orange-600 flex items-center gap-1">
+                      <AlertTriangle className="h-3 w-3" />
+                      Budget limited - Lost impression share: {campaign.metrics?.budget_lost_impression_share?.toFixed(1)}%
+                    </p>
                   )}
                 </div>
               );
