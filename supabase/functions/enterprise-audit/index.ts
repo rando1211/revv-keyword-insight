@@ -80,10 +80,11 @@ serve(async (req) => {
     console.log('📅 Time windows:', windows);
 
     const cleanCustomerId = customerId.replace('customers/', '');
-    const apiUrl = `https://googleads.googleapis.com/v20/customers/${cleanCustomerId}/googleAds:search`;
+    const apiVersion = 'v21';
+    const apiUrl = `https://googleads.googleapis.com/${apiVersion}/customers/${cleanCustomerId}/googleAds:search`;
     
     // Get accessible customers to find correct manager
-    const accessibleCustomersResponse = await fetch('https://googleads.googleapis.com/v20/customers:listAccessibleCustomers', {
+    const accessibleCustomersResponse = await fetch(`https://googleads.googleapis.com/${apiVersion}/customers:listAccessibleCustomers`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${access_token}`,
@@ -115,7 +116,7 @@ serve(async (req) => {
         
         try {
           const clientsRes = await fetch(
-            `https://googleads.googleapis.com/v20/customers/${potentialManagerId}/googleAds:search`,
+            `https://googleads.googleapis.com/${apiVersion}/customers/${potentialManagerId}/googleAds:search`,
             {
               method: "POST",
               headers: {
@@ -309,6 +310,12 @@ serve(async (req) => {
     console.log('📊 Search terms data count:', searchTermsData.results?.length || 0);
     const qsRows = keywordsQSData.results || [];
     const metricsRows = keywordsMetricsData.results || [];
+
+    // Count how many QS rows actually include a score
+    const qsPresent = qsRows.filter((r: any) =>
+      (r?.adGroupCriterion?.qualityInfo?.qualityScore ?? r?.ad_group_criterion?.quality_info?.quality_score) !== undefined
+    ).length;
+    console.log('📈 QS rows with quality score value:', qsPresent, '/', qsRows.length);
 
     if (!keywordsQSResponse.ok) {
       try {
