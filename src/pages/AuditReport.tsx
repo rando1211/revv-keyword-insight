@@ -32,7 +32,7 @@ export default function AuditReport() {
         description: "This audit report link is invalid",
         variant: "destructive",
       });
-      navigate('/');
+      // navigate('/')  // Keep user on page to show error UI
       return;
     }
 
@@ -51,7 +51,7 @@ export default function AuditReport() {
           description: "This audit report doesn't exist",
           variant: "destructive",
         });
-        navigate('/');
+        // navigate('/')  // Keep user on page to show error UI
         return;
       }
 
