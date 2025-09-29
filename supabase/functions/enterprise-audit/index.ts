@@ -356,14 +356,17 @@ serve(async (req) => {
       if (qs?.adGroupCriterion?.qualityInfo?.qualityScore) {
         r.adGroupCriterion = r.adGroupCriterion || {};
         r.adGroupCriterion.qualityInfo = { qualityScore: qs.adGroupCriterion.qualityInfo.qualityScore };
+        r.qualityScore = Number(qs.adGroupCriterion.qualityInfo.qualityScore);
       } else if (qs?.ad_group_criterion?.quality_info?.quality_score) {
         r.adGroupCriterion = r.adGroupCriterion || {};
         r.adGroupCriterion.qualityInfo = { qualityScore: qs.ad_group_criterion.quality_info.quality_score };
+        r.qualityScore = Number(qs.ad_group_criterion.quality_info.quality_score);
       }
       return r;
     });
 
-    console.log('📊 QS rows:', qsRows.length, 'Metrics rows:', metricsRows.length, 'Merged keywords:', keywordsResults.length);
+    const withQS = keywordsResults.filter((k: any) => Number(k.qualityScore) > 0).length;
+    console.log('📊 QS rows:', qsRows.length, 'Metrics rows:', metricsRows.length, 'Merged keywords:', keywordsResults.length, 'withQS:', withQS);
 
 
     // If no keywords returned, try a simpler fallback using keyword_view
@@ -1394,14 +1397,12 @@ function analyzeKeywordStrategy(keywords: any[], campaigns: any[]) {
     
     // Try multiple paths for quality score
     let qualityScore = 0;
-    if (kw.adGroupCriterion?.qualityInfo?.qualityScore) {
-      qualityScore = parseInt(kw.adGroupCriterion.qualityInfo.qualityScore);
-    } else if (kw.adGroupCriterion?.quality_info?.quality_score) {
-      qualityScore = parseInt(kw.adGroupCriterion.quality_info.quality_score);
-    }
-    
+    const directQS = kw.qualityScore;
+    const camelQS = kw.adGroupCriterion?.qualityInfo?.qualityScore;
+    const snakeQS = kw.adGroupCriterion?.quality_info?.quality_score;
+    qualityScore = Number(directQS ?? camelQS ?? snakeQS ?? 0);
+
     if (qualityScore > 0) keywordsWithQS++;
-    
     // Use keyword's campaign info directly; do not depend on campaign list
     const campaign = kw.campaign;
     
