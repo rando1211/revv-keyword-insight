@@ -30,7 +30,7 @@ import {
   Users
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { FreeAuditCTA } from "@/components/landing/FreeAuditCTA";
 
@@ -39,6 +39,7 @@ const Landing = () => {
   const [isRunningDemo, setIsRunningDemo] = useState(false);
   const [activeDemo, setActiveDemo] = useState("performance");
   const [demoData, setDemoData] = useState(generateInitialData());
+  const navigate = useNavigate();
 
   // Mock data generators
   function generateInitialData() {
@@ -138,6 +139,14 @@ const Landing = () => {
     });
   };
 
+  // Redirect back to report if Supabase dropped our deep link
+  useEffect(() => {
+    const pending = localStorage.getItem('pending_audit_token');
+    if (pending) {
+      localStorage.removeItem('pending_audit_token');
+      navigate(`/audit-report/${pending}`);
+    }
+  }, [navigate]);
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 relative overflow-hidden">
       {/* Animated Background Elements */}

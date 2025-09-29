@@ -122,27 +122,15 @@ export default function AuditReport() {
     if (!auditData) return;
     
     try {
-      // Update the audit lead with the selected customer ID
-      const { error } = await supabase
-        .from('audit_leads')
-        .update({ 
-          customer_id: customerId,
-          account_name: googleAdsAccounts.find(acc => acc.id === customerId)?.name || customerId
-        })
-        .eq('id', auditData.id);
-
-      if (error) throw error;
-
       setNeedsAccountSelection(false);
-      
-      // Now generate the audit
+      // Generate the audit (edge function will update DB)
       await generateAuditReport(auditData.id, customerId);
       
     } catch (error) {
-      console.error('Error updating account selection:', error);
+      console.error('Error starting audit:', error);
       toast({
         title: "Error",
-        description: "Failed to select account",
+        description: "Failed to start audit",
         variant: "destructive",
       });
     }
@@ -150,13 +138,7 @@ export default function AuditReport() {
 
   const generateAuditReport = async (leadId: string, customerId: string) => {
     try {
-      // Update status to processing
-      await supabase
-        .from('audit_leads')
-        .update({ status: 'processing' })
-        .eq('id', leadId);
-
-      // Call the free audit edge function
+      // Call the free audit edge function directly; it updates DB with service role
       const { data, error } = await supabase.functions.invoke('generate-free-audit', {
         body: { leadId, customerId }
       });
@@ -167,10 +149,7 @@ export default function AuditReport() {
       await loadAuditReport();
     } catch (error) {
       console.error('Error generating audit:', error);
-      await supabase
-        .from('audit_leads')
-        .update({ status: 'failed' })
-        .eq('id', leadId);
+      // Best-effort: keep UI on processing state without DB update
     }
   };
 
@@ -287,24 +266,24 @@ export default function AuditReport() {
         <Header />
         <div className="container mx-auto px-4 py-12">
           <Card className="max-w-2xl mx-auto">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                Generating Your Audit Report
-              </CardTitle>
-              <CardDescription>
-                Analyzing your Google Ads account... This usually takes 1-2 minutes
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Progress value={45} className="mb-4" />
-              <div className="space-y-2 text-sm text-muted-foreground">
-                <p>✓ Connected to your account</p>
-                <p>✓ Fetching campaign data</p>
-                <p className="text-primary">→ Running AI analysis...</p>
-                <p className="text-muted-foreground/50">○ Generating recommendations</p>
-              </div>
-            </CardContent>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                  Generating Your Audit Report
+                </CardTitle>
+                <CardDescription>
+                  Analyzing your Google Ads account... This usually takes 1-2 minutes
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Progress value={45} className="mb-4" />
+                <div className="space-y-2 text-sm text-muted-foreground">
+                  <p>✓ Connected to your account</p>
+                  <p>✓ Fetching campaign data</p>
+                  <p className="text-primary">→ Running AI analysis...</p>
+                  <p className="text-muted-foreground/50">○ Generating recommendations</p>
+                </div>
+              </CardContent>
           </Card>
         </div>
       </div>
