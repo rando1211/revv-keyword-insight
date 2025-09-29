@@ -32,6 +32,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Link } from "react-router-dom";
 import { useState, useEffect } from "react";
+import { FreeAuditCTA } from "@/components/landing/FreeAuditCTA";
 
 const Landing = () => {
   const [demoStep, setDemoStep] = useState(0);
@@ -755,6 +756,9 @@ const Landing = () => {
           </div>
         </div>
       </section>
+
+      {/* Free Audit Lead Magnet */}
+      <FreeAuditCTA />
 
       {/* CTA Section */}
       <section className="py-12 sm:py-16 md:py-20 px-4 sm:px-6 bg-destructive text-destructive-foreground">

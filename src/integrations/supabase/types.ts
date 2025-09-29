@@ -14,6 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
+      audit_leads: {
+        Row: {
+          account_name: string | null
+          audit_results: Json | null
+          created_at: string
+          customer_id: string | null
+          email: string
+          google_account_id: string | null
+          id: string
+          report_token: string
+          status: string | null
+          updated_at: string
+        }
+        Insert: {
+          account_name?: string | null
+          audit_results?: Json | null
+          created_at?: string
+          customer_id?: string | null
+          email: string
+          google_account_id?: string | null
+          id?: string
+          report_token?: string
+          status?: string | null
+          updated_at?: string
+        }
+        Update: {
+          account_name?: string | null
+          audit_results?: Json | null
+          created_at?: string
+          customer_id?: string | null
+          email?: string
+          google_account_id?: string | null
+          id?: string
+          report_token?: string
+          status?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       config_notes: {
         Row: {
           created_at: string | null

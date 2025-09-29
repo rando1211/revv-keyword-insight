@@ -12,6 +12,7 @@ import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
 import Subscription from "./pages/Subscription";
 import SubscriptionSuccess from "./pages/SubscriptionSuccess";
+import AuditReport from "./pages/AuditReport";
 
 const queryClient = new QueryClient();
 
@@ -40,6 +41,7 @@ const App = () => (
             </ProtectedRoute>
           } />
           <Route path="/" element={<Landing />} />
+          <Route path="/audit-report/:token" element={<AuditReport />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </AccountProvider>

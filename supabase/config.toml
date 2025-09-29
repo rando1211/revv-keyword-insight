@@ -32,3 +32,6 @@ verify_jwt = false
 
 [functions.keyword-optimizer]
 verify_jwt = false
+
+[functions.generate-free-audit]
+verify_jwt = false
