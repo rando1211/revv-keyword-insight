@@ -320,6 +320,11 @@ serve(async (req) => {
       keywordsMetricsResponse.ok ? keywordsMetricsResponse.json() : { results: [] }
     ]);
 
+    // Debug: log a sample campaign row to see structure
+    if (campaignData.results?.[0]) {
+      console.log('🔍 Sample campaign row structure:', JSON.stringify(campaignData.results[0], null, 2));
+    }
+
     // Log and build resilient keyword results with a merge of QS + metrics
     console.log('📊 Search terms data count:', searchTermsData.results?.length || 0);
     const qsRows = keywordsQSData.results || [];
@@ -689,12 +694,21 @@ function aggregateAdvancedMetrics(current: any[], baseline: any[]) {
   current.forEach(row => {
     const campaignId = row.campaign.id;
     if (!currentMap.has(campaignId)) {
+      // Parse budget - check multiple possible locations
+      const budgetMicros = row.campaignBudget?.amountMicros || 
+                          row.campaign_budget?.amount_micros || 
+                          row.campaignBudget?.amount_micros ||
+                          '0';
+      const dailyBudget = parseInt(budgetMicros) / 1000000;
+      
+      console.log(`💰 Campaign "${row.campaign.name}" budget: $${dailyBudget} (raw: ${budgetMicros})`);
+      
       currentMap.set(campaignId, {
         id: campaignId,
         name: row.campaign.name,
         type: row.campaign.advertisingChannelType || row.campaign.advertising_channel_type,
         bidding_strategy: row.campaign.biddingStrategyType || row.campaign.bidding_strategy_type,
-        daily_budget: (parseInt(row.campaignBudget?.amountMicros || row.campaign_budget?.amount_micros || '0') / 1000000),
+        daily_budget: dailyBudget,
         metrics: { 
           impressions: 0, clicks: 0, cost: 0, conversions: 0, conversion_value: 0,
           search_impression_share: 0, budget_lost_impression_share: 0,
