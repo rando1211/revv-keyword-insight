@@ -207,8 +207,8 @@ serve(async (req) => {
       LIMIT 100
     `;
 
-    // Keywords query for match type analysis
-    const keywordsQuery = `
+    // Keywords queries: split QS (ad_group_criterion) from metrics (keyword_view)
+    const keywordsQSQuery = `
       SELECT
         campaign.id,
         campaign.name,
@@ -218,24 +218,40 @@ serve(async (req) => {
         ad_group_criterion.keyword.text,
         ad_group_criterion.keyword.match_type,
         ad_group_criterion.quality_info.quality_score,
-        ad_group_criterion.status,
-        metrics.impressions,
-        metrics.clicks,
-        metrics.cost_micros,
-        metrics.conversions,
-        metrics.conversions_value
+        ad_group_criterion.status
       FROM ad_group_criterion
       WHERE campaign.status IN (ENABLED, PAUSED)
         AND ad_group.status IN (ENABLED, PAUSED)
         AND ad_group_criterion.status IN (ENABLED, PAUSED)
         AND ad_group_criterion.type = KEYWORD
-        AND segments.date DURING LAST_30_DAYS
+      LIMIT 1000
+    `;
+
+    const keywordsMetricsQuery = `
+      SELECT
+        campaign.id,
+        campaign.name,
+        ad_group.id,
+        ad_group.name,
+        ad_group_criterion.criterion_id,
+        ad_group_criterion.keyword.text,
+        ad_group_criterion.keyword.match_type,
+        metrics.impressions,
+        metrics.clicks,
+        metrics.cost_micros,
+        metrics.conversions,
+        metrics.conversions_value
+      FROM keyword_view
+      WHERE segments.date DURING LAST_30_DAYS
+        AND campaign.status IN (ENABLED, PAUSED)
+        AND ad_group.status IN (ENABLED, PAUSED)
+        AND metrics.impressions > 0
       ORDER BY metrics.cost_micros DESC
-      LIMIT 500
+      LIMIT 1000
     `;
 
     console.log('📊 Fetching comprehensive campaign data...');
-    const [campaignResponse, baselineResponse, searchTermsResponse, keywordsResponse] = await Promise.all([
+    const [campaignResponse, baselineResponse, searchTermsResponse, keywordsQSResponse, keywordsMetricsResponse] = await Promise.all([
       fetch(apiUrl, {
         method: 'POST',
         headers,
@@ -259,7 +275,12 @@ serve(async (req) => {
       fetch(apiUrl, {
         method: 'POST',
         headers,
-        body: JSON.stringify({ query: keywordsQuery })
+        body: JSON.stringify({ query: keywordsQSQuery })
+      }),
+      fetch(apiUrl, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ query: keywordsMetricsQuery })
       })
     ]);
 
@@ -267,7 +288,8 @@ serve(async (req) => {
       campaign: campaignResponse.status,
       baseline: baselineResponse.status,
       searchTerms: searchTermsResponse.status,
-      keywords: keywordsResponse.status
+      keywordsQS: keywordsQSResponse.status,
+      keywordsMetrics: keywordsMetricsResponse.status
     });
 
     if (!campaignResponse.ok) {
@@ -275,25 +297,57 @@ serve(async (req) => {
       console.log('❌ Campaign API Error:', errorText);
     }
 
-    const [campaignData, baselineCampaignData, searchTermsData, keywordsData] = await Promise.all([
+    const [campaignData, baselineCampaignData, searchTermsData, keywordsQSData, keywordsMetricsData] = await Promise.all([
       campaignResponse.ok ? campaignResponse.json() : { results: [] },
       baselineResponse.ok ? baselineResponse.json() : { results: [] },
       searchTermsResponse.ok ? searchTermsResponse.json() : { results: [] },
-      keywordsResponse.ok ? keywordsResponse.json() : { results: [] }
+      keywordsQSResponse.ok ? keywordsQSResponse.json() : { results: [] },
+      keywordsMetricsResponse.ok ? keywordsMetricsResponse.json() : { results: [] }
     ]);
 
-    // Log and build resilient keyword results with a fallback query when needed
+    // Log and build resilient keyword results with a merge of QS + metrics
     console.log('📊 Search terms data count:', searchTermsData.results?.length || 0);
-    let keywordsResults = keywordsData.results || [];
-    if (!keywordsResponse.ok) {
+    const qsRows = keywordsQSData.results || [];
+    const metricsRows = keywordsMetricsData.results || [];
+
+    if (!keywordsQSResponse.ok) {
       try {
-        const kwErr = await keywordsResponse.text();
-        console.log('❌ Keywords API Error:', kwErr);
+        const kwErr = await keywordsQSResponse.text();
+        console.log('❌ Keywords QS API Error:', kwErr);
       } catch (_) {
-        console.log('❌ Keywords API Error: <no body>');
+        console.log('❌ Keywords QS API Error: <no body>');
       }
     }
-    console.log('📊 Keywords data count:', keywordsResults.length);
+    if (!keywordsMetricsResponse.ok) {
+      try {
+        const kwmErr = await keywordsMetricsResponse.text();
+        console.log('❌ Keywords metrics API Error:', kwmErr);
+      } catch (_) {
+        console.log('❌ Keywords metrics API Error: <no body>');
+      }
+    }
+
+    // Merge by criterion_id
+    const qsById = new Map<string, any>();
+    for (const r of qsRows) {
+      const id = r?.adGroupCriterion?.criterionId || r?.ad_group_criterion?.criterion_id;
+      if (id) qsById.set(String(id), r);
+    }
+    let keywordsResults = metricsRows.map((r: any) => {
+      const id = r?.adGroupCriterion?.criterionId || r?.ad_group_criterion?.criterion_id;
+      const qs = id ? qsById.get(String(id)) : undefined;
+      if (qs?.adGroupCriterion?.qualityInfo) {
+        r.adGroupCriterion = r.adGroupCriterion || {};
+        r.adGroupCriterion.qualityInfo = qs.adGroupCriterion.qualityInfo;
+      } else if (qs?.ad_group_criterion?.quality_info) {
+        r.adGroupCriterion = r.adGroupCriterion || {};
+        r.adGroupCriterion.qualityInfo = { qualityScore: qs.ad_group_criterion.quality_info.quality_score };
+      }
+      return r;
+    });
+
+    console.log('📊 QS rows:', qsRows.length, 'Metrics rows:', metricsRows.length, 'Merged keywords:', keywordsResults.length);
+
 
     // If no keywords returned, try a simpler fallback using keyword_view
     if (keywordsResults.length === 0) {
