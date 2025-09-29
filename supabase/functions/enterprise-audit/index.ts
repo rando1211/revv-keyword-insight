@@ -1426,6 +1426,34 @@ function analyzeKeywordStrategy(keywords: any[], campaigns: any[]) {
   console.log('✅ Keywords with quality scores:', keywordsWithQS, '/', keywords.length);
   console.log('⚠️ Keywords with low QS (<= 6):', keywordsWithLowQS);
   console.log('📊 Quality score issues found:', qualityScoreIssues.length);
+
+  // Heuristic fallback if API does not return quality scores
+  if (qualityScoreIssues.length === 0) {
+    console.log('🛟 No QS issues detected from API. Falling back to heuristic detection.');
+    const heuristicIssues: any[] = [];
+    for (const kw of keywords) {
+      const cost = parseFloat(kw.metrics.costMicros || '0') / 1000000;
+      const conversions = parseFloat(kw.metrics.conversions || '0');
+      const ctr = typeof kw.metrics.ctr === 'number' ? kw.metrics.ctr : parseFloat(kw.metrics.ctr || '0');
+      const matchType = kw.adGroupCriterion?.keyword?.matchType?.toLowerCase?.() || 'unknown';
+
+      // Heuristic signals of poor QS: low CTR and no/low conversions with spend
+      if (cost > 25 && ctr < 0.03 && conversions === 0) {
+        heuristicIssues.push({
+          keyword: kw.adGroupCriterion?.keyword?.text || 'Unknown',
+          campaign_name: kw.campaign?.name || 'Unknown Campaign',
+          quality_score: 'N/A',
+          cost,
+          recommendation: matchType === 'broad'
+            ? 'Broad + low CTR with spend — tighten targeting or improve ad relevance'
+            : 'Low CTR with spend — improve ad relevance and landing page'
+        });
+      }
+    }
+    heuristicIssues.sort((a, b) => b.cost - a.cost);
+    qualityScoreIssues.push(...heuristicIssues.slice(0, 15));
+    console.log('🛟 Heuristic QS issues generated:', qualityScoreIssues.length);
+  }
   
   return {
     match_type_analysis: matchTypeAnalysis,
