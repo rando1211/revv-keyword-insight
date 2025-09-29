@@ -327,19 +327,28 @@ serve(async (req) => {
       }
     }
 
-    // Merge by criterion_id
-    const qsById = new Map<string, any>();
+    // Merge QS with metrics using a robust composite key
+    const makeKey = (row: any) => {
+      const cId = row?.campaign?.id || row?.campaign?.resourceName?.split('/').pop();
+      const agId = row?.adGroup?.id || row?.ad_group?.id || row?.adGroup?.resourceName?.split('/').pop();
+      const text = row?.adGroupCriterion?.keyword?.text || row?.ad_group_criterion?.keyword?.text || '';
+      const mt = row?.adGroupCriterion?.keyword?.matchType || row?.ad_group_criterion?.keyword?.match_type || '';
+      return `${cId}|${agId}|${text.toLowerCase()}|${String(mt).toLowerCase()}`;
+    };
+
+    const qsByKey = new Map<string, any>();
     for (const r of qsRows) {
-      const id = r?.adGroupCriterion?.criterionId || r?.ad_group_criterion?.criterion_id;
-      if (id) qsById.set(String(id), r);
+      const k = makeKey(r);
+      if (k) qsByKey.set(k, r);
     }
+
     let keywordsResults = metricsRows.map((r: any) => {
-      const id = r?.adGroupCriterion?.criterionId || r?.ad_group_criterion?.criterion_id;
-      const qs = id ? qsById.get(String(id)) : undefined;
-      if (qs?.adGroupCriterion?.qualityInfo) {
+      const k = makeKey(r);
+      const qs = qsByKey.get(k);
+      if (qs?.adGroupCriterion?.qualityInfo?.qualityScore) {
         r.adGroupCriterion = r.adGroupCriterion || {};
-        r.adGroupCriterion.qualityInfo = qs.adGroupCriterion.qualityInfo;
-      } else if (qs?.ad_group_criterion?.quality_info) {
+        r.adGroupCriterion.qualityInfo = { qualityScore: qs.adGroupCriterion.qualityInfo.qualityScore };
+      } else if (qs?.ad_group_criterion?.quality_info?.quality_score) {
         r.adGroupCriterion = r.adGroupCriterion || {};
         r.adGroupCriterion.qualityInfo = { qualityScore: qs.ad_group_criterion.quality_info.quality_score };
       }
