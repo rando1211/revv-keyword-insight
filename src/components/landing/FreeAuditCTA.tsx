@@ -28,41 +28,55 @@ export const FreeAuditCTA = () => {
     setIsLoading(true);
     
     try {
-      // Create the audit lead entry
+      // Create sample audit results
+      const sampleAuditResults = {
+        account_health: {
+          score: 67,
+          status: "needs_improvement"
+        },
+        ai_insights: {
+          key_findings: [
+            "Your account has 23% wasted spend on low-converting search terms",
+            "3 campaigns are missing negative keywords, leading to irrelevant clicks",
+            "Ad copy testing could improve CTR by an estimated 15-20%"
+          ],
+          summary: "Your account shows good fundamentals but has significant optimization opportunities in search term management and ad copy performance."
+        },
+        issues: {
+          issues: [
+            {
+              summary: "High wasted spend detected",
+              recommended_action: "Add negative keywords to block non-converting search terms"
+            },
+            {
+              summary: "Low quality scores in 5 ad groups",
+              recommended_action: "Improve ad relevance and landing page experience"
+            },
+            {
+              summary: "Budget pacing issues",
+              recommended_action: "Redistribute budget from underperforming to high-performing campaigns"
+            }
+          ]
+        },
+        campaigns_count: 8
+      };
+
+      // Create the audit lead entry with sample results
       const { data: leadData, error: leadError } = await supabase
         .from('audit_leads')
         .insert({
           email,
-          status: 'pending'
+          status: 'completed',
+          audit_results: sampleAuditResults
         })
         .select()
         .single();
 
       if (leadError) throw leadError;
 
-      // Redirect to OAuth flow with the lead token
-      const redirectUrl = `${window.location.origin}/audit-report/${leadData.report_token}`;
+      // Redirect to the report
+      navigate(`/audit-report/${leadData.report_token}`);
       
-      // Initiate Google Ads OAuth flow
-      const { data: { url }, error: authError } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: redirectUrl,
-          scopes: 'https://www.googleapis.com/auth/adwords',
-          queryParams: {
-            access_type: 'offline',
-            prompt: 'consent',
-          }
-        }
-      });
-
-      if (authError) throw authError;
-      
-      if (url) {
-        // Store the report token in localStorage for later
-        localStorage.setItem('pending_audit_token', leadData.report_token);
-        window.location.href = url;
-      }
     } catch (error) {
       console.error('Error creating audit lead:', error);
       toast({
@@ -163,8 +177,7 @@ export const FreeAuditCTA = () => {
               </div>
               
               <p className="text-xs text-center text-muted-foreground">
-                By submitting, you'll connect your Google Ads account to generate your personalized report. 
-                We never make changes without your permission.
+                Get instant sample audit results. No credit card or Google Ads connection required.
               </p>
             </form>
 
@@ -176,11 +189,11 @@ export const FreeAuditCTA = () => {
               </div>
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <CheckCircle className="h-4 w-4 text-green-600" />
-                <span>Read-Only Access</span>
+                <span>Instant Sample Results</span>
               </div>
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <CheckCircle className="h-4 w-4 text-green-600" />
-                <span>Results in 2 Minutes</span>
+                <span>No Google Connection</span>
               </div>
             </div>
           </CardContent>

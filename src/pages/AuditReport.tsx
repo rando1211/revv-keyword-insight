@@ -6,18 +6,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Loader2, CheckCircle, TrendingUp, AlertTriangle, Download, Share2 } from 'lucide-react';
+import { Loader2, CheckCircle, TrendingUp, AlertTriangle, Share2 } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export default function AuditReport() {
   const { token } = useParams<{ token: string }>();
   const [auditData, setAuditData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [needsAccountSelection, setNeedsAccountSelection] = useState(false);
-  const [googleAdsAccounts, setGoogleAdsAccounts] = useState<any[]>([]);
-  const [selectedAccount, setSelectedAccount] = useState<string>('');
-  const [isLoadingAccounts, setIsLoadingAccounts] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -32,7 +27,6 @@ export default function AuditReport() {
         description: "This audit report link is invalid",
         variant: "destructive",
       });
-      // navigate('/')  // Keep user on page to show error UI
       return;
     }
 
@@ -51,24 +45,10 @@ export default function AuditReport() {
           description: "This audit report doesn't exist",
           variant: "destructive",
         });
-        // navigate('/')  // Keep user on page to show error UI
         return;
       }
 
       setAuditData(data);
-
-      // If status is pending and no customer_id, need to fetch accounts
-      if (data.status === 'pending' && !data.customer_id) {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session) {
-          await fetchGoogleAdsAccounts();
-        }
-      }
-      
-      // If status is pending and has customer_id, generate report
-      if (data.status === 'pending' && data.customer_id) {
-        await generateAuditReport(data.id, data.customer_id);
-      }
     } catch (error) {
       console.error('Error loading audit report:', error);
       toast({
@@ -78,78 +58,6 @@ export default function AuditReport() {
       });
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const fetchGoogleAdsAccounts = async () => {
-    setIsLoadingAccounts(true);
-    setNeedsAccountSelection(true);
-    
-    try {
-      const { data, error } = await supabase.functions.invoke('fetch-google-ads-accounts');
-      
-      if (error) throw error;
-      
-      if (data?.accounts && data.accounts.length > 0) {
-        setGoogleAdsAccounts(data.accounts);
-        
-        // Auto-select if only one account
-        if (data.accounts.length === 1) {
-          const accountId = data.accounts[0].id;
-          setSelectedAccount(accountId);
-          await handleAccountSelected(accountId);
-        }
-      } else {
-        toast({
-          title: "No Accounts Found",
-          description: "We couldn't find any Google Ads accounts linked to your Google account",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      console.error('Error fetching Google Ads accounts:', error);
-      toast({
-        title: "Error",
-        description: "Failed to fetch your Google Ads accounts",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoadingAccounts(false);
-    }
-  };
-
-  const handleAccountSelected = async (customerId: string) => {
-    if (!auditData) return;
-    
-    try {
-      setNeedsAccountSelection(false);
-      // Generate the audit (edge function will update DB)
-      await generateAuditReport(auditData.id, customerId);
-      
-    } catch (error) {
-      console.error('Error starting audit:', error);
-      toast({
-        title: "Error",
-        description: "Failed to start audit",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const generateAuditReport = async (leadId: string, customerId: string) => {
-    try {
-      // Call the free audit edge function directly; it updates DB with service role
-      const { data, error } = await supabase.functions.invoke('generate-free-audit', {
-        body: { leadId, customerId }
-      });
-
-      if (error) throw error;
-
-      // Reload the report with updated data
-      await loadAuditReport();
-    } catch (error) {
-      console.error('Error generating audit:', error);
-      // Best-effort: keep UI on processing state without DB update
     }
   };
 
@@ -176,60 +84,7 @@ export default function AuditReport() {
     );
   }
 
-  // Account selection UI
-  if (needsAccountSelection) {
-    return (
-      <div className="min-h-screen bg-background">
-        <Header />
-        <div className="container mx-auto px-4 py-12">
-          <Card className="max-w-2xl mx-auto">
-            <CardHeader>
-              <CardTitle>Select Your Google Ads Account</CardTitle>
-              <CardDescription>
-                Choose the account you'd like to audit
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {isLoadingAccounts ? (
-                <div className="flex items-center justify-center py-8">
-                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                </div>
-              ) : googleAdsAccounts.length > 0 ? (
-                <>
-                  <Select value={selectedAccount} onValueChange={setSelectedAccount}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select an account" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {googleAdsAccounts.map((account) => (
-                        <SelectItem key={account.id} value={account.id}>
-                          {account.name} ({account.id})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  
-                  <Button 
-                    onClick={() => handleAccountSelected(selectedAccount)}
-                    disabled={!selectedAccount}
-                    className="w-full"
-                  >
-                    Generate Free Audit
-                  </Button>
-                </>
-              ) : (
-                <p className="text-center text-muted-foreground">
-                  No Google Ads accounts found
-                </p>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    );
-  }
-
-  if (!auditData || auditData.status === 'failed') {
+  if (!auditData) {
     return (
       <div className="min-h-screen bg-background">
         <Header />
@@ -238,52 +93,17 @@ export default function AuditReport() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <AlertTriangle className="h-5 w-5 text-orange-500" />
-                Audit Generation Failed
+                Report Not Found
               </CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-muted-foreground mb-4">
-                We couldn't generate your audit report. This might be due to:
+                We couldn't find this audit report.
               </p>
-              <ul className="list-disc list-inside space-y-2 text-sm text-muted-foreground mb-6">
-                <li>No access to Google Ads account</li>
-                <li>Account has insufficient data</li>
-                <li>Temporary API issue</li>
-              </ul>
               <Button onClick={() => navigate('/')}>
-                Try Again
+                Get Your Free Audit
               </Button>
             </CardContent>
-          </Card>
-        </div>
-      </div>
-    );
-  }
-
-  if (auditData.status === 'processing') {
-    return (
-      <div className="min-h-screen bg-background">
-        <Header />
-        <div className="container mx-auto px-4 py-12">
-          <Card className="max-w-2xl mx-auto">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                  Generating Your Audit Report
-                </CardTitle>
-                <CardDescription>
-                  Analyzing your Google Ads account... This usually takes 1-2 minutes
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Progress value={45} className="mb-4" />
-                <div className="space-y-2 text-sm text-muted-foreground">
-                  <p>✓ Connected to your account</p>
-                  <p>✓ Fetching campaign data</p>
-                  <p className="text-primary">→ Running AI analysis...</p>
-                  <p className="text-muted-foreground/50">○ Generating recommendations</p>
-                </div>
-              </CardContent>
           </Card>
         </div>
       </div>
@@ -301,11 +121,12 @@ export default function AuditReport() {
       
       <div className="container mx-auto px-4 py-12 space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold">Your Free Google Ads Audit</h1>
+            <Badge variant="secondary" className="mb-2">Sample Audit Report</Badge>
+            <h1 className="text-3xl font-bold">Your Google Ads Health Check</h1>
             <p className="text-muted-foreground">
-              Generated {new Date(auditData.created_at).toLocaleDateString()}
+              See how your account stacks up • Generated {new Date(auditData.created_at).toLocaleDateString()}
             </p>
           </div>
           <div className="flex gap-2">
@@ -313,9 +134,9 @@ export default function AuditReport() {
               <Share2 className="h-4 w-4 mr-2" />
               Share
             </Button>
-            <Button variant="default" onClick={() => navigate('/subscription')}>
+            <Button variant="default" onClick={() => navigate('/auth')}>
               <TrendingUp className="h-4 w-4 mr-2" />
-              Unlock Full Report
+              Get Real Analysis
             </Button>
           </div>
         </div>
@@ -379,7 +200,7 @@ export default function AuditReport() {
             <CardContent>
               <div className="space-y-3">
                 {issues.slice(0, 3).map((issue: any, index: number) => (
-                  <div key={index} className="p-3 border-l-4 border-l-orange-500 bg-orange-50 rounded">
+                  <div key={index} className="p-3 border-l-4 border-l-orange-500 bg-orange-50 dark:bg-orange-950 rounded">
                     <p className="font-medium text-sm">{issue.summary}</p>
                     <p className="text-xs text-muted-foreground mt-1">
                       {issue.recommended_action}
@@ -394,13 +215,17 @@ export default function AuditReport() {
         {/* Upgrade CTA */}
         <Card className="bg-gradient-to-br from-primary/10 to-blue-500/10 border-2 border-primary">
           <CardHeader>
-            <CardTitle>Want the Full Report?</CardTitle>
+            <CardTitle>Ready for a Real Audit of YOUR Account?</CardTitle>
             <CardDescription>
-              Unlock detailed campaign analysis, optimization recommendations, and more
+              This is a sample report. Connect your Google Ads account for personalized insights and automated optimizations.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <ul className="space-y-2 mb-6">
+              <li className="flex items-center gap-2 text-sm">
+                <CheckCircle className="h-4 w-4 text-green-600" />
+                Analyze YOUR actual Google Ads data
+              </li>
               <li className="flex items-center gap-2 text-sm">
                 <CheckCircle className="h-4 w-4 text-green-600" />
                 Complete audit checklist with pass/fail results
@@ -415,11 +240,11 @@ export default function AuditReport() {
               </li>
               <li className="flex items-center gap-2 text-sm">
                 <CheckCircle className="h-4 w-4 text-green-600" />
-                Search terms analysis and keyword optimization
+                Automated optimization execution
               </li>
             </ul>
-            <Button size="lg" className="w-full" onClick={() => navigate('/subscription')}>
-              Upgrade to Full Access
+            <Button size="lg" className="w-full" onClick={() => navigate('/auth')}>
+              Sign Up to Connect Your Account
             </Button>
           </CardContent>
         </Card>
