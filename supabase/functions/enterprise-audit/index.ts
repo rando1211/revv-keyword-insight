@@ -179,10 +179,10 @@ serve(async (req) => {
         metrics.conversions_value,
         metrics.average_cpc
       FROM campaign
-      WHERE campaign.status = 'ENABLED'
+      WHERE campaign.status IN (ENABLED, PAUSED)
         AND segments.date BETWEEN '${windows.current.start}' AND '${windows.current.end}'
       ORDER BY metrics.cost_micros DESC
-      LIMIT 50
+      LIMIT 200
     `;
 
     // Search terms query - simplified and working format
@@ -200,8 +200,8 @@ serve(async (req) => {
         metrics.cost_micros
       FROM search_term_view
       WHERE segments.date DURING LAST_30_DAYS
-        AND campaign.status = 'ENABLED'
-        AND ad_group.status = 'ENABLED'
+        AND campaign.status IN (ENABLED, PAUSED)
+        AND ad_group.status IN (ENABLED, PAUSED)
         AND metrics.clicks > 0
       ORDER BY metrics.clicks DESC
       LIMIT 100
@@ -295,8 +295,8 @@ serve(async (req) => {
         metrics.impressions, metrics.clicks, metrics.conversions,
         segments.date
       FROM ad_group_ad
-      WHERE campaign.status = 'ENABLED'
-        AND ad_group_ad.status = 'ENABLED'
+      WHERE campaign.status IN (ENABLED, PAUSED)
+        AND ad_group_ad.status IN (ENABLED, PAUSED)
         AND segments.date BETWEEN '${windows.current.start}' AND '${windows.current.end}'
       LIMIT 100
     `;
@@ -308,8 +308,8 @@ serve(async (req) => {
         metrics.impressions, metrics.clicks, metrics.conversions,
         segments.date
       FROM campaign_asset
-      WHERE campaign.status = 'ENABLED'
-        AND campaign_asset.field_type IN ('SITELINK','CALLOUT','STRUCTURED_SNIPPET','IMAGE','PRICE','PROMOTION')
+      WHERE campaign.status IN (ENABLED, PAUSED)
+        AND campaign_asset.field_type IN (SITELINK, CALLOUT, STRUCTURED_SNIPPET, IMAGE, PRICE, PROMOTION)
         AND segments.date BETWEEN '${windows.current.start}' AND '${windows.current.end}'
     `;
 
@@ -1259,8 +1259,8 @@ function analyzeKeywordStrategy(keywords: any[], campaigns: any[]) {
     const matchType = kw.adGroupCriterion.keyword.matchType.toLowerCase();
     const qualityScore = parseInt(kw.adGroupCriterion.qualityInfo?.qualityScore || '0');
     
-    const campaign = campaignMap.get(kw.campaign.id);
-    if (!campaign) return;
+    // Use keyword's campaign info directly; do not depend on campaign list
+    const campaign = kw.campaign;
     
     // Analyze match types
     if ((matchTypeAnalysis as any)[matchType]) {
