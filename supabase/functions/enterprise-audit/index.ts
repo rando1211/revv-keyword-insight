@@ -172,13 +172,20 @@ serve(async (req) => {
         campaign.id,
         campaign.name,
         campaign.status,
+        campaign.advertising_channel_type,
+        campaign.bidding_strategy_type,
+        campaign_budget.amount_micros,
         metrics.cost_micros,
         metrics.clicks,
         metrics.impressions,
         metrics.ctr,
         metrics.conversions,
         metrics.conversions_value,
-        metrics.average_cpc
+        metrics.average_cpc,
+        metrics.search_impression_share,
+        metrics.search_budget_lost_impression_share,
+        metrics.search_top_impression_share,
+        metrics.search_absolute_top_impression_share
       FROM campaign
       WHERE campaign.status IN (ENABLED, PAUSED)
         AND segments.date BETWEEN '${windows.current.start}' AND '${windows.current.end}'
@@ -685,9 +692,9 @@ function aggregateAdvancedMetrics(current: any[], baseline: any[]) {
       currentMap.set(campaignId, {
         id: campaignId,
         name: row.campaign.name,
-        type: row.campaign.advertisingChannelType,
-        bidding_strategy: row.campaign.biddingStrategyType,
-        daily_budget: (parseInt(row.campaignBudget?.amountMicros || '0') / 1000000),
+        type: row.campaign.advertisingChannelType || row.campaign.advertising_channel_type,
+        bidding_strategy: row.campaign.biddingStrategyType || row.campaign.bidding_strategy_type,
+        daily_budget: (parseInt(row.campaignBudget?.amountMicros || row.campaign_budget?.amount_micros || '0') / 1000000),
         metrics: { 
           impressions: 0, clicks: 0, cost: 0, conversions: 0, conversion_value: 0,
           search_impression_share: 0, budget_lost_impression_share: 0,

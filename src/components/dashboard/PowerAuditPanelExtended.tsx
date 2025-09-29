@@ -78,11 +78,13 @@ export const BudgetAnalysisTab = ({ budgetAnalysis, campaigns }: { budgetAnalysi
         <CardContent>
           <div className="space-y-3">
             {campaigns?.slice(0, 10).map((campaign: any, index: number) => {
-              // Use pre-calculated values from the audit
-              const utilizationRate = campaign.utilization_rate || 0;
               const dailyBudget = campaign.daily_budget || 0;
               const currentSpend = campaign.current_spend || 0;
               const monthlyBudget = dailyBudget * 30;
+              const utilizationRate = campaign.utilization_rate || 0;
+              
+              // Handle campaigns with no budget set
+              const noBudgetSet = dailyBudget === 0;
               
               return (
                 <div key={index} className="space-y-2">
@@ -91,20 +93,33 @@ export const BudgetAnalysisTab = ({ budgetAnalysis, campaigns }: { budgetAnalysi
                       {campaign.name}
                     </span>
                     <div className="flex items-center space-x-2">
-                      <span className="text-sm text-muted-foreground">
-                        ${currentSpend?.toFixed(2)} / ${monthlyBudget?.toFixed(2)}
-                      </span>
-                      <Badge variant={
-                        utilizationRate > 1 ? "destructive" : 
-                        utilizationRate > 0.9 ? "default" : 
-                        utilizationRate < 0.5 ? "secondary" : 
-                        "outline"
-                      }>
-                        {Math.round(utilizationRate * 100)}%
-                      </Badge>
+                      {noBudgetSet ? (
+                        <>
+                          <span className="text-sm text-muted-foreground">
+                            ${currentSpend?.toFixed(2)} spent
+                          </span>
+                          <Badge variant="secondary">
+                            No budget set
+                          </Badge>
+                        </>
+                      ) : (
+                        <>
+                          <span className="text-sm text-muted-foreground">
+                            ${currentSpend?.toFixed(2)} / ${monthlyBudget?.toFixed(2)}
+                          </span>
+                          <Badge variant={
+                            utilizationRate > 1 ? "destructive" : 
+                            utilizationRate > 0.9 ? "default" : 
+                            utilizationRate < 0.5 ? "secondary" : 
+                            "outline"
+                          }>
+                            {Math.round(utilizationRate * 100)}%
+                          </Badge>
+                        </>
+                      )}
                     </div>
                   </div>
-                  <Progress value={Math.min(utilizationRate * 100, 100)} className="h-2" />
+                  {!noBudgetSet && <Progress value={Math.min(utilizationRate * 100, 100)} className="h-2" />}
                   {campaign.budget_limited && (
                     <p className="text-xs text-orange-600 flex items-center gap-1">
                       <AlertTriangle className="h-3 w-3" />
