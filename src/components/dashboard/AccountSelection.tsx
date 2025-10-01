@@ -5,21 +5,16 @@ import { Badge } from "@/components/ui/badge";
 import { Building2, RefreshCw, Brain } from "lucide-react";
 import { useToast } from '@/hooks/use-toast';
 import { fetchGoogleAdsAccounts, type GoogleAdsAccount } from '@/lib/google-ads-service';
-import { useAccount } from '@/contexts/AccountContext';
-import { generateCampaignAnalysis } from '@/lib/openai-service';
-import { supabase } from '@/integrations/supabase/client';
 import { CampaignSelection } from './CampaignSelection';
 import { GoogleAdsAccountSetup } from './GoogleAdsAccountSetup';
 
 export const AccountSelection = () => {
   const [accounts, setAccounts] = useState<GoogleAdsAccount[]>([]);
   const [loading, setLoading] = useState(true);
-  const [analyzingAccount, setAnalyzingAccount] = useState<string | null>(null);
   const [selectedAccountForCampaigns, setSelectedAccountForCampaigns] = useState<GoogleAdsAccount | null>(null);
   const [needsSetup, setNeedsSetup] = useState(false);
   
   const { toast } = useToast();
-  const { setSelectedAccountForAnalysis, setAnalysisResults, setIsAnalyzing, setAnalysisStep } = useAccount();
 
   const loadAccounts = async () => {
     try {
@@ -68,90 +63,6 @@ export const AccountSelection = () => {
   useEffect(() => {
     loadAccounts();
   }, []);
-
-  const handleAnalyzeAccount = async (account: GoogleAdsAccount) => {
-    setAnalyzingAccount(account.id);
-    setIsAnalyzing(true);
-    setAnalysisStep(1);
-    
-    // Clear previous analysis results immediately
-    setAnalysisResults(null);
-    setSelectedAccountForAnalysis(account);
-    
-    try {
-      // Step 1: Fetch campaign data
-      toast({
-        title: "🎯 Step 1/3: Fetching Campaign Data",
-        description: `Loading active campaigns for ${account.name}...`,
-      });
-
-      let campaignData = [];
-      try {
-        const { data, error } = await supabase.functions.invoke('fetch-google-ads-campaigns', {
-          body: { customerId: account.customerId }
-        });
-        
-        if (error) throw error;
-        campaignData = data.campaigns || [];
-        
-        if (campaignData.length === 0) {
-          toast({
-            title: "No Active Campaigns Found",
-            description: `${account.name} has no active campaigns.`,
-            variant: "destructive",
-          });
-          return;
-        }
-
-        console.log(`Found ${campaignData.length} active campaigns for ${account.name}:`, campaignData);
-        
-      } catch (error) {
-        console.error('Failed to fetch campaign data:', error);
-        toast({
-          title: "Campaign Data Error",
-          description: `Unable to fetch campaign data for ${account.name}: ${error.message}`,
-          variant: "destructive",
-        });
-        return;
-      }
-
-      // Step 2: AI Analysis
-      setAnalysisStep(2);
-      toast({
-        title: "🧠 Step 2/3: AI Campaign Analysis",
-        description: "AI analyzing campaign performance, keywords, and opportunities...",
-      });
-
-      // Step 3: Code Generation & Validation
-      setAnalysisStep(3);
-      toast({
-        title: "🔧 Step 3/3: Generating Optimizations",
-        description: "AI generating GAQL queries and validation checks...",
-      });
-
-      const analysis = await generateCampaignAnalysis(campaignData);
-      
-      // Set the account and results in context
-      setSelectedAccountForAnalysis(account);
-      setAnalysisResults(analysis);
-      
-      toast({
-        title: "🎉 AI Analysis Complete!",
-        description: `Ready! Check the AI Insights tab for ${campaignData.length} campaign optimizations.`,
-      });
-    } catch (error) {
-      console.error("Analysis failed:", error);
-      toast({
-        title: "Analysis Failed",
-        description: "Unable to generate campaign analysis",
-        variant: "destructive",
-      });
-    } finally {
-      setAnalyzingAccount(null);
-      setIsAnalyzing(false);
-      setAnalysisStep(0);
-    }
-  };
 
   if (loading) {
     return (
@@ -237,32 +148,16 @@ export const AccountSelection = () => {
                 </div>
               </div>
               
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setSelectedAccountForCampaigns(account)}
-                  disabled={account.status === 'SUSPENDED'}
-                  className="flex items-center gap-2"
-                >
-                  <Brain className="h-4 w-4" />
-                  Select Campaigns
-                </Button>
-                <Button
-                  variant="default"
-                  size="sm"
-                  onClick={() => handleAnalyzeAccount(account)}
-                  disabled={analyzingAccount === account.id || account.status === 'SUSPENDED'}
-                  className="flex items-center gap-2"
-                >
-                  {analyzingAccount === account.id ? (
-                    <RefreshCw className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Brain className="h-4 w-4" />
-                  )}
-                  {analyzingAccount === account.id ? "Analyzing..." : "Analyze All"}
-                </Button>
-              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setSelectedAccountForCampaigns(account)}
+                disabled={account.status === 'SUSPENDED'}
+                className="flex items-center gap-2"
+              >
+                <Brain className="h-4 w-4" />
+                Select Campaigns
+              </Button>
             </div>
           ))}
           
