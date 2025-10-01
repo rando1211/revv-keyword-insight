@@ -13,6 +13,7 @@ import { supabase } from '@/integrations/supabase/client';
 export const CompetitorAnalysis = () => {
   const [keywords, setKeywords] = useState("");
   const [campaignGoal, setCampaignGoal] = useState("Generate more leads");
+  const [location, setLocation] = useState("");
   const [industryContext, setIndustryContext] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResults, setAnalysisResults] = useState<any>(null);
@@ -35,6 +36,7 @@ export const CompetitorAnalysis = () => {
         body: {
           keywords: keywords.split(',').map(k => k.trim()),
           campaignGoal,
+          location,
           industryContext
         }
       });
@@ -92,6 +94,16 @@ export const CompetitorAnalysis = () => {
                 value={campaignGoal}
                 onChange={(e) => setCampaignGoal(e.target.value)}
                 placeholder="Generate more leads, increase sales..."
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="location">Target Location</Label>
+              <Input
+                id="location"
+                placeholder="Miami, FL or United States..."
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
               />
             </div>
           </div>

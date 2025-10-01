@@ -13,7 +13,7 @@ serve(async (req) => {
   }
 
   try {
-    const { keywords, campaignGoal, industryContext } = await req.json();
+    const { keywords, campaignGoal, location, industryContext } = await req.json();
     
     const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
     if (!openAIApiKey) {
@@ -66,6 +66,7 @@ serve(async (req) => {
     const analysisPrompt = `You are an AI Competitor Intelligence Analyst. Analyze the following competitor data and provide actionable insights.
 
 CAMPAIGN OBJECTIVE: ${campaignGoal}
+TARGET LOCATION: ${location || 'Not specified'}
 INDUSTRY CONTEXT: ${industryContext}
 TARGET KEYWORDS: ${keywords?.join(', ')}
 
@@ -220,6 +221,7 @@ Focus on actionable insights that can immediately improve ad performance and con
         metadata: {
           analysisDate: new Date().toISOString(),
           campaignGoal,
+          location,
           industryContext,
           keywords,
           competitorsAnalyzed: mockCompetitorData.competitors.length,
