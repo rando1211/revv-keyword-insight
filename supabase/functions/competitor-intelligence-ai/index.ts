@@ -224,6 +224,7 @@ Focus on actionable insights that can immediately improve ad performance and con
           location,
           industryContext,
           keywords,
+          competitors: mockCompetitorData.competitors.map(c => c.name),
           competitorsAnalyzed: mockCompetitorData.competitors.length,
           model: 'gpt-4o-mini'
         }

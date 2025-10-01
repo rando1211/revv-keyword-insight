@@ -142,7 +142,32 @@ export const CompetitorAnalysis = () => {
 
       {/* Analysis Results */}
       {analysisResults && (
-        <Tabs defaultValue="insights" className="space-y-4">
+        <>
+          {/* Competitors Overview */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="h-5 w-5 text-primary" />
+                Analyzed Competitors
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-wrap gap-2">
+                {analysisResults.metadata?.competitors?.map((competitor: string, index: number) => (
+                  <Badge key={index} variant="secondary" className="text-sm px-3 py-1">
+                    {competitor}
+                  </Badge>
+                ))}
+                {!analysisResults.metadata?.competitors && (
+                  <p className="text-sm text-muted-foreground">
+                    Analyzing {analysisResults.metadata?.competitorsAnalyzed || 2} competitors in your market
+                  </p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Tabs defaultValue="insights" className="space-y-4">
           <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="insights">🎯 Ad Insights</TabsTrigger>
             <TabsTrigger value="strengths">💪 LP Strengths</TabsTrigger>
@@ -326,6 +351,7 @@ export const CompetitorAnalysis = () => {
             )}
           </TabsContent>
         </Tabs>
+        </>
       )}
 
       {/* Empty State */}
