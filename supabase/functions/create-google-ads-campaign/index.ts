@@ -47,93 +47,85 @@ serve(async (req) => {
     console.log('Creating Google Ads campaign for customer:', customerId);
     console.log('Campaign data:', JSON.stringify(campaignData, null, 2));
 
-    // Prefer user-specific Google Ads credentials; fallback to shared env
-    const { data: userCreds } = await supabase
-      .from('user_google_ads_credentials')
-      .select('developer_token, client_id, client_secret, refresh_token, uses_own_credentials, is_configured')
-      .eq('user_id', user.id)
-      .single();
-
-    let DEVELOPER_TOKEN = (userCreds?.uses_own_credentials && userCreds?.is_configured ? userCreds?.developer_token : Deno.env.get('GOOGLE_DEVELOPER_TOKEN')) as string | null;
-    let CLIENT_ID = (userCreds?.uses_own_credentials && userCreds?.is_configured ? userCreds?.client_id : Deno.env.get('Client ID')) as string | null;
-    let CLIENT_SECRET = (userCreds?.uses_own_credentials && userCreds?.is_configured ? userCreds?.client_secret : Deno.env.get('Secret')) as string | null;
-    let REFRESH_TOKEN = (userCreds?.uses_own_credentials && userCreds?.is_configured ? userCreds?.refresh_token : Deno.env.get('Refresh token')) as string | null;
-
-    console.log('🔑 Credential source:', (userCreds?.uses_own_credentials && userCreds?.is_configured) ? 'user' : 'shared');
-
-    console.log('🔑 Credentials check:', {
-      DEVELOPER_TOKEN: !!DEVELOPER_TOKEN,
-      CLIENT_ID: !!CLIENT_ID,
-      CLIENT_SECRET: !!CLIENT_SECRET,
-      REFRESH_TOKEN: !!REFRESH_TOKEN,
+    // Get credentials using the same function that works for search terms
+    console.log('🔑 Getting user credentials...');
+    const { data: credentialsData, error: credentialsError } = await supabase.functions.invoke('get-user-credentials', {
+      headers: { authorization: authHeader },
     });
 
-    if (!DEVELOPER_TOKEN || !CLIENT_ID || !CLIENT_SECRET || !REFRESH_TOKEN) {
-      console.error('❌ Missing Google Ads API credentials');
-      throw new Error('Missing Google Ads API credentials');
+    if (credentialsError || !credentialsData?.success) {
+      console.error('❌ Failed to get credentials:', credentialsError || credentialsData);
+      throw new Error('Failed to get Google Ads credentials');
     }
 
-    // Get access token
-    const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        client_id: CLIENT_ID,
-        client_secret: CLIENT_SECRET,
-        refresh_token: REFRESH_TOKEN,
-        grant_type: 'refresh_token',
-      }),
+    const { credentials } = credentialsData;
+    const DEVELOPER_TOKEN = credentials.developer_token;
+    const ACCESS_TOKEN = credentials.access_token;
+
+    console.log('✅ Credentials obtained:', {
+      hasDeveloperToken: !!DEVELOPER_TOKEN,
+      hasAccessToken: !!ACCESS_TOKEN,
+      usesOwnCredentials: credentials.uses_own_credentials,
     });
-
-    if (!tokenResponse.ok) {
-      throw new Error(`Token refresh failed: ${tokenResponse.status}`);
-    }
-
-    const { access_token } = await tokenResponse.json();
 
     // Clean customer ID
     const cleanCustomerId = customerId.replace(/-/g, '');
 
-    // Get the manager customer ID from MCC hierarchy if this is a client account
-    const { data: hierarchyData } = await supabase
-      .from('google_ads_mcc_hierarchy')
-      .select('manager_customer_id, is_manager')
-      .eq('user_id', user.id)
-      .eq('customer_id', cleanCustomerId)
-      .single();
+    // Dynamic manager discovery - same as search terms optimization
+    console.log('🔍 Discovering login-customer-id dynamically...');
+    
+    // Get list of accessible customers
+    const customersResponse = await fetch('https://googleads.googleapis.com/v20/customers:listAccessibleCustomers', {
+      headers: {
+        'Authorization': `Bearer ${ACCESS_TOKEN}`,
+        'developer-token': DEVELOPER_TOKEN,
+      },
+    });
 
-    console.log('📊 MCC Hierarchy data:', hierarchyData);
-
-    // If this is a client account (not a manager) and has a manager, use manager as login CID
-    let loginCustomerId: string | null = null;
-    if (hierarchyData && !hierarchyData.is_manager && hierarchyData.manager_customer_id) {
-      loginCustomerId = hierarchyData.manager_customer_id.replace(/-/g, '');
-      console.log('🔑 Using manager account as login-customer-id (from hierarchy):', loginCustomerId);
-    } else {
-      console.log('ℹ️ No manager found in hierarchy or account is standalone');
+    if (!customersResponse.ok) {
+      const errorText = await customersResponse.text();
+      console.error('❌ Failed to list accessible customers:', errorText);
+      throw new Error(`Failed to list accessible customers: ${errorText}`);
     }
 
-    // Fallback: dynamically detect login_customer_id via edge function if not resolved
-    if (!loginCustomerId) {
-      console.log('🔎 Invoking get-login-customer-id for fallback detection...');
+    const customersData = await customersResponse.json();
+    const accessibleCustomers = customersData.resourceNames || [];
+    console.log('📋 Accessible customers:', accessibleCustomers);
+
+    // Test each accessible customer as login-customer-id
+    let loginCustomerId: string | null = null;
+    for (const customerResource of accessibleCustomers) {
+      const testManagerId = customerResource.split('/')[1];
+      console.log(`🧪 Testing login-customer-id: ${testManagerId}`);
+
       try {
-        const { data: loginDetectData, error: loginDetectError } = await supabase.functions.invoke('get-login-customer-id', {
-          body: { customerId: cleanCustomerId },
-          headers: { authorization: authHeader },
+        const testResponse = await fetch(`https://googleads.googleapis.com/v20/customers/${cleanCustomerId}/googleAds:search`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${ACCESS_TOKEN}`,
+            'developer-token': DEVELOPER_TOKEN,
+            'login-customer-id': testManagerId,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            query: 'SELECT customer.id FROM customer LIMIT 1',
+          }),
         });
-        console.log('🧭 get-login-customer-id result:', { loginDetectData, hasError: !!loginDetectError });
-        if (loginDetectError) {
-          console.error('get-login-customer-id error:', loginDetectError);
-        }
-        if (loginDetectData?.login_customer_id) {
-          loginCustomerId = String(loginDetectData.login_customer_id).replace(/-/g, '');
-          console.log('✅ Using detected login-customer-id (fallback):', loginCustomerId);
+
+        if (testResponse.ok) {
+          loginCustomerId = testManagerId;
+          console.log(`✅ Found working login-customer-id: ${loginCustomerId}`);
+          break;
         } else {
-          console.log('⚠️ No login_customer_id detected; proceeding without header');
+          console.log(`❌ Manager ${testManagerId} doesn't work`);
         }
       } catch (e) {
-        console.error('❌ Failed to invoke get-login-customer-id:', e);
+        console.log(`❌ Error testing manager ${testManagerId}:`, e);
       }
+    }
+
+    if (!loginCustomerId) {
+      console.log('⚠️ No working login-customer-id found, will try direct access');
     }
 
     // Create campaign using Google Ads API
@@ -169,38 +161,15 @@ serve(async (req) => {
 
     console.log('Creating campaign budget...');
     console.log('Budget request details:', {
-      url: `https://googleads.googleapis.com/v21/customers/${cleanCustomerId}/campaignBudgets:mutate`,
+      url: `https://googleads.googleapis.com/v20/customers/${cleanCustomerId}/campaignBudgets:mutate`,
       loginCustomerId,
       cleanCustomerId
     });
-
-    // Preflight permission check using same headers (helps surface 403 root cause early)
-    console.log('🔬 Performing preflight access check...');
-    const preflightResponse = await fetch(`https://googleads.googleapis.com/v21/customers/${cleanCustomerId}/googleAds:search`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${access_token}`,
-        'developer-token': DEVELOPER_TOKEN,
-        ...(loginCustomerId ? { 'login-customer-id': loginCustomerId } : {}),
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        query: 'SELECT customer.id FROM customer LIMIT 1',
-      }),
-    });
-
-    if (!preflightResponse.ok) {
-      const preflightText = await preflightResponse.text();
-      console.error('❌ Preflight failed:', preflightText);
-      throw new Error(`Preflight access failed: ${preflightResponse.status} - ${preflightText}`);
-    } else {
-      console.log('✅ Preflight access check passed');
-    }
     
-    const budgetResponse = await fetch(`https://googleads.googleapis.com/v21/customers/${cleanCustomerId}/campaignBudgets:mutate`, {
+    const budgetResponse = await fetch(`https://googleads.googleapis.com/v20/customers/${cleanCustomerId}/campaignBudgets:mutate`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${access_token}`,
+        'Authorization': `Bearer ${ACCESS_TOKEN}`,
         'developer-token': DEVELOPER_TOKEN,
         ...(loginCustomerId ? { 'login-customer-id': loginCustomerId } : {}),
         'Content-Type': 'application/json',
@@ -223,10 +192,10 @@ serve(async (req) => {
     campaignResource.campaign.campaignBudget = budgetResourceName;
 
     console.log('Creating campaign...');
-    const campaignResponse = await fetch(`https://googleads.googleapis.com/v21/customers/${cleanCustomerId}/campaigns:mutate`, {
+    const campaignResponse = await fetch(`https://googleads.googleapis.com/v20/customers/${cleanCustomerId}/campaigns:mutate`, {
       method: 'POST',
         headers: {
-          'Authorization': `Bearer ${access_token}`,
+          'Authorization': `Bearer ${ACCESS_TOKEN}`,
           'developer-token': DEVELOPER_TOKEN,
           ...(loginCustomerId ? { 'login-customer-id': loginCustomerId } : {}),
           'Content-Type': 'application/json',
@@ -263,10 +232,10 @@ serve(async (req) => {
 
     if (adGroupOperations.length > 0) {
       console.log('Creating ad groups...');
-      const adGroupResponse = await fetch(`https://googleads.googleapis.com/v21/customers/${cleanCustomerId}/adGroups:mutate`, {
+      const adGroupResponse = await fetch(`https://googleads.googleapis.com/v20/customers/${cleanCustomerId}/adGroups:mutate`, {
         method: 'POST',
          headers: {
-           'Authorization': `Bearer ${access_token}`,
+           'Authorization': `Bearer ${ACCESS_TOKEN}`,
            'developer-token': DEVELOPER_TOKEN,
            ...(loginCustomerId ? { 'login-customer-id': loginCustomerId } : {}),
            'Content-Type': 'application/json',
@@ -306,10 +275,10 @@ serve(async (req) => {
 
         if (keywordOperations.length > 0) {
           console.log('Creating keywords...');
-          const keywordResponse = await fetch(`https://googleads.googleapis.com/v21/customers/${cleanCustomerId}/adGroupCriteria:mutate`, {
+          const keywordResponse = await fetch(`https://googleads.googleapis.com/v20/customers/${cleanCustomerId}/adGroupCriteria:mutate`, {
             method: 'POST',
              headers: {
-               'Authorization': `Bearer ${access_token}`,
+               'Authorization': `Bearer ${ACCESS_TOKEN}`,
                'developer-token': DEVELOPER_TOKEN,
                ...(loginCustomerId ? { 'login-customer-id': loginCustomerId } : {}),
                'Content-Type': 'application/json',
