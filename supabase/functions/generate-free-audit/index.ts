@@ -49,6 +49,20 @@ serve(async (req) => {
         issues: auditData.issues?.issues?.slice(0, 3) || [],
       },
       campaigns_count: auditData.campaigns?.length || 0,
+      checklist_preview: auditData.checklist ? {
+        summary: auditData.checklist.summary,
+        sections: Object.entries(auditData.checklist)
+          .filter(([key]) => key !== 'summary')
+          .map(([sectionKey, items]: [string, any]) => ({
+            name: sectionKey,
+            display_name: sectionKey.replace(/_/g, ' '),
+            total: items.length,
+            passed: items.filter((i: any) => i.status === 'pass').length,
+            warnings: items.filter((i: any) => i.status === 'warning').length,
+            failed: items.filter((i: any) => i.status === 'fail').length,
+            preview_items: items.slice(0, 2) // Show first 2 items
+          }))
+      } : null
     };
 
     // Update the audit lead with results

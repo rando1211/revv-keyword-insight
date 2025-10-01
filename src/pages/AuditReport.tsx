@@ -306,7 +306,9 @@ export default function AuditReport() {
   const healthScore = results.account_health?.score || 0;
   const insights = results.ai_insights || {};
   const issues = results.issues?.issues || [];
-  const checklist = results.checklist || {};
+  const checklist = results.checklist || null;
+  const checklistPreview = results.checklist_preview || null;
+  const isFreeAudit = !!checklistPreview; // Free tier has preview, paid has full checklist
 
   return (
     <div className="min-h-screen bg-background">
@@ -360,8 +362,73 @@ export default function AuditReport() {
           </CardContent>
         </Card>
 
-        {/* Comprehensive Audit Checklist */}
-        {checklist.summary && (
+        {/* Comprehensive Audit Checklist Preview (Free Tier) */}
+        {checklistPreview && (
+          <Card className="relative overflow-hidden">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                🔍 Google Ads Audit Checklist
+              </CardTitle>
+              <CardDescription>
+                {checklistPreview.summary.passed} passed • {checklistPreview.summary.warnings} warnings • {checklistPreview.summary.failed} failed • {checklistPreview.summary.unknown} needs review
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {checklistPreview.sections.map((section: any) => (
+                <div key={section.name}>
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="font-semibold capitalize">{section.display_name}</h3>
+                    <Badge variant="outline">
+                      {section.passed}/{section.total} ✅
+                    </Badge>
+                  </div>
+                  <div className="space-y-2">
+                    {/* Show first 2 items */}
+                    {section.preview_items.map((check: any, idx: number) => (
+                      <div key={idx} className="flex items-start gap-3 p-2 rounded hover:bg-muted/50">
+                        <span className="text-lg">
+                          {check.status === 'pass' && '✅'}
+                          {check.status === 'warning' && '⚠️'}
+                          {check.status === 'fail' && '❌'}
+                          {check.status === 'unknown' && '○'}
+                        </span>
+                        <div className="flex-1">
+                          <p className="text-sm">{check.item}</p>
+                          <p className="text-xs text-muted-foreground">{check.details}</p>
+                        </div>
+                      </div>
+                    ))}
+                    
+                    {/* Locked/blurred remaining items */}
+                    {section.total > 2 && (
+                      <div className="relative">
+                        <div className="blur-sm opacity-50 pointer-events-none space-y-2">
+                          {[...Array(Math.min(section.total - 2, 3))].map((_, idx) => (
+                            <div key={idx} className="flex items-start gap-3 p-2 rounded bg-muted/30">
+                              <span className="text-lg">○</span>
+                              <div className="flex-1">
+                                <div className="h-4 bg-muted rounded w-3/4 mb-1"></div>
+                                <div className="h-3 bg-muted/50 rounded w-1/2"></div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <Badge className="bg-primary text-primary-foreground">
+                            +{section.total - 2} more items • Sign up to unlock
+                          </Badge>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Full Comprehensive Audit Checklist (Paid) */}
+        {checklist && checklist.summary && (
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
