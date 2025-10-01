@@ -97,12 +97,35 @@ serve(async (req) => {
     console.log('📊 MCC Hierarchy data:', hierarchyData);
 
     // If this is a client account (not a manager) and has a manager, use manager as login CID
-    let loginCustomerId = null;
+    let loginCustomerId: string | null = null;
     if (hierarchyData && !hierarchyData.is_manager && hierarchyData.manager_customer_id) {
       loginCustomerId = hierarchyData.manager_customer_id.replace(/-/g, '');
-      console.log('🔑 Using manager account as login-customer-id:', loginCustomerId);
+      console.log('🔑 Using manager account as login-customer-id (from hierarchy):', loginCustomerId);
     } else {
-      console.log('ℹ️ No manager found or account is standalone - no login-customer-id needed');
+      console.log('ℹ️ No manager found in hierarchy or account is standalone');
+    }
+
+    // Fallback: dynamically detect login_customer_id via edge function if not resolved
+    if (!loginCustomerId) {
+      console.log('🔎 Invoking get-login-customer-id for fallback detection...');
+      try {
+        const { data: loginDetectData, error: loginDetectError } = await supabase.functions.invoke('get-login-customer-id', {
+          body: { customerId: cleanCustomerId },
+          headers: { authorization: authHeader },
+        });
+        console.log('🧭 get-login-customer-id result:', { loginDetectData, hasError: !!loginDetectError });
+        if (loginDetectError) {
+          console.error('get-login-customer-id error:', loginDetectError);
+        }
+        if (loginDetectData?.login_customer_id) {
+          loginCustomerId = String(loginDetectData.login_customer_id).replace(/-/g, '');
+          console.log('✅ Using detected login-customer-id (fallback):', loginCustomerId);
+        } else {
+          console.log('⚠️ No login_customer_id detected; proceeding without header');
+        }
+      } catch (e) {
+        console.error('❌ Failed to invoke get-login-customer-id:', e);
+      }
     }
 
     // Create campaign using Google Ads API
@@ -142,6 +165,29 @@ serve(async (req) => {
       loginCustomerId,
       cleanCustomerId
     });
+
+    // Preflight permission check using same headers (helps surface 403 root cause early)
+    console.log('🔬 Performing preflight access check...');
+    const preflightResponse = await fetch(`https://googleads.googleapis.com/v21/customers/${cleanCustomerId}/googleAds:search`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${access_token}`,
+        'developer-token': DEVELOPER_TOKEN,
+        ...(loginCustomerId ? { 'login-customer-id': loginCustomerId } : {}),
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        query: 'SELECT customer.id FROM customer LIMIT 1',
+      }),
+    });
+
+    if (!preflightResponse.ok) {
+      const preflightText = await preflightResponse.text();
+      console.error('❌ Preflight failed:', preflightText);
+      throw new Error(`Preflight access failed: ${preflightResponse.status} - ${preflightText}`);
+    } else {
+      console.log('✅ Preflight access check passed');
+    }
     
     const budgetResponse = await fetch(`https://googleads.googleapis.com/v21/customers/${cleanCustomerId}/campaignBudgets:mutate`, {
       method: 'POST',
