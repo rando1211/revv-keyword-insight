@@ -103,6 +103,12 @@ Make the data realistic based on actual market conditions for ${businessType} bu
       }),
     });
 
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('OpenAI API error:', response.status, errorText);
+      throw new Error(`OpenAI API failed: ${response.status} - ${errorText.substring(0, 200)}`);
+    }
+
     const aiData = await response.json();
     console.log('OpenAI response received');
 
