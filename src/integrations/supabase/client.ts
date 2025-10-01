@@ -2,7 +2,7 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-const SUPABASE_URL = "https://auth.dextrum.app";
+const SUPABASE_URL = "https://vplwrfapmvxffnrfywqh.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZwbHdyZmFwbXZ4ZmZucmZ5d3FoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM5ODA2MDcsImV4cCI6MjA2OTU1NjYwN30.E_USY2hokMeolB8Wqu032sLAKfw_4mxNPE1k6MKqb2M";
 
 // Import the supabase client like this:
