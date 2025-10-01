@@ -86,14 +86,24 @@ serve(async (req) => {
     // Clean customer ID
     const cleanCustomerId = customerId.replace(/-/g, '');
 
-    // Get user's login customer ID for API calls
-    const { data: credentials } = await supabase
-      .from('user_google_ads_credentials')
-      .select('customer_id')
+    // Get the manager customer ID from MCC hierarchy if this is a client account
+    const { data: hierarchyData } = await supabase
+      .from('google_ads_mcc_hierarchy')
+      .select('manager_customer_id, is_manager')
       .eq('user_id', user.id)
+      .eq('customer_id', cleanCustomerId)
       .single();
 
-    const loginCustomerId = credentials?.customer_id?.replace(/-/g, '') || cleanCustomerId;
+    console.log('📊 MCC Hierarchy data:', hierarchyData);
+
+    // If this is a client account (not a manager) and has a manager, use manager as login CID
+    let loginCustomerId = null;
+    if (hierarchyData && !hierarchyData.is_manager && hierarchyData.manager_customer_id) {
+      loginCustomerId = hierarchyData.manager_customer_id.replace(/-/g, '');
+      console.log('🔑 Using manager account as login-customer-id:', loginCustomerId);
+    } else {
+      console.log('ℹ️ No manager found or account is standalone - no login-customer-id needed');
+    }
 
     // Create campaign using Google Ads API
     const campaignResource = {
@@ -138,7 +148,7 @@ serve(async (req) => {
       headers: {
         'Authorization': `Bearer ${access_token}`,
         'developer-token': DEVELOPER_TOKEN,
-        ...(loginCustomerId && loginCustomerId !== cleanCustomerId ? { 'login-customer-id': loginCustomerId } : {}),
+        ...(loginCustomerId ? { 'login-customer-id': loginCustomerId } : {}),
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -164,7 +174,7 @@ serve(async (req) => {
         headers: {
           'Authorization': `Bearer ${access_token}`,
           'developer-token': DEVELOPER_TOKEN,
-          ...(loginCustomerId && loginCustomerId !== cleanCustomerId ? { 'login-customer-id': loginCustomerId } : {}),
+          ...(loginCustomerId ? { 'login-customer-id': loginCustomerId } : {}),
           'Content-Type': 'application/json',
         },
       body: JSON.stringify({
@@ -204,7 +214,7 @@ serve(async (req) => {
          headers: {
            'Authorization': `Bearer ${access_token}`,
            'developer-token': DEVELOPER_TOKEN,
-           ...(loginCustomerId && loginCustomerId !== cleanCustomerId ? { 'login-customer-id': loginCustomerId } : {}),
+           ...(loginCustomerId ? { 'login-customer-id': loginCustomerId } : {}),
            'Content-Type': 'application/json',
          },
         body: JSON.stringify({
@@ -247,7 +257,7 @@ serve(async (req) => {
              headers: {
                'Authorization': `Bearer ${access_token}`,
                'developer-token': DEVELOPER_TOKEN,
-               ...(loginCustomerId && loginCustomerId !== cleanCustomerId ? { 'login-customer-id': loginCustomerId } : {}),
+               ...(loginCustomerId ? { 'login-customer-id': loginCustomerId } : {}),
                'Content-Type': 'application/json',
              },
             body: JSON.stringify({
