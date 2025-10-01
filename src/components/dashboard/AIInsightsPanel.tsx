@@ -518,7 +518,7 @@ export const AIInsightsPanel = () => {
       const { data, error } = await supabase.functions.invoke('advanced-search-terms-ai', {
         body: {
           customerId: selectedAccountForAnalysis.customerId,
-          campaignIds: selectedCampaignIds,
+          selectedCampaignIds: selectedCampaignIds,
           campaignGoal: campaignGoal,
           campaignContext: campaignContext
         }

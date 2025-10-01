@@ -20,10 +20,13 @@ serve(async (req) => {
       campaignGoal = "Generate more leads", 
       campaignContext, 
       selectedCampaignIds,
+      campaignIds,
       dateRange = "LAST_30_DAYS",
       searchTermLimit = 200,
       includeConversionValue = true 
     } = await req.json();
+
+    const effectiveCampaignIds = selectedCampaignIds || campaignIds;
     
     if (!customerId) {
       throw new Error('Customer ID is required');
@@ -158,12 +161,12 @@ serve(async (req) => {
     
     console.log(`🔑 Using login-customer-id: ${loginCustomerId}`);
     
-    let campaignFilter = '';
-    if (selectedCampaignIds && selectedCampaignIds.length > 0) {
-      const campaignIdList = selectedCampaignIds.map((id: string) => `'${id}'`).join(', ');
-      campaignFilter = `AND campaign.id IN (${campaignIdList})`;
-      console.log('🎯 Filtering by campaigns:', selectedCampaignIds);
-    }
+  let campaignFilter = '';
+  if (effectiveCampaignIds && effectiveCampaignIds.length > 0) {
+    const campaignIdList = effectiveCampaignIds.map((id: string) => `'${id}'`).join(', ');
+    campaignFilter = `AND campaign.id IN (${campaignIdList})`;
+    console.log('🎯 Filtering by campaigns:', effectiveCampaignIds);
+  }
     
     const searchTermsQuery = `
       SELECT
