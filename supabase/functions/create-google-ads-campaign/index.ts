@@ -47,11 +47,19 @@ serve(async (req) => {
     console.log('Creating Google Ads campaign for customer:', customerId);
     console.log('Campaign data:', JSON.stringify(campaignData, null, 2));
 
-    // Get Google Ads API credentials
-    const DEVELOPER_TOKEN = Deno.env.get('GOOGLE_DEVELOPER_TOKEN');
-    const CLIENT_ID = Deno.env.get('Client ID');
-    const CLIENT_SECRET = Deno.env.get('Secret');
-    const REFRESH_TOKEN = Deno.env.get('Refresh token');
+    // Prefer user-specific Google Ads credentials; fallback to shared env
+    const { data: userCreds } = await supabase
+      .from('user_google_ads_credentials')
+      .select('developer_token, client_id, client_secret, refresh_token, uses_own_credentials, is_configured')
+      .eq('user_id', user.id)
+      .single();
+
+    let DEVELOPER_TOKEN = (userCreds?.uses_own_credentials && userCreds?.is_configured ? userCreds?.developer_token : Deno.env.get('GOOGLE_DEVELOPER_TOKEN')) as string | null;
+    let CLIENT_ID = (userCreds?.uses_own_credentials && userCreds?.is_configured ? userCreds?.client_id : Deno.env.get('Client ID')) as string | null;
+    let CLIENT_SECRET = (userCreds?.uses_own_credentials && userCreds?.is_configured ? userCreds?.client_secret : Deno.env.get('Secret')) as string | null;
+    let REFRESH_TOKEN = (userCreds?.uses_own_credentials && userCreds?.is_configured ? userCreds?.refresh_token : Deno.env.get('Refresh token')) as string | null;
+
+    console.log('🔑 Credential source:', (userCreds?.uses_own_credentials && userCreds?.is_configured) ? 'user' : 'shared');
 
     console.log('🔑 Credentials check:', {
       DEVELOPER_TOKEN: !!DEVELOPER_TOKEN,
