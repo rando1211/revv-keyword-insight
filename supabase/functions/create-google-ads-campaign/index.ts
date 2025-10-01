@@ -128,12 +128,12 @@ serve(async (req) => {
 
     console.log('Creating campaign budget...');
     console.log('Budget request details:', {
-      url: `https://googleads.googleapis.com/v17/customers/${cleanCustomerId}/campaignBudgets:mutate`,
+      url: `https://googleads.googleapis.com/v21/customers/${cleanCustomerId}/campaignBudgets:mutate`,
       loginCustomerId,
       cleanCustomerId
     });
     
-    const budgetResponse = await fetch(`https://googleads.googleapis.com/v17/customers/${cleanCustomerId}/campaignBudgets:mutate`, {
+    const budgetResponse = await fetch(`https://googleads.googleapis.com/v21/customers/${cleanCustomerId}/campaignBudgets:mutate`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${access_token}`,
@@ -159,7 +159,7 @@ serve(async (req) => {
     campaignResource.campaign.campaignBudget = budgetResourceName;
 
     console.log('Creating campaign...');
-    const campaignResponse = await fetch(`https://googleads.googleapis.com/v17/customers/${cleanCustomerId}/campaigns:mutate`, {
+    const campaignResponse = await fetch(`https://googleads.googleapis.com/v21/customers/${cleanCustomerId}/campaigns:mutate`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${access_token}`,
@@ -199,7 +199,7 @@ serve(async (req) => {
 
     if (adGroupOperations.length > 0) {
       console.log('Creating ad groups...');
-      const adGroupResponse = await fetch(`https://googleads.googleapis.com/v17/customers/${cleanCustomerId}/adGroups:mutate`, {
+      const adGroupResponse = await fetch(`https://googleads.googleapis.com/v21/customers/${cleanCustomerId}/adGroups:mutate`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${access_token}`,
@@ -242,7 +242,7 @@ serve(async (req) => {
 
         if (keywordOperations.length > 0) {
           console.log('Creating keywords...');
-          const keywordResponse = await fetch(`https://googleads.googleapis.com/v17/customers/${cleanCustomerId}/adGroupCriteria:mutate`, {
+          const keywordResponse = await fetch(`https://googleads.googleapis.com/v21/customers/${cleanCustomerId}/adGroupCriteria:mutate`, {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${access_token}`,

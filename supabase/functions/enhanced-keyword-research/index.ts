@@ -109,6 +109,13 @@ Make the data realistic based on actual market conditions for ${businessType} bu
       throw new Error(`OpenAI API failed: ${response.status} - ${errorText.substring(0, 200)}`);
     }
 
+    // Check if response is HTML (common when API key is invalid or redirected to login)
+    const contentType = response.headers.get('content-type');
+    if (contentType && contentType.includes('text/html')) {
+      console.error('❌ OpenAI API returned HTML instead of JSON - likely invalid API key or authentication error');
+      throw new Error('OpenAI API authentication failed. Please verify your OPENAI_API_KEY is correct.');
+    }
+
     const aiData = await response.json();
     console.log('OpenAI response received');
 
