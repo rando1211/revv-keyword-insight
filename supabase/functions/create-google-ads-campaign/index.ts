@@ -14,21 +14,26 @@ serve(async (req) => {
   try {
     console.log('🚀 Starting campaign creation...');
     
-    const authHeader = req.headers.get('Authorization')!;
+    const authHeader = req.headers.get('Authorization');
     console.log('📝 Auth header present:', !!authHeader);
+    
+    if (!authHeader) {
+      console.error('❌ No authorization header provided');
+      throw new Error('Authorization header required');
+    }
     
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { global: { headers: { Authorization: authHeader } } }
+      Deno.env.get('SUPABASE_ANON_KEY') ?? ''
     );
 
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    console.log('👤 User authentication result:', { user: user?.id, error: authError?.message });
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    console.log('👤 User authentication result:', { userId: user?.id, error: authError?.message });
     
     if (authError || !user) {
-      console.error('❌ Authentication failed:', authError?.message);
-      throw new Error('Invalid user token');
+      console.error('❌ Authentication failed:', authError?.message || 'No user found');
+      throw new Error('Authentication failed - please sign in again');
     }
 
     const { customerId, campaignData } = await req.json();
