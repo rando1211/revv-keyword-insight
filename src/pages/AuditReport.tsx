@@ -306,6 +306,7 @@ export default function AuditReport() {
   const healthScore = results.account_health?.score || 0;
   const insights = results.ai_insights || {};
   const issues = results.issues?.issues || [];
+  const checklist = results.checklist || {};
 
   return (
     <div className="min-h-screen bg-background">
@@ -358,6 +359,43 @@ export default function AuditReport() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Comprehensive Audit Checklist */}
+        {checklist.summary && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                🔍 Google Ads Audit Checklist
+              </CardTitle>
+              <CardDescription>
+                {checklist.summary.passed} passed • {checklist.summary.warnings} warnings • {checklist.summary.failed} failed • {checklist.summary.unknown} needs review
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {Object.entries(checklist).filter(([key]) => key !== 'summary').map(([sectionKey, items]: [string, any]) => (
+                <div key={sectionKey}>
+                  <h3 className="font-semibold mb-3 capitalize">{sectionKey.replace(/_/g, ' ')}</h3>
+                  <div className="space-y-2">
+                    {items.map((check: any, idx: number) => (
+                      <div key={idx} className="flex items-start gap-3 p-2 rounded hover:bg-muted/50">
+                        <span className="text-lg">
+                          {check.status === 'pass' && '✅'}
+                          {check.status === 'warning' && '⚠️'}
+                          {check.status === 'fail' && '❌'}
+                          {check.status === 'unknown' && '○'}
+                        </span>
+                        <div className="flex-1">
+                          <p className="text-sm">{check.item}</p>
+                          <p className="text-xs text-muted-foreground">{check.details}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Key Findings Preview */}
         {insights.key_findings && insights.key_findings.length > 0 && (

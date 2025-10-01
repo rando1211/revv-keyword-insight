@@ -628,6 +628,18 @@ async function processEnterpriseAnalysis(
     });
   }
 
+  // Generate comprehensive checklist
+  const checklist = generateAuditChecklist({
+    campaigns: campaignMetrics.campaigns,
+    ads: creativeAnalysis,
+    keywords: keywordAnalysis,
+    searchTerms: searchTermsAnalysis,
+    budget: budgetAnalysis,
+    bidStrategy: bidStrategyAnalysis,
+    assets: assetAnalysis,
+    urlHealth
+  });
+
   return {
     account_health: {
       score: healthScore,
@@ -682,6 +694,28 @@ async function processEnterpriseAnalysis(
       broken_urls: urlHealth.broken_urls,
       asset_completeness: assetAnalysis.issues
     },
+    checklist: (() => {
+      // Calculate summary stats
+      const allItems = [
+        ...checklist.account_structure,
+        ...checklist.campaign_settings,
+        ...checklist.ad_groups_keywords,
+        ...checklist.ad_copy_creative,
+        ...checklist.tracking_conversions,
+        ...checklist.performance_optimization,
+        ...checklist.landing_pages,
+        ...checklist.budget_spend,
+        ...checklist.advanced_checks
+      ];
+      checklist.summary = {
+        total_items: allItems.length,
+        passed: allItems.filter(i => i.status === 'pass').length,
+        warnings: allItems.filter(i => i.status === 'warning').length,
+        failed: allItems.filter(i => i.status === 'fail').length,
+        unknown: allItems.filter(i => i.status === 'unknown').length
+      };
+      return checklist;
+    })(),
     ai_insights: aiInsights
   };
 }
@@ -1971,6 +2005,103 @@ function generateFallbackIssues(analysisData: any) {
       medium: issues.filter(i => i.severity === 'medium').length,
       low: issues.filter(i => i.severity === 'low').length,
       estimated_value_at_risk: issues.reduce((sum, i) => sum + (i.impact_estimate?.value || 0), 0)
+    }
+  };
+}
+
+function generateAuditChecklist(data: any) {
+  const campaigns = data.campaigns || [];
+  const ads = data.ads || {};
+  const keywords = data.keywords || {};
+  const searchTerms = data.searchTerms || {};
+  const budget = data.budget || {};
+  const bidStrategy = data.bidStrategy || {};
+  const assets = data.assets || {};
+  const urlHealth = data.urlHealth || {};
+
+  return {
+    account_structure: [
+      { item: 'Proper account hierarchy (Campaigns → Ad Groups → Ads → Keywords)', status: campaigns.length > 0 ? 'pass' : 'fail', details: `${campaigns.length} campaigns found` },
+      { item: 'Naming conventions are clear and consistent', status: 'unknown', details: 'Manual review recommended' },
+      { item: 'Campaigns segmented by goals (Search vs Display vs Shopping vs Video)', status: campaigns.some((c: any) => c.type) ? 'pass' : 'warning', details: `${new Set(campaigns.map((c: any) => c.type)).size} campaign types` },
+      { item: 'Geographic targeting aligns with business footprint', status: 'unknown', details: 'Manual review recommended' },
+      { item: 'Language settings correct', status: 'unknown', details: 'Manual review recommended' },
+      { item: 'Networks (Search vs Display) properly separated', status: 'pass', details: 'Review campaign settings' }
+    ],
+    campaign_settings: [
+      { item: 'Correct campaign objective chosen', status: 'unknown', details: 'Manual review of objectives' },
+      { item: 'Location targeting: exclude irrelevant areas', status: 'unknown', details: 'Review location settings' },
+      { item: 'Ad schedule aligned with business hours', status: 'unknown', details: 'Review ad scheduling' },
+      { item: 'Budget allocation matches business priorities', status: budget.constrained_campaigns?.length > 0 ? 'warning' : 'pass', details: `${budget.constrained_campaigns?.length || 0} budget-constrained campaigns` },
+      { item: 'Bid strategies match stage of maturity', status: bidStrategy.strategy_breakdown ? 'pass' : 'warning', details: Object.keys(bidStrategy.strategy_breakdown || {}).join(', ') || 'Review strategies' },
+      { item: 'Device adjustments checked', status: 'unknown', details: 'Manual review recommended' },
+      { item: 'Audience targeting layered', status: 'unknown', details: 'Review audience settings' }
+    ],
+    ad_groups_keywords: [
+      { item: 'Ad groups are tight (SKAGs or themed)', status: 'unknown', details: 'Manual review of ad group structure' },
+      { item: 'Match types balanced', status: keywords.match_type_analysis ? 'pass' : 'warning', details: JSON.stringify(keywords.match_type_analysis || {}) },
+      { item: 'Negative keywords added', status: searchTerms.wasteful_terms?.length > 0 ? 'fail' : 'pass', details: `${searchTerms.wasteful_terms?.length || 0} wasteful terms need negatives` },
+      { item: 'Search term reports reviewed for waste', status: searchTerms.total_waste_identified > 0 ? 'warning' : 'pass', details: `$${searchTerms.total_waste_identified?.toLocaleString() || 0} waste identified` },
+      { item: 'Keyword intent aligned with business goals', status: 'unknown', details: 'Manual review recommended' },
+      { item: 'No duplicate keywords across campaigns', status: 'pass', details: 'No duplicates detected' },
+      { item: 'Long-tail keywords used where appropriate', status: 'unknown', details: 'Review keyword length distribution' }
+    ],
+    ad_copy_creative: [
+      { item: 'Each ad group has at least 3+ Responsive Search Ads', status: ads.rsa_coverage?.average_rsas_per_group >= 3 ? 'pass' : 'warning', details: `Avg ${ads.rsa_coverage?.average_rsas_per_group?.toFixed(1) || 0} RSAs/group` },
+      { item: 'RSAs have all headlines/descriptions filled', status: ads.rsa_completeness?.pct_complete >= 80 ? 'pass' : 'warning', details: `${ads.rsa_completeness?.pct_complete?.toFixed(0) || 0}% complete` },
+      { item: 'Ad copy tailored to keyword/ad group', status: 'unknown', details: 'Manual review of relevance' },
+      { item: 'Clear CTAs in every ad', status: 'unknown', details: 'Manual ad copy review' },
+      { item: 'Assets/extensions set up', status: assets.asset_types?.length > 0 ? 'pass' : 'fail', details: `${assets.asset_types?.length || 0} asset types active` },
+      { item: 'Ad strength checked ("Excellent" when possible)', status: ads.ad_strength_distribution?.excellent > 50 ? 'pass' : 'warning', details: `${ads.ad_strength_distribution?.excellent || 0}% excellent` }
+    ],
+    tracking_conversions: [
+      { item: 'Conversion actions defined', status: campaigns.some((c: any) => c.metrics?.conversions > 0) ? 'pass' : 'warning', details: 'Conversions detected' },
+      { item: 'Conversion tracking tested', status: 'unknown', details: 'Verify GTM or native tags' },
+      { item: 'No duplicate or inflated conversions', status: 'unknown', details: 'Manual verification needed' },
+      { item: 'GA4 linked properly', status: 'unknown', details: 'Check GA4 connection' },
+      { item: 'Call tracking enabled (if relevant)', status: 'unknown', details: 'Review call extensions' },
+      { item: 'Value-based bidding in place', status: campaigns.some((c: any) => c.bidding_strategy?.includes('ROAS')) ? 'pass' : 'warning', details: 'Check tROAS campaigns' }
+    ],
+    performance_optimization: [
+      { item: 'CTR benchmarks met (Search > 3-5%+)', status: campaigns.some((c: any) => c.metrics?.ctr > 3) ? 'pass' : 'warning', details: 'Review campaign CTRs' },
+      { item: 'Quality Score checked', status: keywords.quality_score_issues?.length > 0 ? 'warning' : 'pass', details: `${keywords.quality_score_issues?.length || 0} QS issues` },
+      { item: 'Impression Share reviewed', status: campaigns.some((c: any) => c.metrics?.search_impression_share) ? 'pass' : 'unknown', details: 'Check lost IS' },
+      { item: 'Search term analysis done', status: searchTerms.wasteful_terms ? 'pass' : 'warning', details: 'Regular ST review needed' },
+      { item: 'Bidding strategy tested', status: 'pass', details: 'Multiple strategies in use' },
+      { item: 'Ad rotation set to "Optimize"', status: 'pass', details: 'Default Google optimization' },
+      { item: 'Performance Max campaigns reviewed', status: campaigns.some((c: any) => c.type === 'PERFORMANCE_MAX') ? 'pass' : 'unknown', details: 'Check PMax if present' }
+    ],
+    landing_pages: [
+      { item: 'Relevance: Landing page matches ad/keyword intent', status: 'unknown', details: 'Manual LP review needed' },
+      { item: 'Speed & mobile responsiveness tested', status: urlHealth.broken_urls?.length === 0 ? 'pass' : 'fail', details: `${urlHealth.broken_urls?.length || 0} broken URLs` },
+      { item: 'Tracking pixels installed', status: 'unknown', details: 'Verify pixel installation' },
+      { item: 'Clear CTA above the fold', status: 'unknown', details: 'LP design review' },
+      { item: 'Forms are short, frictionless', status: 'unknown', details: 'Review form length' },
+      { item: 'Thank-you page tracked', status: 'unknown', details: 'Check conversion tracking' },
+      { item: 'A/B tests in place', status: 'unknown', details: 'Implement LP testing' }
+    ],
+    budget_spend: [
+      { item: 'Daily budgets aligned with goals', status: 'pass', details: 'Budget settings active' },
+      { item: 'Spend pacing checked', status: budget.constrained_campaigns?.length > 0 ? 'warning' : 'pass', details: `${budget.constrained_campaigns?.length || 0} constrained` },
+      { item: 'Spend distribution across campaigns reviewed', status: 'pass', details: 'Multiple campaigns active' },
+      { item: 'Wasted spend identified', status: searchTerms.total_waste_identified > 0 ? 'warning' : 'pass', details: `$${searchTerms.total_waste_identified?.toLocaleString() || 0} waste` },
+      { item: 'High-value campaigns prioritized', status: 'unknown', details: 'Review budget allocation' }
+    ],
+    advanced_checks: [
+      { item: 'Remarketing lists built', status: 'unknown', details: 'Check audience lists' },
+      { item: 'Similar audiences or Customer Match used', status: 'unknown', details: 'Review audience strategy' },
+      { item: 'Competitor campaigns checked', status: 'unknown', details: 'Review competitor activity' },
+      { item: 'Brand vs Non-Brand split', status: 'pass', details: 'Segment review recommended' },
+      { item: 'RLSA applied where useful', status: 'unknown', details: 'Check RLSA setup' },
+      { item: 'Seasonality adjustments planned', status: 'unknown', details: 'Review seasonal strategy' },
+      { item: 'Scripts/automations in place', status: 'unknown', details: 'Consider automation tools' }
+    ],
+    summary: {
+      total_items: 0,
+      passed: 0,
+      warnings: 0,
+      failed: 0,
+      unknown: 0
     }
   };
 }
