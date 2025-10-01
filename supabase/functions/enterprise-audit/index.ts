@@ -1752,12 +1752,14 @@ Format as JSON with these exact keys: executive_summary, root_causes, prioritize
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-5-mini-2025-08-07',
+        model: 'gpt-4o-mini',
         messages: [
           { role: 'system', content: 'You are a senior Google Ads strategist. Provide strategic insights that match expert-level PPC analysis. Return valid JSON only.' },
           { role: 'user', content: prompt }
         ],
-        max_completion_tokens: 2000
+        max_tokens: 2000,
+        temperature: 0.7,
+        response_format: { type: "json_object" }
       }),
     });
 
@@ -1848,12 +1850,14 @@ Return ONLY valid JSON with actionable issues:
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-5-mini-2025-08-07',
+        model: 'gpt-4o-mini',
         messages: [
           { role: 'system', content: 'You are a PPC analyst. Return ONLY valid JSON. No explanation outside JSON.' },
           { role: 'user', content: issuesPrompt }
         ],
-        max_completion_tokens: 1500
+        max_tokens: 1500,
+        temperature: 0.7,
+        response_format: { type: "json_object" }
       }),
     });
 

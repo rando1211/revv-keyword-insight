@@ -25,6 +25,20 @@ export default function AuditReport() {
     loadAuditReport();
   }, [token]);
 
+  // Poll for audit completion if status is processing or pending
+  useEffect(() => {
+    if (!auditData || (auditData.status !== 'processing' && auditData.status !== 'pending')) {
+      return;
+    }
+
+    const pollInterval = setInterval(() => {
+      console.log('🔄 Polling for audit completion...');
+      loadAuditReport();
+    }, 5000); // Check every 5 seconds
+
+    return () => clearInterval(pollInterval);
+  }, [auditData?.status]);
+
   const loadAuditReport = async () => {
     if (!token) {
       toast({
