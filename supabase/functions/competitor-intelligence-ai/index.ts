@@ -126,7 +126,7 @@ Focus on actionable insights that can immediately improve ad performance and con
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4.1-2025-04-14',
+        model: 'gpt-4o-mini',
         messages: [
           {
             role: 'system',
@@ -223,7 +223,7 @@ Focus on actionable insights that can immediately improve ad performance and con
           industryContext,
           keywords,
           competitorsAnalyzed: mockCompetitorData.competitors.length,
-          model: 'gpt-4.1-2025-04-14'
+          model: 'gpt-4o-mini'
         }
       }),
       {

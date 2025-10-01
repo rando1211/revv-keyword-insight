@@ -449,7 +449,7 @@ Provide your analysis in the following structured format. Return ONLY valid JSON
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-5-mini-2025-08-07',
+        model: 'gpt-4o-mini',
         messages: [
           { 
             role: 'system', 
@@ -460,7 +460,9 @@ Provide your analysis in the following structured format. Return ONLY valid JSON
             content: `${aiPrompt}\n\n🔒 CUSTOMER ISOLATION: Analyze ONLY this customer's data: ${customerId}\n\nDATA TO ANALYZE:\n${JSON.stringify(structuredData, null, 2)}` 
           }
         ],
-        max_completion_tokens: 4000
+        max_tokens: 4000,
+        temperature: 0.7,
+        response_format: { type: "json_object" }
       }),
     });
 
@@ -514,7 +516,7 @@ Provide your analysis in the following structured format. Return ONLY valid JSON
         analysisDate: new Date().toISOString(),
         campaignGoal,
         campaignContext,
-        model: 'gpt-5-mini-2025-08-07'
+        model: 'gpt-4o-mini'
       }
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

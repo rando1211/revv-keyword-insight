@@ -2170,12 +2170,14 @@ OUTPUT ONLY valid JSON in this exact shape:
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-5-mini-2025-08-07',
+        model: 'gpt-4o-mini',
         messages: [
           { role: 'system', content: 'You are a senior PPC analyst. Return ONLY valid JSON. No explanation outside the JSON.' },
           { role: 'user', content: issuesPrompt }
         ],
-        max_completion_tokens: 2000
+        max_tokens: 2000,
+        temperature: 0.7,
+        response_format: { type: "json_object" }
       }),
     });
 
