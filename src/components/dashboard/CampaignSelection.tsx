@@ -99,8 +99,17 @@ export const CampaignSelection = ({ account, onBack }: CampaignSelectionProps) =
   const handleAnalyzeSelectedCampaigns = async () => {
     if (selectedCampaigns.length === 0) {
       toast({
-        title: "No Campaigns Selected",
-        description: "Please select at least one campaign to analyze.",
+        title: "No Campaign Selected",
+        description: "Please select exactly one campaign to analyze.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (selectedCampaigns.length > 1) {
+      toast({
+        title: "Too Many Campaigns Selected",
+        description: "Please select only one campaign at a time for analysis.",
         variant: "destructive",
       });
       return;
@@ -276,7 +285,7 @@ export const CampaignSelection = ({ account, onBack }: CampaignSelectionProps) =
         <div className="flex gap-2 pt-4">
           <Button
             onClick={handleAnalyzeSelectedCampaigns}
-            disabled={selectedCampaigns.length === 0 || analyzing}
+            disabled={selectedCampaigns.length !== 1 || analyzing}
             className="flex-1"
           >
             {analyzing ? (
@@ -287,7 +296,11 @@ export const CampaignSelection = ({ account, onBack }: CampaignSelectionProps) =
             ) : (
               <>
                 <Brain className="h-4 w-4 mr-2" />
-                Analyze {selectedCampaigns.length} Campaign{selectedCampaigns.length !== 1 ? 's' : ''} with AI
+                {selectedCampaigns.length === 1 
+                  ? 'Analyze Campaign with AI'
+                  : selectedCampaigns.length === 0
+                    ? 'Select 1 Campaign to Analyze'
+                    : 'Select Only 1 Campaign'}
               </>
             )}
           </Button>
@@ -295,10 +308,9 @@ export const CampaignSelection = ({ account, onBack }: CampaignSelectionProps) =
           <Button
             variant="outline"
             onClick={() => {
-              // Quick optimize selected campaigns
               handleAnalyzeSelectedCampaigns();
             }}
-            disabled={selectedCampaigns.length === 0 || analyzing}
+            disabled={selectedCampaigns.length !== 1 || analyzing}
           >
             <Zap className="h-4 w-4" />
           </Button>
