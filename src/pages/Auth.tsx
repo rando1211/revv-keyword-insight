@@ -281,51 +281,71 @@ export default function Auth() {
             </TabsContent>
             
             <TabsContent value="signup">
-              <div className="space-y-6 text-center">
-                <div className="space-y-3">
-                  <div className="bg-muted/30 p-6 rounded-lg">
-                    <h3 className="text-xl font-semibold mb-2">Beta Access Only</h3>
-                    <p className="text-muted-foreground text-sm leading-relaxed">
-                      DEXTRUM is currently in closed beta. New registrations are invite-only as we refine our tactical optimization protocols.
-                    </p>
-                  </div>
-                  
-                  <div className="bg-gradient-to-r from-destructive/10 to-destructive/5 p-4 rounded-lg border border-destructive/20">
-                    <h4 className="font-medium text-destructive mb-1">Coming Soon</h4>
-                    <p className="text-sm text-muted-foreground">
-                      Public access will be available once beta testing is complete. Join our waitlist for early access.
-                    </p>
-                  </div>
-                </div>
-
-                <Button 
-                  variant="outline" 
-                  className="w-full" 
-                  disabled
-                >
-                  Sign Up - Coming Soon
-                </Button>
-                
-                <p className="text-xs text-muted-foreground">
-                  Already have beta access? Switch to Sign In
-                </p>
-                
-                {/* Performance Tracker Access */}
-                <div className="mt-6 pt-4 border-t border-muted">
-                  <Button
-                    onClick={() => {
-                      localStorage.setItem('bypass-auth', 'true');
-                      console.log('🔧 Auth bypass activated - navigating to dashboard');
-                      navigate('/dashboard');
-                    }}
-                    className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-lg py-3"
-                  >
-                    🚀 ACCESS PERFORMANCE TRACKER
-                  </Button>
-                  <p className="text-xs text-muted-foreground text-center mt-2">
-                    Click to access dashboard with performance tracking tools
+              <div className="space-y-4">
+                <div className="bg-gradient-to-r from-purple-500/10 to-blue-500/10 p-4 rounded-lg border border-purple-500/20 mb-4">
+                  <h3 className="text-lg font-semibold text-purple-600 dark:text-purple-400 mb-1">🚀 Beta Tester Special</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Join now and lock in <span className="font-bold text-purple-600 dark:text-purple-400">$49/month forever</span> - Full access to all features!
                   </p>
                 </div>
+
+                <form onSubmit={handleSignUp} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="signup-email">Email</Label>
+                    <Input
+                      id="signup-email"
+                      type="email"
+                      placeholder="Enter your email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="signup-password">Password</Label>
+                    <Input
+                      id="signup-password"
+                      type="password"
+                      placeholder="Create a password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                      minLength={6}
+                    />
+                    <p className="text-xs text-muted-foreground">Minimum 6 characters</p>
+                  </div>
+                  {error && (
+                    <Alert variant="destructive">
+                      <AlertDescription>{error}</AlertDescription>
+                    </Alert>
+                  )}
+                  <Button type="submit" className="w-full" disabled={loading}>
+                    {loading ? 'Creating account...' : 'Sign Up - Start Beta Trial'}
+                  </Button>
+                </form>
+                
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t" />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-background px-2 text-muted-foreground">Or continue with</span>
+                  </div>
+                </div>
+                
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  onClick={handleGoogleSignIn}
+                  disabled={loading}
+                >
+                  🔗 Continue with Google
+                </Button>
+
+                <p className="text-xs text-muted-foreground text-center">
+                  By signing up, you agree to our Terms of Service and Privacy Policy
+                </p>
               </div>
             </TabsContent>
           </Tabs>

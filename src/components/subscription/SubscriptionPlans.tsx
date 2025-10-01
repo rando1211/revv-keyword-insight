@@ -6,16 +6,50 @@ import { Check, Zap, Crown, Building } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
+interface Plan {
+  id: string;
+  name: string;
+  price: string;
+  period: string;
+  icon: JSX.Element;
+  description: string;
+  features: string[];
+  cta: string;
+  popular: boolean;
+  badge?: string;
+}
+
 interface SubscriptionPlansProps {
   currentTier?: string;
   onPlanSelect?: (tier: string) => void;
 }
 
-export default function SubscriptionPlans({ currentTier = 'trial', onPlanSelect }: SubscriptionPlansProps) {
+export default function SubscriptionPlans({ currentTier = 'beta', onPlanSelect }: SubscriptionPlansProps) {
   const [loading, setLoading] = useState<string | null>(null);
   const { toast } = useToast();
 
   const plans = [
+    {
+      id: "beta",
+      name: "Beta Tester",
+      price: "$49",
+      period: "/month",
+      icon: <Zap className="w-6 h-6 text-purple-500" />,
+      description: "🚀 Early access beta pricing - Lock in this rate forever!",
+      features: [
+        "Unlimited campaigns",
+        "All Professional features",
+        "Power Audit included",
+        "Search terms analysis",
+        "Creative performance analysis",
+        "Competitor intelligence",
+        "Priority support",
+        "Lifetime beta pricing guarantee"
+      ],
+      cta: "Join Beta - $49/mo Forever",
+      popular: true,
+      badge: "BETA SPECIAL"
+    },
     {
       id: "starter",
       name: "Starter",
@@ -102,7 +136,7 @@ export default function SubscriptionPlans({ currentTier = 'trial', onPlanSelect 
   };
 
   return (
-    <div className="grid md:grid-cols-3 gap-6 max-w-6xl mx-auto">
+    <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl mx-auto">
       {plans.map((plan) => (
         <Card 
           key={plan.id} 
@@ -114,7 +148,13 @@ export default function SubscriptionPlans({ currentTier = 'trial', onPlanSelect 
                 : 'border-border'
           }`}
         >
-          {plan.popular && (
+          {plan.badge && !currentTier && (
+            <Badge className="absolute -top-2 left-1/2 transform -translate-x-1/2 bg-purple-500 text-white">
+              {plan.badge}
+            </Badge>
+          )}
+          
+          {plan.popular && !plan.badge && !currentTier && (
             <Badge className="absolute -top-2 left-1/2 transform -translate-x-1/2 bg-primary text-primary-foreground">
               Most Popular
             </Badge>

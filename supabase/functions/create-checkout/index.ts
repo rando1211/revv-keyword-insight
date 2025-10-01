@@ -51,6 +51,11 @@ serve(async (req) => {
 
     // Define pricing based on tier
     const pricing = {
+      beta: {
+        name: "Beta Tester Plan",
+        price: 4900, // $49.00
+        description: "🚀 Lifetime beta pricing - All Professional features included"
+      },
       starter: {
         name: "Starter Plan",
         price: 2900, // $29.00
