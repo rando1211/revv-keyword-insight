@@ -138,7 +138,7 @@ serve(async (req) => {
       headers: {
         'Authorization': `Bearer ${access_token}`,
         'developer-token': DEVELOPER_TOKEN,
-        'login-customer-id': loginCustomerId,
+        ...(loginCustomerId && loginCustomerId !== cleanCustomerId ? { 'login-customer-id': loginCustomerId } : {}),
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -161,12 +161,12 @@ serve(async (req) => {
     console.log('Creating campaign...');
     const campaignResponse = await fetch(`https://googleads.googleapis.com/v21/customers/${cleanCustomerId}/campaigns:mutate`, {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${access_token}`,
-        'developer-token': DEVELOPER_TOKEN,
-        'login-customer-id': loginCustomerId,
-        'Content-Type': 'application/json',
-      },
+        headers: {
+          'Authorization': `Bearer ${access_token}`,
+          'developer-token': DEVELOPER_TOKEN,
+          ...(loginCustomerId && loginCustomerId !== cleanCustomerId ? { 'login-customer-id': loginCustomerId } : {}),
+          'Content-Type': 'application/json',
+        },
       body: JSON.stringify({
         operations: [{ create: campaignResource.campaign }],
       }),
@@ -201,12 +201,12 @@ serve(async (req) => {
       console.log('Creating ad groups...');
       const adGroupResponse = await fetch(`https://googleads.googleapis.com/v21/customers/${cleanCustomerId}/adGroups:mutate`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${access_token}`,
-          'developer-token': DEVELOPER_TOKEN,
-          'login-customer-id': loginCustomerId,
-          'Content-Type': 'application/json',
-        },
+         headers: {
+           'Authorization': `Bearer ${access_token}`,
+           'developer-token': DEVELOPER_TOKEN,
+           ...(loginCustomerId && loginCustomerId !== cleanCustomerId ? { 'login-customer-id': loginCustomerId } : {}),
+           'Content-Type': 'application/json',
+         },
         body: JSON.stringify({
           operations: adGroupOperations,
         }),
@@ -244,12 +244,12 @@ serve(async (req) => {
           console.log('Creating keywords...');
           const keywordResponse = await fetch(`https://googleads.googleapis.com/v21/customers/${cleanCustomerId}/adGroupCriteria:mutate`, {
             method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${access_token}`,
-              'developer-token': DEVELOPER_TOKEN,
-              'login-customer-id': loginCustomerId,
-              'Content-Type': 'application/json',
-            },
+             headers: {
+               'Authorization': `Bearer ${access_token}`,
+               'developer-token': DEVELOPER_TOKEN,
+               ...(loginCustomerId && loginCustomerId !== cleanCustomerId ? { 'login-customer-id': loginCustomerId } : {}),
+               'Content-Type': 'application/json',
+             },
             body: JSON.stringify({
               operations: keywordOperations.slice(0, 100), // Limit to 100 keywords per request
             }),
