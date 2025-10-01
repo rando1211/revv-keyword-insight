@@ -146,9 +146,12 @@ export const CampaignSelection = ({ account, onBack }: CampaignSelectionProps) =
       
       setAnalysisResults(JSON.stringify(data, null, 2));
       
+      const opportunityCount = data.actions?.length || 0;
       toast({
         title: "🎉 Analysis Complete!",
-        description: `Found ${data.actions?.length || 0} optimization opportunities. Check AI Insights tab.`,
+        description: opportunityCount > 0 
+          ? `Campaign analyzed and ready for optimization! Found ${opportunityCount} actionable insight${opportunityCount !== 1 ? 's' : ''}.`
+          : "Campaign analyzed and ready! No critical issues found.",
       });
       
     } catch (error) {
