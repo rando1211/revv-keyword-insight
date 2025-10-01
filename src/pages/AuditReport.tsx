@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -20,6 +20,7 @@ export default function AuditReport() {
   const [isLoadingAccounts, setIsLoadingAccounts] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
+  const isGeneratingRef = useRef(false); // Track if we're already generating
 
   useEffect(() => {
     loadAuditReport();
@@ -31,13 +32,17 @@ export default function AuditReport() {
       return;
     }
 
+    console.log('🔄 Setting up polling for audit completion...');
     const pollInterval = setInterval(() => {
       console.log('🔄 Polling for audit completion...');
       loadAuditReport();
     }, 5000); // Check every 5 seconds
 
-    return () => clearInterval(pollInterval);
-  }, [auditData?.status]);
+    return () => {
+      console.log('🔄 Clearing poll interval');
+      clearInterval(pollInterval);
+    };
+  }, [auditData?.status, token]); // Add token to prevent multiple intervals
 
   const loadAuditReport = async () => {
     if (!token) {
@@ -77,8 +82,9 @@ export default function AuditReport() {
         }
       }
       
-      // If status is pending and has customer_id, generate report
-      if (data.status === 'pending' && data.customer_id) {
+      // If status is pending and has customer_id, generate report (only once)
+      if (data.status === 'pending' && data.customer_id && !isGeneratingRef.current) {
+        isGeneratingRef.current = true;
         await generateAuditReport(data.id, data.customer_id);
       }
     } catch (error) {
@@ -150,6 +156,8 @@ export default function AuditReport() {
 
   const generateAuditReport = async (leadId: string, customerId: string) => {
     try {
+      console.log('🎯 Starting audit generation for lead:', leadId);
+      
       // Call the free audit edge function directly; it updates DB with service role
       const { data, error } = await supabase.functions.invoke('generate-free-audit', {
         body: { leadId, customerId }
@@ -157,11 +165,16 @@ export default function AuditReport() {
 
       if (error) throw error;
 
-      // Reload the report with updated data
-      await loadAuditReport();
+      console.log('✅ Audit generation initiated');
+      // Reload will happen via polling
     } catch (error) {
       console.error('Error generating audit:', error);
-      // Best-effort: keep UI on processing state without DB update
+      isGeneratingRef.current = false; // Reset on error
+      toast({
+        title: "Error",
+        description: "Failed to generate audit report",
+        variant: "destructive",
+      });
     }
   };
 
