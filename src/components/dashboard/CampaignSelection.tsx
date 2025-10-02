@@ -148,9 +148,9 @@ export const CampaignSelection = ({ account, onBack }: CampaignSelectionProps) =
       
       const opportunityCount = data.actions?.length || 0;
       toast({
-        title: "🎉 Analysis Complete!",
+        title: opportunityCount > 0 ? "🚀 Ready for Optimization!" : "✅ Analysis Complete!",
         description: opportunityCount > 0 
-          ? `Campaign analyzed and ready for optimization! Found ${opportunityCount} actionable insight${opportunityCount !== 1 ? 's' : ''}.`
+          ? `Found ${opportunityCount} actionable insight${opportunityCount !== 1 ? 's' : ''} ready to optimize.`
           : "Campaign analyzed and ready! No critical issues found.",
       });
       
