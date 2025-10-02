@@ -130,12 +130,15 @@ serve(async (req) => {
     }
 
     // Create campaign using Google Ads API
+    const strategy = String(campaignData.settings.biddingStrategy || 'MAXIMIZE_CLICKS').toUpperCase();
+    const biddingConfig = strategy === 'MANUAL_CPC' ? { manualCpc: {} } : { maximizeClicks: {} };
+
     const campaignResource = {
       campaign: {
         name: campaignData.settings.name,
         status: 'PAUSED', // Start paused for safety
         advertisingChannelType: 'SEARCH',
-        biddingStrategyType: campaignData.settings.biddingStrategy || 'MAXIMIZE_CLICKS',
+        ...biddingConfig,
         campaignBudget: `${customerResourcePath}/campaignBudgets/${Date.now()}`, // We'll create budget separately
         networkSettings: {
           targetGoogleSearch: true,
@@ -220,15 +223,16 @@ serve(async (req) => {
     // Create ad groups
     const adGroupOperations = [];
     for (const adGroup of campaignData.adGroups) {
-      adGroupOperations.push({
-        create: {
-          name: adGroup.name,
-          status: 'ENABLED',
-          campaign: campaignResourceName,
-          cpcBidMicros: (adGroup.maxCpc * 1000000).toString(), // Convert to micros
-          type: 'SEARCH_STANDARD',
-        },
-      });
+      const adGroupCreate: any = {
+        name: adGroup.name,
+        status: 'ENABLED',
+        campaign: campaignResourceName,
+        type: 'SEARCH_STANDARD',
+      };
+      if (strategy === 'MANUAL_CPC') {
+        adGroupCreate.cpcBidMicros = (adGroup.maxCpc * 1000000).toString(); // Convert to micros
+      }
+      adGroupOperations.push({ create: adGroupCreate });
     }
 
     if (adGroupOperations.length > 0) {
@@ -260,17 +264,18 @@ serve(async (req) => {
           const adGroupResourceName = adGroupResults.results[index].resourceName;
           
           adGroup.keywords.forEach((keyword: any) => {
-            keywordOperations.push({
-              create: {
-                adGroup: adGroupResourceName,
-                status: 'ENABLED',
-                keyword: {
-                  text: keyword.keyword,
-                  matchType: 'BROAD', // You can make this configurable
-                },
-                cpcBidMicros: (keyword.cpcEstimate * 1000000).toString(),
+            const createCriterion: any = {
+              adGroup: adGroupResourceName,
+              status: 'ENABLED',
+              keyword: {
+                text: keyword.keyword,
+                matchType: 'BROAD', // You can make this configurable
               },
-            });
+            };
+            if (strategy === 'MANUAL_CPC') {
+              createCriterion.cpcBidMicros = (keyword.cpcEstimate * 1000000).toString();
+            }
+            keywordOperations.push({ create: createCriterion });
           });
         });
 
