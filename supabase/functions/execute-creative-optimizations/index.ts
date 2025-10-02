@@ -106,6 +106,18 @@ serve(async (req) => {
             });
             break;
 
+          case 'add_headline':
+            await addHeadlineToCreative(headers, customerId, optimization);
+            executed++;
+            results.push({
+              id: optimization.id,
+              type: optimization.type,
+              status: 'EXECUTED',
+              action: 'Added new headline to RSA',
+              details: `Added headline: "${optimization.newText}" to responsive search ads`
+            });
+            break;
+
           case 'adjust_rotation':
             await adjustCreativeRotation(headers, customerId, optimization);
             executed++;
@@ -294,4 +306,115 @@ async function adjustCreativeRotation(headers: any, customerId: string, optimiza
   }
 
   console.log(`✅ Creative rotation updated successfully`);
+}
+
+async function addHeadlineToCreative(headers: any, customerId: string, optimization: any) {
+  console.log(`📝 Adding headline "${optimization.newText}" to responsive search ads`);
+  
+  // First, get all RSA ads for the customer to add the headline to
+  const searchQuery = `
+    SELECT 
+      ad_group_ad.ad.id,
+      ad_group_ad.ad.responsive_search_ad.headlines,
+      ad_group_ad.ad.responsive_search_ad.descriptions,
+      ad_group_ad.resource_name,
+      ad_group.id
+    FROM ad_group_ad 
+    WHERE 
+      ad_group_ad.ad.type = 'RESPONSIVE_SEARCH_AD'
+      AND ad_group_ad.status = 'ENABLED'
+      AND campaign.status = 'ENABLED'
+      AND ad_group.status = 'ENABLED'
+    LIMIT 20
+  `;
+
+  const searchResponse = await fetch(`https://googleads.googleapis.com/v20/customers/${customerId.replace('customers/', '')}/googleAds:search`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      query: searchQuery,
+      pageSize: 20
+    })
+  });
+
+  if (!searchResponse.ok) {
+    const errorText = await searchResponse.text();
+    throw new Error(`Failed to fetch RSA ads: ${errorText}`);
+  }
+
+  const searchData = await searchResponse.json();
+  const ads = searchData.results || [];
+  
+  if (ads.length === 0) {
+    throw new Error('No responsive search ads found to update');
+  }
+
+  console.log(`📊 Found ${ads.length} RSA ads to update with new headline`);
+
+  let updatedCount = 0;
+  
+  for (const adResult of ads.slice(0, 5)) { // Limit to first 5 ads to avoid overwhelming the account
+    try {
+      const existingHeadlines = adResult.adGroupAd?.ad?.responsiveSearchAd?.headlines || [];
+      const existingDescriptions = adResult.adGroupAd?.ad?.responsiveSearchAd?.descriptions || [];
+      
+      // Check if we already have 15 headlines (Google Ads limit)
+      if (existingHeadlines.length >= 15) {
+        console.log(`⚠️ Ad ${adResult.adGroupAd.ad.id} already has maximum headlines, skipping`);
+        continue;
+      }
+
+      // Add the new headline
+      const updatedHeadlines = [
+        ...existingHeadlines,
+        {
+          text: optimization.newText,
+          pinnedField: 'UNSPECIFIED'
+        }
+      ];
+
+      // Update the ad
+      const updateOperation = {
+        adGroupAdOperation: {
+          update: {
+            resourceName: adResult.adGroupAd.resourceName,
+            ad: {
+              responsiveSearchAd: {
+                headlines: updatedHeadlines,
+                descriptions: existingDescriptions
+              }
+            }
+          },
+          updateMask: 'ad.responsive_search_ad.headlines'
+        }
+      };
+
+      const mutateResponse = await fetch(`https://googleads.googleapis.com/v20/customers/${customerId.replace('customers/', '')}/googleAds:mutate`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          mutateOperations: [updateOperation]
+        })
+      });
+
+      if (!mutateResponse.ok) {
+        const errorText = await mutateResponse.text();
+        console.error(`Failed to update ad ${adResult.adGroupAd.ad.id}: ${errorText}`);
+        continue;
+      }
+
+      updatedCount++;
+      console.log(`✅ Added headline to ad ${adResult.adGroupAd.ad.id}`);
+      
+    } catch (error) {
+      console.error(`Error updating ad ${adResult.adGroupAd?.ad?.id}:`, error);
+      continue;
+    }
+  }
+
+  if (updatedCount === 0) {
+    throw new Error('Failed to add headline to any responsive search ads');
+  }
+
+  console.log(`✅ Successfully added headline "${optimization.newText}" to ${updatedCount} RSA ads`);
 }
