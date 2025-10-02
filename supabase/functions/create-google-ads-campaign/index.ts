@@ -68,9 +68,10 @@ serve(async (req) => {
       usesOwnCredentials: credentials.uses_own_credentials,
     });
 
-    // Clean customer ID
-    const cleanCustomerId = customerId.replace(/-/g, '');
-
+    // Normalize customer ID
+    const numericCustomerId = String(customerId).replace(/^customers\//, '').replace(/-/g, '');
+    const customerResourcePath = `customers/${numericCustomerId}`;
+    
     // Dynamic manager discovery - same as search terms optimization
     console.log('🔍 Discovering login-customer-id dynamically...');
     
@@ -99,7 +100,7 @@ serve(async (req) => {
       console.log(`🧪 Testing login-customer-id: ${testManagerId}`);
 
       try {
-        const testResponse = await fetch(`https://googleads.googleapis.com/v20/customers/${cleanCustomerId}/googleAds:search`, {
+        const testResponse = await fetch(`https://googleads.googleapis.com/v20/customers/${numericCustomerId}/googleAds:search`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${ACCESS_TOKEN}`,
@@ -135,7 +136,7 @@ serve(async (req) => {
         status: 'PAUSED', // Start paused for safety
         advertisingChannelType: 'SEARCH',
         biddingStrategyType: campaignData.settings.biddingStrategy || 'MAXIMIZE_CLICKS',
-        campaignBudget: `customers/${cleanCustomerId}/campaignBudgets/${Date.now()}`, // We'll create budget separately
+        campaignBudget: `${customerResourcePath}/campaignBudgets/${Date.now()}`, // We'll create budget separately
         networkSettings: {
           targetGoogleSearch: true,
           targetSearchNetwork: campaignData.settings.networkSettings?.includes('search') || true,
@@ -161,12 +162,12 @@ serve(async (req) => {
 
     console.log('Creating campaign budget...');
     console.log('Budget request details:', {
-      url: `https://googleads.googleapis.com/v20/customers/${cleanCustomerId}/campaignBudgets:mutate`,
+      url: `https://googleads.googleapis.com/v20/customers/${numericCustomerId}/campaignBudgets:mutate`,
       loginCustomerId,
-      cleanCustomerId
+      numericCustomerId
     });
     
-    const budgetResponse = await fetch(`https://googleads.googleapis.com/v20/customers/${cleanCustomerId}/campaignBudgets:mutate`, {
+    const budgetResponse = await fetch(`https://googleads.googleapis.com/v20/customers/${numericCustomerId}/campaignBudgets:mutate`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${ACCESS_TOKEN}`,
@@ -192,7 +193,7 @@ serve(async (req) => {
     campaignResource.campaign.campaignBudget = budgetResourceName;
 
     console.log('Creating campaign...');
-    const campaignResponse = await fetch(`https://googleads.googleapis.com/v20/customers/${cleanCustomerId}/campaigns:mutate`, {
+    const campaignResponse = await fetch(`https://googleads.googleapis.com/v20/customers/${numericCustomerId}/campaigns:mutate`, {
       method: 'POST',
         headers: {
           'Authorization': `Bearer ${ACCESS_TOKEN}`,
@@ -232,7 +233,7 @@ serve(async (req) => {
 
     if (adGroupOperations.length > 0) {
       console.log('Creating ad groups...');
-      const adGroupResponse = await fetch(`https://googleads.googleapis.com/v20/customers/${cleanCustomerId}/adGroups:mutate`, {
+      const adGroupResponse = await fetch(`https://googleads.googleapis.com/v20/customers/${numericCustomerId}/adGroups:mutate`, {
         method: 'POST',
          headers: {
            'Authorization': `Bearer ${ACCESS_TOKEN}`,
@@ -275,7 +276,7 @@ serve(async (req) => {
 
         if (keywordOperations.length > 0) {
           console.log('Creating keywords...');
-          const keywordResponse = await fetch(`https://googleads.googleapis.com/v20/customers/${cleanCustomerId}/adGroupCriteria:mutate`, {
+          const keywordResponse = await fetch(`https://googleads.googleapis.com/v20/customers/${numericCustomerId}/adGroupCriteria:mutate`, {
             method: 'POST',
              headers: {
                'Authorization': `Bearer ${ACCESS_TOKEN}`,
