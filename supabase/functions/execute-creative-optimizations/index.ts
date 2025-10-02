@@ -271,7 +271,7 @@ async function pauseCreative(headers: any, customerId: string, optimization: any
       ads.resource_name = '${customerId}/ads/${optimization.creativeId}'
   `;
 
-  const mutateResponse = await fetch(`https://googleads.googleapis.com/v16/customers/${customerId.replace('customers/', '')}/googleAds:mutate`, {
+  const mutateResponse = await fetch(`https://googleads.googleapis.com/v20/customers/${customerId.replace('customers/', '')}/googleAds:mutate`, {
     method: 'POST',
     headers,
     body: JSON.stringify({
@@ -329,7 +329,7 @@ async function addNewCreative(headers: any, customerId: string, optimization: an
     }
   };
 
-  const mutateResponse = await fetch(`https://googleads.googleapis.com/v16/customers/${customerId.replace('customers/', '')}/googleAds:mutate`, {
+  const mutateResponse = await fetch(`https://googleads.googleapis.com/v20/customers/${customerId.replace('customers/', '')}/googleAds:mutate`, {
     method: 'POST',
     headers,
     body: JSON.stringify({
@@ -360,7 +360,7 @@ async function adjustCreativeRotation(headers: any, customerId: string, optimiza
     }
   };
 
-  const mutateResponse = await fetch(`https://googleads.googleapis.com/v16/customers/${customerId.replace('customers/', '')}/googleAds:mutate`, {
+  const mutateResponse = await fetch(`https://googleads.googleapis.com/v20/customers/${customerId.replace('customers/', '')}/googleAds:mutate`, {
     method: 'POST',
     headers,
     body: JSON.stringify({
@@ -410,8 +410,7 @@ async function addHeadlineToCreative(headers: any, customerId: string, managerId
       'login-customer-id': managerId
     },
     body: JSON.stringify({
-      query: searchQuery,
-      pageSize: 20
+      query: searchQuery
     })
   });
 
@@ -529,8 +528,7 @@ async function addDescriptionToCreative(headers: any, customerId: string, manage
       'login-customer-id': managerId
     },
     body: JSON.stringify({
-      query: searchQuery,
-      pageSize: 20
+      query: searchQuery
     })
   });
 
