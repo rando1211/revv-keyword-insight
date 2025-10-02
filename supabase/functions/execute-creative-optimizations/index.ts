@@ -168,7 +168,7 @@ serve(async (req) => {
             break;
 
           case 'add_headline':
-            await addHeadlineToCreative(headers, customerId, optimization);
+            await addHeadlineToCreative(headers, customerId, correctManagerId, optimization);
             executed++;
             results.push({
               id: optimization.id,
@@ -369,8 +369,10 @@ async function adjustCreativeRotation(headers: any, customerId: string, optimiza
   console.log(`✅ Creative rotation updated successfully`);
 }
 
-async function addHeadlineToCreative(headers: any, customerId: string, optimization: any) {
+async function addHeadlineToCreative(headers: any, customerId: string, managerId: string, optimization: any) {
   console.log(`📝 Adding headline "${optimization.newText}" to responsive search ads`);
+  
+  const targetCustomerId = customerId.replace('customers/', '');
   
   // First, get all RSA ads for the customer to add the headline to
   const searchQuery = `
@@ -389,9 +391,12 @@ async function addHeadlineToCreative(headers: any, customerId: string, optimizat
     LIMIT 20
   `;
 
-  const searchResponse = await fetch(`https://googleads.googleapis.com/v20/customers/${customerId.replace('customers/', '')}/googleAds:search`, {
+  const searchResponse = await fetch(`https://googleads.googleapis.com/v20/customers/${targetCustomerId}/googleAds:search`, {
     method: 'POST',
-    headers,
+    headers: {
+      ...headers,
+      'login-customer-id': managerId
+    },
     body: JSON.stringify({
       query: searchQuery,
       pageSize: 20
@@ -450,9 +455,12 @@ async function addHeadlineToCreative(headers: any, customerId: string, optimizat
         }
       };
 
-      const mutateResponse = await fetch(`https://googleads.googleapis.com/v20/customers/${customerId.replace('customers/', '')}/googleAds:mutate`, {
+      const mutateResponse = await fetch(`https://googleads.googleapis.com/v20/customers/${targetCustomerId}/googleAds:mutate`, {
         method: 'POST',
-        headers,
+        headers: {
+          ...headers,
+          'login-customer-id': managerId
+        },
         body: JSON.stringify({
           mutateOperations: [updateOperation]
         })
