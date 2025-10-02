@@ -54,11 +54,72 @@ serve(async (req) => {
     const accessToken = tokenData.access_token;
     console.log("✅ Fresh access token obtained");
 
+    // Step 1: Get accessible customers to find the correct manager
+    console.log("📋 Step 1: Finding correct manager account...");
+    
+    const accessibleResponse = await fetch('https://googleads.googleapis.com/v20/customers:listAccessibleCustomers', {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'developer-token': developerToken,
+      },
+    });
+
+    if (!accessibleResponse.ok) {
+      throw new Error('Failed to fetch accessible customers');
+    }
+
+    const accessibleData = await accessibleResponse.json();
+    const accessibleIds = accessibleData.resourceNames?.map((name: string) => name.split('/')[1]) || [];
+    console.log(`📊 Found ${accessibleIds.length} accessible accounts`);
+
+    // Step 2: Find which manager manages this customer
+    let correctManagerId = customerId;
+    const targetCustomerId = customerId.replace('customers/', '');
+    
+    // Check if target is directly accessible
+    if (accessibleIds.includes(targetCustomerId)) {
+      console.log(`✅ Customer ${targetCustomerId} is directly accessible`);
+      correctManagerId = targetCustomerId;
+    } else {
+      // Check each accessible account to see if it manages the target
+      console.log(`🔍 Checking which manager account manages ${targetCustomerId}...`);
+      
+      for (const managerId of accessibleIds) {
+        try {
+          const hierarchyResponse = await fetch(`https://googleads.googleapis.com/v20/customers/${managerId}/googleAds:search`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'developer-token': developerToken,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              query: `SELECT customer_client.id FROM customer_client WHERE customer_client.manager = FALSE`
+            })
+          });
+
+          if (hierarchyResponse.ok) {
+            const hierarchyData = await hierarchyResponse.json();
+            const managedIds = hierarchyData.results?.map((r: any) => r.customerClient?.id?.toString()) || [];
+            
+            if (managedIds.includes(targetCustomerId)) {
+              correctManagerId = managerId;
+              console.log(`✅ Found correct manager: ${managerId} manages ${targetCustomerId}`);
+              break;
+            }
+          }
+        } catch (error) {
+          continue;
+        }
+      }
+    }
+
     const headers = {
       'Authorization': `Bearer ${accessToken}`,
       'developer-token': developerToken,
       'Content-Type': 'application/json',
-      'login-customer-id': customerId.replace('customers/', ''),
+      'login-customer-id': correctManagerId,
     };
 
     const results = [];
