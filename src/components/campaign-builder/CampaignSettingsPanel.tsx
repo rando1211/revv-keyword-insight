@@ -22,6 +22,7 @@ interface CampaignSettings {
   targetLocation: string;
   networkSettings: string[];
   customerId?: string;
+  finalUrl?: string;
 }
 
 interface CampaignSettingsPanelProps {
@@ -45,7 +46,8 @@ export const CampaignSettingsPanel: React.FC<CampaignSettingsPanelProps> = ({
     biddingStrategy: 'MAXIMIZE_CLICKS',
     targetLocation: 'United States',
     networkSettings: ['SEARCH'],
-    customerId: selectedAccount?.customerId
+    customerId: selectedAccount?.customerId,
+    finalUrl: ''
   });
   
   const [accounts, setAccounts] = useState<any[]>([]);
@@ -86,6 +88,17 @@ export const CampaignSettingsPanel: React.FC<CampaignSettingsPanelProps> = ({
     }
     if (!settings.customerId) {
       toast.error('Please select a Google Ads account');
+      return;
+    }
+    if (!settings.finalUrl?.trim()) {
+      toast.error('Final URL is required for ads');
+      return;
+    }
+    // Validate URL format
+    try {
+      new URL(settings.finalUrl);
+    } catch {
+      toast.error('Please enter a valid URL (e.g., https://example.com)');
       return;
     }
     onSettingsCreated(settings);
@@ -147,6 +160,17 @@ export const CampaignSettingsPanel: React.FC<CampaignSettingsPanelProps> = ({
                 value={settings.name}
                 onChange={(e) => setSettings(prev => ({ ...prev, name: e.target.value }))}
               />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="finalUrl">Final URL (Landing Page)</Label>
+              <Input
+                id="finalUrl"
+                type="url"
+                placeholder="https://example.com"
+                value={settings.finalUrl}
+                onChange={(e) => setSettings(prev => ({ ...prev, finalUrl: e.target.value }))}
+              />
+              <p className="text-xs text-muted-foreground">The webpage users will land on when they click your ad</p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="budget">Daily Budget ($)</Label>

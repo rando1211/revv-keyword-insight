@@ -195,6 +195,7 @@ Ensure:
             biddingStrategy: campaignData.biddingStrategy || 'MAXIMIZE_CLICKS',
             targetLocation: campaignData.targetLocation || 'United States',
             networkSettings: campaignData.networkSettings || ['search'],
+            finalUrl: domain.startsWith('http') ? domain : `https://${domain}`,
           },
           adGroups: campaignData.adGroups,
         },

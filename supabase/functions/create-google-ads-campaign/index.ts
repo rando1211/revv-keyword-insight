@@ -421,6 +421,76 @@ serve(async (req) => {
             console.log('Rejected keywords:', JSON.stringify(keywordResults.rejected, null, 2));
           }
         }
+        
+        // Create RSAs (Responsive Search Ads) for each ad group
+        const finalUrl = campaignData.settings.finalUrl;
+        if (finalUrl && adGroupResults.results.length > 0) {
+          console.log('Creating Responsive Search Ads...');
+          
+          const rsaOperations: any[] = [];
+          campaignData.adGroups.forEach((adGroup: any, index: number) => {
+            const adGroupResourceName = adGroupResults.results[index]?.resourceName;
+            if (!adGroupResourceName || !adGroup.headlines || !adGroup.descriptions) {
+              console.log(`Skipping RSA for ad group ${adGroup.name} - missing data`);
+              return;
+            }
+            
+            // Create headlines assets (max 15)
+            const headlines = adGroup.headlines.slice(0, 15).map((text: string) => ({
+              text: text.substring(0, 30), // Max 30 chars per headline
+              pinnedField: undefined
+            }));
+            
+            // Create descriptions assets (max 4)
+            const descriptions = adGroup.descriptions.slice(0, 4).map((text: string) => ({
+              text: text.substring(0, 90), // Max 90 chars per description
+              pinnedField: undefined
+            }));
+            
+            rsaOperations.push({
+              create: {
+                adGroup: adGroupResourceName,
+                status: 'ENABLED',
+                ad: {
+                  responsiveSearchAd: {
+                    headlines,
+                    descriptions,
+                    path1: '',
+                    path2: '',
+                  },
+                  finalUrls: [finalUrl],
+                }
+              }
+            });
+          });
+          
+          if (rsaOperations.length > 0) {
+            try {
+              const rsaResponse = await fetch(`https://googleads.googleapis.com/v20/customers/${numericCustomerId}/adGroupAds:mutate`, {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${ACCESS_TOKEN}`,
+                  'developer-token': DEVELOPER_TOKEN,
+                  ...(loginCustomerId ? { 'login-customer-id': loginCustomerId } : {}),
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  operations: rsaOperations,
+                }),
+              });
+              
+              if (rsaResponse.ok) {
+                const rsaResult = await rsaResponse.json();
+                console.log(`✅ Created ${rsaResult.results.length} Responsive Search Ads`);
+              } else {
+                const errorText = await rsaResponse.text();
+                console.error('RSA creation failed:', errorText);
+              }
+            } catch (error) {
+              console.error('Error creating RSAs:', error);
+            }
+          }
+        }
       }
     }
 
