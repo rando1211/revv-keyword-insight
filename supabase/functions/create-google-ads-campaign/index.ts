@@ -131,14 +131,12 @@ serve(async (req) => {
 
     // Create campaign using Google Ads API
     const strategy = String(campaignData.settings.biddingStrategy || 'MAXIMIZE_CLICKS').toUpperCase();
-    const biddingConfig = strategy === 'MANUAL_CPC' ? { manualCpc: {} } : { maximizeClicks: {} };
-
+    
     const campaignResource = {
       campaign: {
         name: campaignData.settings.name,
         status: 'PAUSED', // Start paused for safety
         advertisingChannelType: 'SEARCH',
-        ...biddingConfig,
         campaignBudget: `${customerResourcePath}/campaignBudgets/${Date.now()}`, // We'll create budget separately
         networkSettings: {
           targetGoogleSearch: true,
@@ -153,10 +151,18 @@ serve(async (req) => {
       },
     };
 
-    // Create campaign budget first
+    // Add bidding strategy to campaign
+    if (strategy === 'MANUAL_CPC') {
+      campaignResource.campaign.manualCpc = {};
+    } else {
+      campaignResource.campaign.maximizeClicks = {};
+    }
+
+    // Create campaign budget first with unique name
+    const uniqueBudgetName = `${campaignData.settings.name} Budget ${Date.now()}`;
     const budgetResource = {
       campaignBudget: {
-        name: `${campaignData.settings.name} Budget`,
+        name: uniqueBudgetName,
         amountMicros: (campaignData.settings.budget * 1000000).toString(), // Convert to micros
         deliveryMethod: 'STANDARD',
         period: 'DAILY',
