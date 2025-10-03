@@ -3,12 +3,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, ArrowRight, Rocket, Target, FileText, Settings, CheckCircle } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Rocket, Target, FileText, Settings, CheckCircle, Sparkles } from 'lucide-react';
 import { KeywordResearchPanel } from './KeywordResearchPanel';
 import { CampaignStructurePanel } from './CampaignStructurePanel';
 import { AdCreationPanel } from './AdCreationPanel';
 import { CampaignSettingsPanel } from './CampaignSettingsPanel';
 import { CampaignReviewPanel } from './CampaignReviewPanel';
+import { QuickCampaignMode } from './QuickCampaignMode';
 
 interface KeywordData {
   keyword: string;
@@ -44,6 +45,7 @@ const steps = [
 ];
 
 export const CampaignBuilderWizard: React.FC = () => {
+  const [mode, setMode] = useState<'select' | 'quick' | 'manual'>('select');
   const [currentStep, setCurrentStep] = useState(1);
   const [selectedKeywords, setSelectedKeywords] = useState<KeywordData[]>([]);
   const [campaignStructure, setCampaignStructure] = useState<AdGroup[]>([]);
@@ -71,6 +73,13 @@ export const CampaignBuilderWizard: React.FC = () => {
   };
 
   const progress = (currentStep / steps.length) * 100;
+
+  const handleQuickModeGenerated = (campaignData: any) => {
+    setCampaignSettings(campaignData.settings);
+    setCampaignStructure(campaignData.adGroups);
+    setCurrentStep(5);
+    setMode('manual');
+  };
 
   const renderStepContent = () => {
     switch (currentStep) {
@@ -123,6 +132,122 @@ export const CampaignBuilderWizard: React.FC = () => {
     }
   };
 
+  // Mode Selection Screen
+  if (mode === 'select') {
+    return (
+      <div className="max-w-6xl mx-auto space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Rocket className="h-6 w-6" />
+              Campaign Builder
+            </CardTitle>
+            <CardDescription>
+              Choose how you'd like to build your campaign
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid md:grid-cols-2 gap-6 mt-6">
+              {/* Quick Mode */}
+              <Card 
+                className="p-6 cursor-pointer hover:border-primary transition-all hover:shadow-lg"
+                onClick={() => setMode('quick')}
+              >
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3">
+                    <Sparkles className="h-8 w-8 text-primary" />
+                    <h3 className="text-xl font-semibold">Quick Mode</h3>
+                  </div>
+                  <p className="text-muted-foreground text-sm">
+                    Just enter your website domain and let AI generate a complete campaign with optimized ads, keywords, and structure in seconds
+                  </p>
+                  <div className="bg-muted/50 p-3 rounded-lg space-y-1 text-sm">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="h-4 w-4 text-primary" />
+                      <span>3-5 tightly themed ad groups</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="h-4 w-4 text-primary" />
+                      <span>15 headlines + 4 descriptions per ad group</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="h-4 w-4 text-primary" />
+                      <span>AI-optimized keywords</span>
+                    </div>
+                  </div>
+                  <Button className="w-full" size="lg">
+                    <Sparkles className="mr-2 h-4 w-4" />
+                    Quick Generate
+                  </Button>
+                </div>
+              </Card>
+
+              {/* Manual Mode */}
+              <Card 
+                className="p-6 cursor-pointer hover:border-primary transition-all hover:shadow-lg"
+                onClick={() => setMode('manual')}
+              >
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3">
+                    <Settings className="h-8 w-8 text-primary" />
+                    <h3 className="text-xl font-semibold">Manual Mode</h3>
+                  </div>
+                  <p className="text-muted-foreground text-sm">
+                    Step-by-step wizard to research keywords, configure settings, structure ad groups, and create ads with full control
+                  </p>
+                  <div className="bg-muted/50 p-3 rounded-lg space-y-1 text-sm">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="h-4 w-4 text-primary" />
+                      <span>Keyword research tool</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="h-4 w-4 text-primary" />
+                      <span>Custom ad group structure</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="h-4 w-4 text-primary" />
+                      <span>Full customization control</span>
+                    </div>
+                  </div>
+                  <Button variant="outline" className="w-full" size="lg">
+                    <Settings className="mr-2 h-4 w-4" />
+                    Manual Setup
+                  </Button>
+                </div>
+              </Card>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Quick Mode
+  if (mode === 'quick') {
+    return (
+      <div className="max-w-6xl mx-auto space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Sparkles className="h-6 w-6" />
+              Quick Campaign Builder
+            </CardTitle>
+            <CardDescription>
+              AI-powered campaign generation from your website
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <QuickCampaignMode
+              onCampaignGenerated={handleQuickModeGenerated}
+              onBack={() => setMode('select')}
+            />
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Manual Mode
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       {/* Header */}
