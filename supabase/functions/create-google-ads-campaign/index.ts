@@ -422,10 +422,17 @@ serve(async (req) => {
           }
         }
         
-        // Create RSAs (Responsive Search Ads) for each ad group
+        // Helper function to title case text (capitalize each word)
+        const toTitleCase = (str: string): string => {
+          return str.replace(/\w\S*/g, (txt) => {
+            return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();
+          });
+        };
+
+        // Create RSAs (Responsive Search Ads) - 3 per ad group
         const finalUrl = campaignData.settings.finalUrl;
         if (finalUrl && adGroupResults.results.length > 0) {
-          console.log('Creating Responsive Search Ads...');
+          console.log('Creating Responsive Search Ads (3 per ad group)...');
           
           const rsaOperations: any[] = [];
           campaignData.adGroups.forEach((adGroup: any, index: number) => {
@@ -435,33 +442,36 @@ serve(async (req) => {
               return;
             }
             
-            // Create headlines assets (max 15)
+            // Create headlines assets (max 15, with title case)
             const headlines = adGroup.headlines.slice(0, 15).map((text: string) => ({
-              text: text.substring(0, 30), // Max 30 chars per headline
+              text: toTitleCase(text.substring(0, 30)), // Title case + max 30 chars per headline
               pinnedField: undefined
             }));
             
-            // Create descriptions assets (max 4)
+            // Create descriptions assets (max 4, with title case)
             const descriptions = adGroup.descriptions.slice(0, 4).map((text: string) => ({
-              text: text.substring(0, 90), // Max 90 chars per description
+              text: toTitleCase(text.substring(0, 90)), // Title case + max 90 chars per description
               pinnedField: undefined
             }));
             
-            rsaOperations.push({
-              create: {
-                adGroup: adGroupResourceName,
-                status: 'ENABLED',
-                ad: {
-                  responsiveSearchAd: {
-                    headlines,
-                    descriptions,
-                    path1: '',
-                    path2: '',
-                  },
-                  finalUrls: [finalUrl],
+            // Create 3 ads per ad group
+            for (let i = 0; i < 3; i++) {
+              rsaOperations.push({
+                create: {
+                  adGroup: adGroupResourceName,
+                  status: 'ENABLED',
+                  ad: {
+                    responsiveSearchAd: {
+                      headlines,
+                      descriptions,
+                      path1: '',
+                      path2: '',
+                    },
+                    finalUrls: [finalUrl],
+                  }
                 }
-              }
-            });
+              });
+            }
           });
           
           if (rsaOperations.length > 0) {
