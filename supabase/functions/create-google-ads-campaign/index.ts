@@ -149,7 +149,7 @@ serve(async (req) => {
           negativeGeoTargetType: 'PRESENCE',
         },
         // Required by Google Ads API v20 for transparency compliance - must be enum value
-        containsEuPoliticalAdvertising: "NON_EU_POLITICAL_ADVERTISING",
+        containsEuPoliticalAdvertising: "DOES_NOT_CONTAIN_EU_POLITICAL_ADVERTISING",
       },
     };
 
