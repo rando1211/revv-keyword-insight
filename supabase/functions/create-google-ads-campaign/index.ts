@@ -151,12 +151,7 @@ serve(async (req) => {
       },
     };
 
-    // Add bidding strategy to campaign
-    if (strategy === 'MANUAL_CPC') {
-      campaignResource.campaign.manualCpc = {};
-    } else {
-      campaignResource.campaign.maximizeClicks = {};
-    }
+    // Use default bidding (let Google Ads apply account defaults)
 
     // Create campaign budget first with unique name
     const uniqueBudgetName = `${campaignData.settings.name} Budget ${Date.now()}`;
