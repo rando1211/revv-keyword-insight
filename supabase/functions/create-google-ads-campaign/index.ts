@@ -230,6 +230,12 @@ serve(async (req) => {
     
     console.log('Campaign created successfully:', campaignResourceName);
 
+    // Initialize keyword results tracking
+    const keywordResults = {
+      created: [] as any[],
+      rejected: [] as any[],
+    };
+
     // Create ad groups
     const adGroupOperations = [];
     for (const adGroup of campaignData.adGroups) {
@@ -268,8 +274,10 @@ serve(async (req) => {
         const adGroupResults = await adGroupResponse.json();
         console.log('Ad groups created successfully:', adGroupResults.results.length);
 
-        // Create keywords for each ad group
+        // Create keywords for each ad group with policy violation handling
         const keywordOperations: any[] = [];
+        const keywordMapping: any[] = []; // Track which keyword corresponds to which operation
+        
         campaignData.adGroups.forEach((adGroup: any, index: number) => {
           const adGroupResourceName = adGroupResults.results[index].resourceName;
           
@@ -279,37 +287,138 @@ serve(async (req) => {
               status: 'ENABLED',
               keyword: {
                 text: keyword.keyword,
-                matchType: 'BROAD', // You can make this configurable
+                matchType: keyword.matchType || 'BROAD',
               },
             };
             if (strategy === 'MANUAL_CPC') {
               createCriterion.cpcBidMicros = (keyword.cpcEstimate * 1000000).toString();
             }
             keywordOperations.push({ create: createCriterion });
+            keywordMapping.push({
+              keyword: keyword.keyword,
+              adGroup: adGroup.name,
+            });
           });
         });
 
         if (keywordOperations.length > 0) {
-          console.log('Creating keywords...');
-          const keywordResponse = await fetch(`https://googleads.googleapis.com/v20/customers/${numericCustomerId}/adGroupCriteria:mutate`, {
-            method: 'POST',
-             headers: {
-               'Authorization': `Bearer ${ACCESS_TOKEN}`,
-               'developer-token': DEVELOPER_TOKEN,
-               ...(loginCustomerId ? { 'login-customer-id': loginCustomerId } : {}),
-               'Content-Type': 'application/json',
-             },
-            body: JSON.stringify({
-              operations: keywordOperations.slice(0, 100), // Limit to 100 keywords per request
-            }),
-          });
+          console.log(`Creating ${keywordOperations.length} keywords...`);
+          
+          // Try to create all keywords in batches
+          const batchSize = 100;
+          for (let i = 0; i < keywordOperations.length; i += batchSize) {
+            const batch = keywordOperations.slice(i, i + batchSize);
+            const batchMapping = keywordMapping.slice(i, i + batchSize);
+            
+            try {
+              const keywordResponse = await fetch(`https://googleads.googleapis.com/v20/customers/${numericCustomerId}/adGroupCriteria:mutate`, {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${ACCESS_TOKEN}`,
+                  'developer-token': DEVELOPER_TOKEN,
+                  ...(loginCustomerId ? { 'login-customer-id': loginCustomerId } : {}),
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  operations: batch,
+                  partialFailure: true, // Allow partial success
+                }),
+              });
 
-          if (!keywordResponse.ok) {
-            const errorText = await keywordResponse.text();
-            console.error('Keyword creation failed:', errorText);
-          } else {
-            const keywordResults = await keywordResponse.json();
-            console.log('Keywords created successfully:', keywordResults.results.length);
+              const responseData = await keywordResponse.json();
+              
+              if (keywordResponse.ok) {
+                // Process results - some may have succeeded, some may have failed
+                if (responseData.results) {
+                  responseData.results.forEach((result: any, idx: number) => {
+                    if (result.resourceName) {
+                      keywordResults.created.push({
+                        keyword: batchMapping[idx].keyword,
+                        adGroup: batchMapping[idx].adGroup,
+                        resourceName: result.resourceName,
+                      });
+                    }
+                  });
+                }
+                
+                // Check for partial failures
+                if (responseData.partialFailureError) {
+                  const failure = responseData.partialFailureError;
+                  if (failure.details) {
+                    failure.details.forEach((detail: any) => {
+                      if (detail.errors) {
+                        detail.errors.forEach((error: any) => {
+                          const operationIndex = error.location?.fieldPathElements?.[0]?.index;
+                          if (operationIndex !== undefined && batchMapping[operationIndex]) {
+                            let reason = error.message || 'Unknown error';
+                            let policyName = '';
+                            
+                            // Extract policy violation details
+                            if (error.details?.policyViolationDetails) {
+                              const pvd = error.details.policyViolationDetails;
+                              policyName = pvd.externalPolicyName || '';
+                              reason = pvd.externalPolicyDescription || reason;
+                            }
+                            
+                            keywordResults.rejected.push({
+                              keyword: batchMapping[operationIndex].keyword,
+                              adGroup: batchMapping[operationIndex].adGroup,
+                              reason: reason,
+                              policyName: policyName,
+                            });
+                          }
+                        });
+                      }
+                    });
+                  }
+                }
+              } else {
+                // Entire batch failed - try to extract policy violations
+                if (responseData.error?.details) {
+                  responseData.error.details.forEach((detail: any) => {
+                    if (detail.errors) {
+                      detail.errors.forEach((error: any) => {
+                        const operationIndex = error.location?.fieldPathElements?.[0]?.index;
+                        if (operationIndex !== undefined && batchMapping[operationIndex]) {
+                          let reason = error.message || 'Unknown error';
+                          let policyName = '';
+                          
+                          if (error.details?.policyViolationDetails) {
+                            const pvd = error.details.policyViolationDetails;
+                            policyName = pvd.externalPolicyName || '';
+                            reason = pvd.externalPolicyDescription || reason;
+                          }
+                          
+                          keywordResults.rejected.push({
+                            keyword: batchMapping[operationIndex].keyword,
+                            adGroup: batchMapping[operationIndex].adGroup,
+                            reason: reason,
+                            policyName: policyName,
+                          });
+                        }
+                      });
+                    }
+                  });
+                }
+              }
+            } catch (error) {
+              console.error(`Error creating keyword batch ${i / batchSize + 1}:`, error);
+              // Mark all keywords in this batch as failed
+              batchMapping.forEach((mapping: any) => {
+                keywordResults.rejected.push({
+                  keyword: mapping.keyword,
+                  adGroup: mapping.adGroup,
+                  reason: 'Batch request failed',
+                  policyName: '',
+                });
+              });
+            }
+          }
+          
+          console.log(`✅ Keywords created: ${keywordResults.created.length}`);
+          console.log(`❌ Keywords rejected: ${keywordResults.rejected.length}`);
+          if (keywordResults.rejected.length > 0) {
+            console.log('Rejected keywords:', JSON.stringify(keywordResults.rejected, null, 2));
           }
         }
       }
@@ -320,6 +429,11 @@ serve(async (req) => {
         success: true,
         campaignResourceName,
         message: `Campaign "${campaignData.settings.name}" created successfully in Google Ads. Campaign is paused by default - you can enable it in your Google Ads dashboard.`,
+        details: {
+          keywordsCreated: keywordResults?.created?.length || 0,
+          keywordsRejected: keywordResults?.rejected?.length || 0,
+          rejectedKeywords: keywordResults?.rejected || [],
+        },
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

@@ -73,11 +73,22 @@ export const CampaignReviewPanel: React.FC<CampaignReviewPanelProps> = ({
           success: true,
           message: data.message,
           campaignResourceName: data.campaignResourceName,
+          details: data.details, // Include keyword creation details
         });
-        toast({
-          title: "Campaign Created Successfully!",
-          description: "Your campaign has been created in Google Ads and is currently paused.",
-        });
+        
+        // Show appropriate toast based on keyword results
+        if (data.details?.keywordsRejected > 0) {
+          toast({
+            title: "Campaign Created with Warnings",
+            description: `Campaign created successfully, but ${data.details.keywordsRejected} keyword(s) were rejected due to policy violations.`,
+            variant: "default",
+          });
+        } else {
+          toast({
+            title: "Campaign Created Successfully!",
+            description: "Your campaign has been created in Google Ads and is currently paused.",
+          });
+        }
       } else {
         throw new Error(data.error || 'Campaign creation failed');
       }
@@ -106,6 +117,8 @@ export const CampaignReviewPanel: React.FC<CampaignReviewPanelProps> = ({
   const totalBudget = settings?.budget || 0;
 
   if (launchResult?.success) {
+    const hasRejectedKeywords = launchResult.details?.keywordsRejected > 0;
+    
     return (
       <div className="space-y-6">
         <Card>
@@ -124,6 +137,32 @@ export const CampaignReviewPanel: React.FC<CampaignReviewPanelProps> = ({
               </AlertDescription>
             </Alert>
             
+            {hasRejectedKeywords && (
+              <Alert variant="destructive">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription className="space-y-2">
+                  <p className="font-semibold">
+                    {launchResult.details.keywordsRejected} keyword(s) were rejected by Google Ads due to policy violations:
+                  </p>
+                  <ul className="list-disc list-inside space-y-1 mt-2">
+                    {launchResult.details.rejectedKeywords.slice(0, 5).map((rejected: any, idx: number) => (
+                      <li key={idx} className="text-sm">
+                        <strong>{rejected.keyword}</strong> - {rejected.reason}
+                        {rejected.policyName && (
+                          <span className="text-xs block ml-6 mt-1">Policy: {rejected.policyName}</span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                  {launchResult.details.rejectedKeywords.length > 5 && (
+                    <p className="text-xs mt-2">
+                      ...and {launchResult.details.rejectedKeywords.length - 5} more
+                    </p>
+                  )}
+                </AlertDescription>
+              </Alert>
+            )}
+            
             <div className="grid grid-cols-2 gap-4 p-4 bg-green-50 rounded-lg">
               <div>
                 <p className="text-sm font-medium">Campaign Name</p>
@@ -138,8 +177,13 @@ export const CampaignReviewPanel: React.FC<CampaignReviewPanelProps> = ({
                 <p className="text-sm text-muted-foreground">{adGroups.length}</p>
               </div>
               <div>
-                <p className="text-sm font-medium">Keywords</p>
-                <p className="text-sm text-muted-foreground">{totalKeywords}</p>
+                <p className="text-sm font-medium">Keywords Created</p>
+                <p className="text-sm text-muted-foreground">
+                  {launchResult.details?.keywordsCreated || totalKeywords}
+                  {hasRejectedKeywords && (
+                    <span className="text-yellow-600"> ({launchResult.details.keywordsRejected} rejected)</span>
+                  )}
+                </p>
               </div>
             </div>
 
