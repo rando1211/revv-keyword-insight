@@ -34,6 +34,24 @@ export const AccountSelectionStep = ({ onAccountSelected, onModeSelect }: Accoun
       setLoading(true);
       setNeedsSetup(false);
       
+      // First try to detect MCC hierarchy if not already detected
+      const { data: existingMCC, error: checkError } = await supabase
+        .from('google_ads_mcc_hierarchy')
+        .select('*')
+        .limit(1);
+      
+      if (!existingMCC || existingMCC.length === 0) {
+        console.log('No MCC hierarchy found, detecting...');
+        // Trigger MCC detection
+        try {
+          await supabase.functions.invoke('detect-mcc-hierarchy');
+          // Wait a moment for detection to complete
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        } catch (detectError) {
+          console.error('MCC detection error:', detectError);
+        }
+      }
+      
       // Load MCC hierarchy from database
       const { data: mccData, error: mccError } = await supabase
         .from('google_ads_mcc_hierarchy')
@@ -58,8 +76,14 @@ export const AccountSelectionStep = ({ onAccountSelected, onModeSelect }: Accoun
         });
       } else {
         // No MCC accounts, just load regular accounts
+        console.log('No MCC detected, loading direct accounts');
         const accountData = await fetchGoogleAdsAccounts();
         setClientAccounts(accountData);
+        
+        toast({
+          title: "Account Loaded",
+          description: "Loaded standalone account (no MCC hierarchy)",
+        });
       }
     } catch (error: any) {
       console.error('Failed to load MCC accounts:', error);
