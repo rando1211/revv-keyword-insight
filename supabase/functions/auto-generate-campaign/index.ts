@@ -96,10 +96,13 @@ Return ONLY valid JSON in this exact structure:
     }
   ],
   "targetLocation": "United States",
-  "networkSettings": ["search", "display"]
+  "networkSettings": ["search"]
 }
 
-Ensure:
+CRITICAL RULES:
+- matchType must ONLY be: "BROAD", "PHRASE", or "EXACT"
+- NEVER use "BROAD_MODIFIER" - it is deprecated and will fail
+- Mix match types for keyword variety
 - Exactly 15 headlines per ad group (max 30 chars)
 - Exactly 4 descriptions per ad group (max 90 chars)
 - Headlines are diverse and compelling
