@@ -151,7 +151,13 @@ serve(async (req) => {
       },
     };
 
-    // Use default bidding (let Google Ads apply account defaults)
+    // Add bidding strategy to campaign (v20 format)
+    if (strategy === 'MANUAL_CPC') {
+      campaignResource.campaign.manualCpc = {};
+    } else {
+      // MAXIMIZE_CLICKS uses targetSpend in v20
+      campaignResource.campaign.targetSpend = {};
+    }
 
     // Create campaign budget first with unique name
     const uniqueBudgetName = `${campaignData.settings.name} Budget ${Date.now()}`;
