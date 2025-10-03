@@ -442,20 +442,37 @@ serve(async (req) => {
               return;
             }
             
-            // Create headlines assets (max 15, with title case)
-            const headlines = adGroup.headlines.slice(0, 15).map((text: string) => ({
-              text: toTitleCase(text.substring(0, 30)), // Title case + max 30 chars per headline
-              pinnedField: undefined
-            }));
+            // Create 3 different ad variations per ad group
+            const allHeadlines = adGroup.headlines.slice(0, 15).map((text: string) => 
+              toTitleCase(text.substring(0, 30))
+            );
+            const allDescriptions = adGroup.descriptions.slice(0, 4).map((text: string) => 
+              toTitleCase(text.substring(0, 90))
+            );
             
-            // Create descriptions assets (max 4, with title case)
-            const descriptions = adGroup.descriptions.slice(0, 4).map((text: string) => ({
-              text: toTitleCase(text.substring(0, 90)), // Title case + max 90 chars per description
-              pinnedField: undefined
-            }));
-            
-            // Create 3 ads per ad group
-            for (let i = 0; i < 3; i++) {
+            // Create 3 ads with different combinations
+            for (let adIndex = 0; adIndex < 3; adIndex++) {
+              // Rotate headlines and descriptions for variety
+              const headlineStart = adIndex * 5;
+              const descStart = adIndex;
+              
+              const headlines = allHeadlines.slice(headlineStart, headlineStart + 15).concat(
+                allHeadlines.slice(0, Math.max(0, headlineStart + 15 - allHeadlines.length))
+              ).slice(0, 15).map((text: string) => ({
+                text,
+                pinnedField: undefined
+              }));
+              
+              const descriptions = [
+                allDescriptions[descStart % allDescriptions.length],
+                allDescriptions[(descStart + 1) % allDescriptions.length],
+                allDescriptions[(descStart + 2) % allDescriptions.length],
+                allDescriptions[(descStart + 3) % allDescriptions.length]
+              ].filter(Boolean).map((text: string) => ({
+                text,
+                pinnedField: undefined
+              }));
+              
               rsaOperations.push({
                 create: {
                   adGroup: adGroupResourceName,
