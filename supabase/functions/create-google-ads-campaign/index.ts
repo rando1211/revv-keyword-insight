@@ -140,16 +140,16 @@ serve(async (req) => {
         campaignBudget: `${customerResourcePath}/campaignBudgets/${Date.now()}`, // We'll create budget separately
         networkSettings: {
           targetGoogleSearch: true,
-          targetSearchNetwork: campaignData.settings.networkSettings?.includes('search') || true,
-          targetContentNetwork: campaignData.settings.networkSettings?.includes('display') || false,
+          targetSearchNetwork: campaignData.settings.networkSettings?.includes('search') ?? true,
+          targetContentNetwork: campaignData.settings.networkSettings?.includes('display') ?? false,
           targetPartnerSearchNetwork: false,
         },
         geoTargetTypeSetting: {
           positiveGeoTargetType: 'PRESENCE_OR_INTEREST',
           negativeGeoTargetType: 'PRESENCE',
         },
-        // Required by Google Ads API v20 for transparency compliance
-        contains_eu_political_advertising: false,
+        // Required by Google Ads API v20 for transparency compliance - must be enum value
+        containsEuPoliticalAdvertising: "NON_EU_POLITICAL_ADVERTISING",
       },
     };
 
@@ -204,7 +204,8 @@ serve(async (req) => {
     // Update campaign resource with created budget
     campaignResource.campaign.campaignBudget = budgetResourceName;
 
-    console.log('Creating campaign...');
+    console.log('Creating campaign with EU political advertising status:', campaignResource.campaign.containsEuPoliticalAdvertising);
+    console.log('Using login-customer-id:', loginCustomerId || 'none (direct access)');
     const campaignResponse = await fetch(`https://googleads.googleapis.com/v20/customers/${numericCustomerId}/campaigns:mutate`, {
       method: 'POST',
         headers: {
