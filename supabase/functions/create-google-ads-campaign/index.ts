@@ -148,6 +148,8 @@ serve(async (req) => {
           positiveGeoTargetType: 'PRESENCE_OR_INTEREST',
           negativeGeoTargetType: 'PRESENCE',
         },
+        // Required by Google Ads API v20 for transparency compliance
+        containsEuPoliticalAdvertising: false,
       },
     };
 
