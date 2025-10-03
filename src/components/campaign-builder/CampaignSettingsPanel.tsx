@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ArrowLeft, ArrowRight, Settings, DollarSign, Target } from 'lucide-react';
 import { toast } from 'sonner';
@@ -25,6 +26,7 @@ interface CampaignSettings {
 
 interface CampaignSettingsPanelProps {
   adGroups: AdGroup[];
+  selectedAccount?: { name: string; customerId: string };
   onSettingsCreated: (settings: CampaignSettings) => void;
   onNext: () => void;
   onBack: () => void;
@@ -32,6 +34,7 @@ interface CampaignSettingsPanelProps {
 
 export const CampaignSettingsPanel: React.FC<CampaignSettingsPanelProps> = ({
   adGroups,
+  selectedAccount,
   onSettingsCreated,
   onNext,
   onBack
@@ -41,13 +44,21 @@ export const CampaignSettingsPanel: React.FC<CampaignSettingsPanelProps> = ({
     budget: 1000,
     biddingStrategy: 'MAXIMIZE_CLICKS',
     targetLocation: 'United States',
-    networkSettings: ['SEARCH']
+    networkSettings: ['SEARCH'],
+    customerId: selectedAccount?.customerId
   });
   
   const [accounts, setAccounts] = useState<any[]>([]);
-  const [loadingAccounts, setLoadingAccounts] = useState(true);
+  const [loadingAccounts, setLoadingAccounts] = useState(!selectedAccount);
 
   useEffect(() => {
+    // If account is already selected from wizard, don't fetch accounts
+    if (selectedAccount) {
+      setSettings(prev => ({ ...prev, customerId: selectedAccount.customerId }));
+      setLoadingAccounts(false);
+      return;
+    }
+
     const loadAccounts = async () => {
       try {
         const googleAdsAccounts = await fetchGoogleAdsAccounts();
@@ -66,7 +77,7 @@ export const CampaignSettingsPanel: React.FC<CampaignSettingsPanelProps> = ({
     };
 
     loadAccounts();
-  }, []);
+  }, [selectedAccount]);
 
   const handleNext = () => {
     if (!settings.name.trim()) {
@@ -95,7 +106,15 @@ export const CampaignSettingsPanel: React.FC<CampaignSettingsPanelProps> = ({
           {/* Google Ads Account Selection */}
           <div className="p-4 bg-accent/50 rounded-lg space-y-2">
             <Label htmlFor="googleAdsAccount">Google Ads Account</Label>
-            {loadingAccounts ? (
+            {selectedAccount ? (
+              <div className="flex items-center gap-2 p-2 bg-background rounded border">
+                <div className="flex-1">
+                  <div className="font-medium">{selectedAccount.name}</div>
+                  <div className="text-sm text-muted-foreground">{selectedAccount.customerId}</div>
+                </div>
+                <Badge>Selected</Badge>
+              </div>
+            ) : loadingAccounts ? (
               <div className="text-sm text-muted-foreground">Loading accounts...</div>
             ) : accounts.length > 0 ? (
               <Select
