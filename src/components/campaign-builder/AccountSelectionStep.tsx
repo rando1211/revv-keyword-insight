@@ -78,11 +78,13 @@ export const AccountSelectionStep = ({ onAccountSelected, onModeSelect }: Accoun
         // No MCC accounts, just load regular accounts
         console.log('No MCC detected, loading direct accounts');
         const accountData = await fetchGoogleAdsAccounts();
-        setClientAccounts(accountData);
+        // Filter out manager accounts - campaigns can only be created in client accounts
+        const clientOnly = accountData.filter(acc => !acc.isManager);
+        setClientAccounts(clientOnly);
         
         toast({
           title: "Account Loaded",
-          description: "Loaded standalone account (no MCC hierarchy)",
+          description: `Loaded ${clientOnly.length} client account(s)`,
         });
       }
     } catch (error: any) {
@@ -286,7 +288,7 @@ export const AccountSelectionStep = ({ onAccountSelected, onModeSelect }: Accoun
             <p className="text-sm text-muted-foreground">
               {selectedMCC 
                 ? `Accounts under ${selectedMCC.account_name}` 
-                : 'Choose the account where you want to create your campaign'}
+                : 'Choose a client account (campaigns cannot be created in manager accounts)'}
             </p>
           </CardHeader>
           <CardContent>

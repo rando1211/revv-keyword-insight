@@ -47,6 +47,7 @@ export interface GoogleAdsAccount {
   campaignCount?: number;
   monthlySpend?: number;
   status: 'ENABLED' | 'SUSPENDED';
+  isManager?: boolean;
 }
 
 // Initialize MCC hierarchy detection for better API performance
