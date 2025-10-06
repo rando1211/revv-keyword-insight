@@ -78,8 +78,10 @@ export const AccountSelectionStep = ({ onAccountSelected, onModeSelect }: Accoun
         // No MCC accounts, just load regular accounts
         console.log('No MCC detected, loading direct accounts');
         const accountData = await fetchGoogleAdsAccounts();
-        // Filter out manager accounts - campaigns can only be created in client accounts
-        const clientOnly = accountData.filter(acc => !acc.isManager);
+        // Filter out manager accounts and disabled accounts
+        const clientOnly = accountData.filter(acc => 
+          !acc.isManager && acc.status === 'ENABLED'
+        );
         setClientAccounts(clientOnly);
         
         toast({
@@ -124,13 +126,21 @@ export const AccountSelectionStep = ({ onAccountSelected, onModeSelect }: Accoun
       if (clientError) throw clientError;
       
       if (clientData) {
-        const accounts: GoogleAdsAccount[] = clientData.map(c => ({
-          id: c.customer_id,
-          customerId: c.customer_id,
-          name: c.account_name || c.customer_id,
-          status: 'ENABLED',
-          isManager: false,
-        }));
+        // Need to verify account status with Google Ads API
+        const accountData = await fetchGoogleAdsAccounts();
+        const accountStatusMap = new Map(
+          accountData.map(acc => [acc.customerId.replace(/\D/g, ''), acc.status])
+        );
+        
+        const accounts: GoogleAdsAccount[] = clientData
+          .map(c => ({
+            id: c.customer_id,
+            customerId: c.customer_id,
+            name: c.account_name || c.customer_id,
+            status: accountStatusMap.get(c.customer_id) || 'ENABLED',
+            isManager: false,
+          }))
+          .filter(acc => acc.status === 'ENABLED'); // Only show enabled accounts
         
         setClientAccounts(accounts);
         
@@ -335,7 +345,10 @@ export const AccountSelectionStep = ({ onAccountSelected, onModeSelect }: Accoun
 
                 {clientAccounts.length === 0 && !loadingClients && (
                   <div className="text-center py-8 text-muted-foreground">
-                    <p>No client accounts found</p>
+                    <p>No enabled client accounts found</p>
+                    <p className="text-sm mt-2">
+                      Only active, non-manager accounts can have campaigns created
+                    </p>
                     <Button variant="outline" onClick={loadMCCAccounts} className="mt-4">
                       <RefreshCw className="h-4 w-4 mr-2" />
                       Retry
