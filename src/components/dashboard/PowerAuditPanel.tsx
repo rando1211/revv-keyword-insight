@@ -1297,7 +1297,7 @@ const IssuesTab = ({ issues, toast }: { issues: any; toast: any }) => {
 
   // Calculate audit results based on detected issues - more conservative approach
   const calculateAuditResults = () => {
-    const results: Record<string, boolean> = {};
+    const results: Record<string, { passed: boolean; relatedIssues: any[] }> = {};
     
     // Count issues by category and severity for better assessment
     const highSeverityCount = totals.high || 0;
@@ -1313,74 +1313,186 @@ const IssuesTab = ({ issues, toast }: { issues: any; toast: any }) => {
       i.summary?.toLowerCase().includes('decline')
     );
     
+    // Helper to find related issues
+    const findRelatedIssues = (keywords: string[]) => {
+      return issuesList.filter((issue: any) => 
+        keywords.some(kw => 
+          issue.summary?.toLowerCase().includes(kw) || 
+          issue.entity_name?.toLowerCase().includes(kw)
+        )
+      );
+    };
+    
     // Account Structure checks - fail if multiple high-severity issues
-    results['account_hierarchy'] = highSeverityCount < 3;
-    results['naming_conventions'] = true; // Can't determine from data
-    results['campaign_segmentation'] = highSeverityCount < 5;
-    results['geographic_targeting'] = true;
-    results['language_settings'] = true;
-    results['network_separation'] = true;
+    results['account_hierarchy'] = { 
+      passed: highSeverityCount < 3,
+      relatedIssues: highSeverityCount >= 3 ? issuesList.slice(0, 3) : []
+    };
+    results['naming_conventions'] = { passed: true, relatedIssues: [] };
+    results['campaign_segmentation'] = { 
+      passed: highSeverityCount < 5,
+      relatedIssues: highSeverityCount >= 5 ? issuesList.slice(0, 3) : []
+    };
+    results['geographic_targeting'] = { passed: true, relatedIssues: [] };
+    results['language_settings'] = { passed: true, relatedIssues: [] };
+    results['network_separation'] = { passed: true, relatedIssues: [] };
     
     // Campaign Settings checks - fail based on performance issues
-    results['campaign_objective'] = !hasDecliningCampaigns;
-    results['location_targeting'] = highSeverityCount < 4;
-    results['ad_schedule'] = true;
-    results['budget_allocation'] = !hasBudgetIssues && highSeverityCount < 3;
-    results['bid_strategies'] = !hasDecliningCampaigns;
-    results['device_adjustments'] = highSeverityCount < 5;
-    results['audience_targeting'] = !hasPerformanceIssues || highSeverityCount < 4;
+    results['campaign_objective'] = { 
+      passed: !hasDecliningCampaigns,
+      relatedIssues: findRelatedIssues(['declining', 'decline'])
+    };
+    results['location_targeting'] = { 
+      passed: highSeverityCount < 4,
+      relatedIssues: highSeverityCount >= 4 ? issuesList.slice(0, 2) : []
+    };
+    results['ad_schedule'] = { passed: true, relatedIssues: [] };
+    results['budget_allocation'] = { 
+      passed: !hasBudgetIssues && highSeverityCount < 3,
+      relatedIssues: findRelatedIssues(['budget', 'spend'])
+    };
+    results['bid_strategies'] = { 
+      passed: !hasDecliningCampaigns,
+      relatedIssues: findRelatedIssues(['declining', 'conversion'])
+    };
+    results['device_adjustments'] = { 
+      passed: highSeverityCount < 5,
+      relatedIssues: []
+    };
+    results['audience_targeting'] = { 
+      passed: !hasPerformanceIssues || highSeverityCount < 4,
+      relatedIssues: findRelatedIssues(['performance', 'ctr'])
+    };
     
     // Ad Groups & Keywords checks - fail for wasteful spend
-    results['tight_ad_groups'] = highSeverityCount < 4;
-    results['match_types'] = !hasHighSpendNoConversions;
-    results['negative_keywords'] = !hasHighSpendNoConversions; // Critical: wasteful keywords indicate missing negatives
-    results['search_terms_reviewed'] = !hasHighSpendNoConversions;
-    results['keyword_intent'] = !hasHighSpendNoConversions;
-    results['no_duplicate_keywords'] = highSeverityCount < 5;
-    results['long_tail_keywords'] = highSeverityCount < 6;
+    results['tight_ad_groups'] = { 
+      passed: highSeverityCount < 4,
+      relatedIssues: []
+    };
+    results['match_types'] = { 
+      passed: !hasHighSpendNoConversions,
+      relatedIssues: findRelatedIssues(['keyword', 'match type'])
+    };
+    results['negative_keywords'] = { 
+      passed: !hasHighSpendNoConversions,
+      relatedIssues: findRelatedIssues(['high spend', 'no conversions', 'keyword'])
+    };
+    results['search_terms_reviewed'] = { 
+      passed: !hasHighSpendNoConversions,
+      relatedIssues: findRelatedIssues(['search term', 'wasteful'])
+    };
+    results['keyword_intent'] = { 
+      passed: !hasHighSpendNoConversions,
+      relatedIssues: findRelatedIssues(['keyword', 'irrelevant'])
+    };
+    results['no_duplicate_keywords'] = { passed: highSeverityCount < 5, relatedIssues: [] };
+    results['long_tail_keywords'] = { passed: highSeverityCount < 6, relatedIssues: [] };
     
     // Ad Copy & Creative checks
-    results['rsa_count'] = !(issues?.asset_completeness?.length > 2);
-    results['rsa_filled'] = !(issues?.asset_completeness?.length > 0);
-    results['ad_copy_tailored'] = !hasDecliningCampaigns && highSeverityCount < 4;
-    results['clear_ctas'] = highSeverityCount < 5;
-    results['ad_customizers'] = true;
-    results['extensions_setup'] = !(issues?.asset_completeness?.length > 1);
-    results['ad_strength'] = !(issues?.asset_completeness?.length > 0);
+    results['rsa_count'] = { 
+      passed: !(issues?.asset_completeness?.length > 2),
+      relatedIssues: findRelatedIssues(['rsa', 'ad'])
+    };
+    results['rsa_filled'] = { 
+      passed: !(issues?.asset_completeness?.length > 0),
+      relatedIssues: findRelatedIssues(['headline', 'description'])
+    };
+    results['ad_copy_tailored'] = { 
+      passed: !hasDecliningCampaigns && highSeverityCount < 4,
+      relatedIssues: findRelatedIssues(['ad copy', 'creative'])
+    };
+    results['clear_ctas'] = { passed: highSeverityCount < 5, relatedIssues: [] };
+    results['ad_customizers'] = { passed: true, relatedIssues: [] };
+    results['extensions_setup'] = { 
+      passed: !(issues?.asset_completeness?.length > 1),
+      relatedIssues: findRelatedIssues(['extension', 'asset'])
+    };
+    results['ad_strength'] = { 
+      passed: !(issues?.asset_completeness?.length > 0),
+      relatedIssues: []
+    };
     
     // Tracking & Conversions checks - fail if high spend with no conversions
-    results['conversion_actions'] = !hasHighSpendNoConversions;
-    results['conversion_tracking'] = !hasHighSpendNoConversions;
-    results['no_duplicate_conversions'] = !hasHighSpendNoConversions;
-    results['offline_conversions'] = highSeverityCount < 6;
-    results['ga4_linked'] = true;
-    results['call_tracking'] = true;
-    results['value_based_bidding'] = !hasDecliningCampaigns;
+    results['conversion_actions'] = { 
+      passed: !hasHighSpendNoConversions,
+      relatedIssues: findRelatedIssues(['no conversions', 'conversion'])
+    };
+    results['conversion_tracking'] = { 
+      passed: !hasHighSpendNoConversions,
+      relatedIssues: findRelatedIssues(['tracking', 'conversion'])
+    };
+    results['no_duplicate_conversions'] = { 
+      passed: !hasHighSpendNoConversions,
+      relatedIssues: []
+    };
+    results['offline_conversions'] = { passed: highSeverityCount < 6, relatedIssues: [] };
+    results['ga4_linked'] = { passed: true, relatedIssues: [] };
+    results['call_tracking'] = { passed: true, relatedIssues: [] };
+    results['value_based_bidding'] = { 
+      passed: !hasDecliningCampaigns,
+      relatedIssues: findRelatedIssues(['declining'])
+    };
     
     // Performance & Optimization checks - critical area
-    results['ctr_benchmarks'] = !hasPerformanceIssues && highSeverityCount < 3;
-    results['quality_score'] = !hasHighSpendNoConversions && highSeverityCount < 4;
-    results['impression_share'] = highSeverityCount < 5;
-    results['search_term_analysis'] = !hasHighSpendNoConversions; // Critical failure
-    results['bidding_strategy_tested'] = !hasDecliningCampaigns;
-    results['ad_rotation'] = highSeverityCount < 6;
-    results['pmax_reviewed'] = true;
+    results['ctr_benchmarks'] = { 
+      passed: !hasPerformanceIssues && highSeverityCount < 3,
+      relatedIssues: findRelatedIssues(['ctr', 'click'])
+    };
+    results['quality_score'] = { 
+      passed: !hasHighSpendNoConversions && highSeverityCount < 4,
+      relatedIssues: findRelatedIssues(['quality score', 'keyword'])
+    };
+    results['impression_share'] = { passed: highSeverityCount < 5, relatedIssues: [] };
+    results['search_term_analysis'] = { 
+      passed: !hasHighSpendNoConversions,
+      relatedIssues: findRelatedIssues(['search term', 'wasteful', 'high spend'])
+    };
+    results['bidding_strategy_tested'] = { 
+      passed: !hasDecliningCampaigns,
+      relatedIssues: findRelatedIssues(['bid', 'strategy'])
+    };
+    results['ad_rotation'] = { passed: highSeverityCount < 6, relatedIssues: [] };
+    results['pmax_reviewed'] = { passed: true, relatedIssues: [] };
     
     // Landing Pages checks
-    results['landing_page_relevance'] = !(issues?.broken_urls?.length > 0) && !hasDecliningCampaigns;
-    results['page_speed'] = highSeverityCount < 5;
-    results['tracking_pixels'] = !hasHighSpendNoConversions;
-    results['clear_cta_fold'] = !hasDecliningCampaigns;
-    results['frictionless_forms'] = !hasDecliningCampaigns;
-    results['thankyou_tracked'] = highSeverityCount < 6;
-    results['ab_tests'] = highSeverityCount < 7;
+    results['landing_page_relevance'] = { 
+      passed: !(issues?.broken_urls?.length > 0) && !hasDecliningCampaigns,
+      relatedIssues: findRelatedIssues(['landing page', 'url'])
+    };
+    results['page_speed'] = { passed: highSeverityCount < 5, relatedIssues: [] };
+    results['tracking_pixels'] = { 
+      passed: !hasHighSpendNoConversions,
+      relatedIssues: []
+    };
+    results['clear_cta_fold'] = { 
+      passed: !hasDecliningCampaigns,
+      relatedIssues: []
+    };
+    results['frictionless_forms'] = { 
+      passed: !hasDecliningCampaigns,
+      relatedIssues: []
+    };
+    results['thankyou_tracked'] = { passed: highSeverityCount < 6, relatedIssues: [] };
+    results['ab_tests'] = { passed: highSeverityCount < 7, relatedIssues: [] };
     
     // Budget & Spend checks - critical with wasted spend
-    results['budgets_aligned'] = !hasBudgetIssues && highSeverityCount < 3;
-    results['spend_pacing'] = !hasBudgetIssues;
-    results['spend_distribution'] = highSeverityCount < 4;
-    results['wasted_spend'] = !hasHighSpendNoConversions; // Critical failure
-    results['high_value_priority'] = !hasDecliningCampaigns && !hasHighSpendNoConversions;
+    results['budgets_aligned'] = { 
+      passed: !hasBudgetIssues && highSeverityCount < 3,
+      relatedIssues: findRelatedIssues(['budget'])
+    };
+    results['spend_pacing'] = { 
+      passed: !hasBudgetIssues,
+      relatedIssues: findRelatedIssues(['pacing', 'budget'])
+    };
+    results['spend_distribution'] = { passed: highSeverityCount < 4, relatedIssues: [] };
+    results['wasted_spend'] = { 
+      passed: !hasHighSpendNoConversions,
+      relatedIssues: findRelatedIssues(['wasted', 'high spend', 'no conversions'])
+    };
+    results['high_value_priority'] = { 
+      passed: !hasDecliningCampaigns && !hasHighSpendNoConversions,
+      relatedIssues: findRelatedIssues(['declining', 'high spend'])
+    };
     
     return results;
   };
@@ -1401,7 +1513,7 @@ const IssuesTab = ({ issues, toast }: { issues: any; toast: any }) => {
   
   // Calculate totals
   const totalItems = Object.keys(auditResults).length;
-  const passedItems = Object.values(auditResults).filter(Boolean).length;
+  const passedItems = Object.values(auditResults).filter((result: any) => result.passed).length;
   
   // Always show the Google Ads Audit Checklist first
   return (
@@ -1442,7 +1554,7 @@ const IssuesTab = ({ issues, toast }: { issues: any; toast: any }) => {
             {auditSections.map((section, sectionIndex) => {
               const IconComponent = section.icon;
               const sectionKeys = itemKeys[section.title] || [];
-              const sectionPassed = sectionKeys.filter(key => auditResults[key]).length;
+              const sectionPassed = sectionKeys.filter(key => auditResults[key]?.passed).length;
               const sectionTotal = sectionKeys.length;
               
               return (
@@ -1465,23 +1577,78 @@ const IssuesTab = ({ issues, toast }: { issues: any; toast: any }) => {
                     <div className="space-y-2 pt-2">
                       {section.items.map((item, itemIndex) => {
                         const itemKey = sectionKeys[itemIndex];
-                        const passed = auditResults[itemKey];
+                        const result = auditResults[itemKey];
+                        const passed = result?.passed ?? true;
+                        const relatedIssues = result?.relatedIssues || [];
                         
                         return (
                           <div 
                             key={itemIndex} 
-                            className={`flex items-start space-x-3 p-3 rounded transition-colors ${
+                            className={`p-3 rounded transition-colors ${
                               passed ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'
                             }`}
                           >
-                            {passed ? (
-                              <CheckCircle className="h-5 w-5 mt-0.5 text-green-600 flex-shrink-0" />
-                            ) : (
-                              <XCircle className="h-5 w-5 mt-0.5 text-red-600 flex-shrink-0" />
-                            )}
-                            <span className={`text-sm leading-relaxed ${passed ? 'text-green-900' : 'text-red-900'}`}>
-                              {item}
-                            </span>
+                            <div className="flex items-start space-x-3">
+                              {passed ? (
+                                <CheckCircle className="h-5 w-5 mt-0.5 text-green-600 flex-shrink-0" />
+                              ) : (
+                                <XCircle className="h-5 w-5 mt-0.5 text-red-600 flex-shrink-0" />
+                              )}
+                              <div className="flex-1">
+                                <span className={`text-sm leading-relaxed ${passed ? 'text-green-900' : 'text-red-900'}`}>
+                                  {item}
+                                </span>
+                                
+                                {/* Show related issues when check fails */}
+                                {!passed && relatedIssues.length > 0 && (
+                                  <div className="mt-3 space-y-2">
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-xs font-medium text-red-700">
+                                        {relatedIssues.length} issue{relatedIssues.length > 1 ? 's' : ''} detected:
+                                      </span>
+                                    </div>
+                                    <div className="space-y-2">
+                                      {relatedIssues.slice(0, 2).map((issue: any, issueIdx: number) => (
+                                        <div key={issueIdx} className="bg-white p-2 rounded border border-red-200 text-xs">
+                                          <div className="font-medium text-red-900">{issue.entity_name}</div>
+                                          <div className="text-red-700 mt-1">{issue.summary}</div>
+                                          <div className="flex gap-2 mt-2">
+                                            <Button 
+                                              variant="outline" 
+                                              size="sm"
+                                              className="h-6 text-xs"
+                                              onClick={() => {
+                                                // Scroll to the full issue card
+                                                const issueCard = document.getElementById(`issue-${issueIdx}`);
+                                                issueCard?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                              }}
+                                            >
+                                              View Details
+                                            </Button>
+                                            <Button 
+                                              variant="outline" 
+                                              size="sm"
+                                              className="h-6 text-xs"
+                                              onClick={() => {
+                                                window.open('https://ads.google.com/aw/campaigns', '_blank');
+                                              }}
+                                            >
+                                              <ExternalLink className="h-3 w-3 mr-1" />
+                                              Fix in Google Ads
+                                            </Button>
+                                          </div>
+                                        </div>
+                                      ))}
+                                      {relatedIssues.length > 2 && (
+                                        <div className="text-xs text-red-600">
+                                          +{relatedIssues.length - 2} more issue{relatedIssues.length - 2 > 1 ? 's' : ''}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
                           </div>
                         );
                       })}
@@ -1529,7 +1696,7 @@ const IssuesTab = ({ issues, toast }: { issues: any; toast: any }) => {
           {/* AI-Detected Issues List */}
           <div className="space-y-4">
             {issuesList.map((issue: any, index: number) => (
-            <Card key={index} className={`border-l-4 ${getSeverityColor(issue.severity || 'medium')}`}>
+            <Card key={index} id={`issue-${index}`} className={`border-l-4 ${getSeverityColor(issue.severity || 'medium')}`}>
               <CardHeader>
                 <div className="flex items-start justify-between">
                   <div className="flex items-center space-x-3">
