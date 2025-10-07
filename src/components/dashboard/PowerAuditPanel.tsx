@@ -1168,6 +1168,25 @@ const IssuesTab = ({ issues, toast }: { issues: any; toast: any }) => {
   
   const issuesList = issues?.issues || [];
   const totals = issues?.totals || { high: 0, medium: 0, low: 0, estimated_value_at_risk: 0 };
+  const campaigns = issues?.campaigns || [];
+
+  const handleFixIssue = async (issue: any) => {
+    if (issue.fix_type === 'disable_networks') {
+      toast({
+        title: "Network Settings Update",
+        description: `Disabling networks for ${issue.entity_name}...`,
+      });
+      
+      // This will be implemented with the optimization execution
+      console.log('🔧 Fixing network settings:', issue);
+      
+      toast({
+        title: "Feature Coming Soon",
+        description: "One-click network disabling will be available in the next update. For now, please update in Google Ads.",
+        variant: "default",
+      });
+    }
+  };
 
   // Google Ads Audit Checklist Sections
   const auditSections = [
@@ -1345,18 +1364,38 @@ const IssuesTab = ({ issues, toast }: { issues: any; toast: any }) => {
     };
     results['geographic_targeting'] = { passed: true, relatedIssues: [] };
     results['language_settings'] = { passed: true, relatedIssues: [] };
+    
+    // Network separation check - find Search campaigns with Search Partners or Display Network enabled
+    const searchCampaignsWithWrongNetworks = campaigns.filter((c: any) => 
+      c.campaign_type === 'SEARCH' && (
+        c.search_partners_enabled === true || 
+        c.display_network_enabled === true
+      )
+    );
+    
     results['network_separation'] = { 
-      passed: false, // Search partners are ON by default - should opt out
-      relatedIssues: [{
-        entity_name: "Search Partner Network",
-        summary: "Opt out of Google Search Partners on Search campaigns",
-        title: "Opt out of Search Partner Network on Search Campaigns",
-        severity: 'medium',
-        description: "Search campaigns have Search Partner Network enabled by default. For better control and performance, it's recommended to opt out of search partners and keep search campaigns focused on Google Search only.",
-        recommendation: "Go to Campaign Settings → Networks → Uncheck 'Include Google search partners' to have full control over where your ads appear and better optimize performance.",
-        estimated_value_at_risk: 0,
-        synthetic: true
-      }]
+      passed: searchCampaignsWithWrongNetworks.length === 0,
+      relatedIssues: searchCampaignsWithWrongNetworks.map(campaign => {
+        const networks = [];
+        if (campaign.search_partners_enabled) networks.push('Search Partners');
+        if (campaign.display_network_enabled) networks.push('Display Network');
+        
+        return {
+          entity_name: campaign.campaign_name,
+          campaign_id: campaign.campaign_id,
+          summary: `${networks.join(' and ')} enabled on Search campaign`,
+          title: "Disable unnecessary networks",
+          severity: 'medium',
+          description: `This Search campaign has ${networks.join(' and ')} enabled. For better control and performance, Search campaigns should only target Google Search.`,
+          recommendation: `Disable ${networks.join(' and ')} to keep this Search campaign focused on Google Search only.`,
+          estimated_value_at_risk: 0,
+          fix_type: 'disable_networks',
+          networks_to_disable: {
+            search_partners: campaign.search_partners_enabled || false,
+            display_network: campaign.display_network_enabled || false
+          }
+        };
+      })
     };
     
     // Campaign Settings checks - more specific matching
@@ -1634,37 +1673,28 @@ const IssuesTab = ({ issues, toast }: { issues: any; toast: any }) => {
                                         <div key={issueIdx} className="bg-white p-2 rounded border border-red-200 text-xs">
                                           <div className="font-medium text-red-900">{issue.entity_name || issue.title}</div>
                                           <div className="text-red-700 mt-1">{issue.summary || issue.description}</div>
-                                          {issue.synthetic && (
-                                            <div className="text-xs text-gray-600 mt-1 italic">
-                                              💡 Best practice recommendation
-                                            </div>
-                                          )}
                                           <div className="flex gap-2 mt-2">
-                                            {!issue.synthetic && (
-                                              <Button 
-                                                variant="outline" 
-                                                size="sm"
-                                                className="h-6 text-xs"
-                                                onClick={() => {
-                                                  // Scroll to the full issue card
-                                                  const issueCard = document.getElementById(`issue-${issueIdx}`);
-                                                  issueCard?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                                                }}
-                                              >
-                                                View Details
-                                              </Button>
-                                            )}
                                             <Button 
                                               variant="outline" 
                                               size="sm"
                                               className="h-6 text-xs"
                                               onClick={() => {
-                                                window.open('https://ads.google.com/aw/campaigns', '_blank');
+                                                const issueCard = document.getElementById(`issue-${issueIdx}`);
+                                                issueCard?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                                               }}
                                             >
-                                              <ExternalLink className="h-3 w-3 mr-1" />
-                                              Fix in Google Ads
+                                              View Details
                                             </Button>
+                                            {issue.fix_type && (
+                                              <Button 
+                                                variant="default" 
+                                                size="sm"
+                                                className="h-6 text-xs"
+                                                onClick={() => handleFixIssue(issue)}
+                                              >
+                                                Fix
+                                              </Button>
+                                            )}
                                           </div>
                                         </div>
                                       ))}
