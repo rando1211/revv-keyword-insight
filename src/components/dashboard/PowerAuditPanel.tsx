@@ -1337,23 +1337,23 @@ const IssuesTab = ({ issues, toast }: { issues: any; toast: any }) => {
     results['language_settings'] = { passed: true, relatedIssues: [] };
     results['network_separation'] = { passed: true, relatedIssues: [] };
     
-    // Campaign Settings checks - fail based on performance issues
+    // Campaign Settings checks - more specific matching
     results['campaign_objective'] = { 
-      passed: !hasDecliningCampaigns,
-      relatedIssues: findRelatedIssues(['declining', 'decline'])
+      passed: true, // Can't determine from current data
+      relatedIssues: [] // Campaign objective issues would need specific detection
     };
     results['location_targeting'] = { 
       passed: highSeverityCount < 4,
-      relatedIssues: highSeverityCount >= 4 ? issuesList.slice(0, 2) : []
+      relatedIssues: []
     };
     results['ad_schedule'] = { passed: true, relatedIssues: [] };
     results['budget_allocation'] = { 
       passed: !hasBudgetIssues && highSeverityCount < 3,
-      relatedIssues: findRelatedIssues(['budget', 'spend'])
+      relatedIssues: findRelatedIssues(['budget'])
     };
     results['bid_strategies'] = { 
       passed: !hasDecliningCampaigns,
-      relatedIssues: findRelatedIssues(['declining', 'conversion'])
+      relatedIssues: findRelatedIssues(['declining', 'decline', 'severe decline'])
     };
     results['device_adjustments'] = { 
       passed: highSeverityCount < 5,
@@ -1361,7 +1361,7 @@ const IssuesTab = ({ issues, toast }: { issues: any; toast: any }) => {
     };
     results['audience_targeting'] = { 
       passed: !hasPerformanceIssues || highSeverityCount < 4,
-      relatedIssues: findRelatedIssues(['performance', 'ctr'])
+      relatedIssues: []
     };
     
     // Ad Groups & Keywords checks - fail for wasteful spend
