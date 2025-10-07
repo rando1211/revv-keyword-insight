@@ -133,19 +133,63 @@ serve(async (req) => {
 
     console.log('📤 Sending API request:', JSON.stringify(operation, null, 2));
 
-    const response = await fetch(apiUrl, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'developer-token': credentials.developer_token,
-        'Content-Type': 'application/json',
-        'login-customer-id': credentials.customer_id.replace(/-/g, ''),
-      },
-      body: JSON.stringify(operation),
+    // Prepare headers with developer token and optional login customer id
+    const developerToken = credentials.developer_token || Deno.env.get('GOOGLE_DEVELOPER_TOKEN');
+    if (!developerToken) {
+      throw new Error('Missing Google Ads developer token');
+    }
+    const loginCustomerIdClean = credentials.customer_id
+      ? credentials.customer_id.replace(/^customers\//, '').replace(/-/g, '')
+      : undefined;
+
+    const buildHeaders = (token: string) => ({
+      'Authorization': `Bearer ${token}`,
+      'developer-token': developerToken,
+      'Content-Type': 'application/json',
+      ...(loginCustomerIdClean ? { 'login-customer-id': loginCustomerIdClean } : {})
     });
 
-    const responseText = await response.text();
-    console.log('📥 API Response:', responseText);
+    // Send request helper
+    const sendRequest = async (token: string) => {
+      const res = await fetch(apiUrl, {
+        method: 'POST',
+        headers: buildHeaders(token),
+        body: JSON.stringify(operation),
+      });
+      const text = await res.text();
+      console.log('📥 API Response:', text);
+      return { res, text } as const;
+    };
+
+    // First attempt
+    let { res: response, text: responseText } = await sendRequest(accessToken);
+
+    // If unauthorized, try refreshing the token once and retry
+    if (response.status === 401) {
+      console.log('🔁 401 received, attempting token refresh and retry...');
+      const refreshResponse = await fetch('https://oauth2.googleapis.com/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          client_id: credentials.client_id,
+          client_secret: credentials.client_secret,
+          refresh_token: credentials.refresh_token,
+          grant_type: 'refresh_token',
+        }),
+      });
+      if (refreshResponse.ok) {
+        const refreshData = await refreshResponse.json();
+        accessToken = refreshData.access_token;
+        await supabase
+          .from('user_google_ads_credentials')
+          .update({
+            access_token: accessToken,
+            token_expires_at: new Date(Date.now() + (refreshData.expires_in * 1000)).toISOString(),
+          })
+          .eq('user_id', user.id);
+        ({ res: response, text: responseText } = await sendRequest(accessToken));
+      }
+    }
 
     if (!response.ok) {
       let errorMessage = `Google Ads API error: ${response.status}`;
