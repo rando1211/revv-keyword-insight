@@ -1345,7 +1345,16 @@ const IssuesTab = ({ issues, toast }: { issues: any; toast: any }) => {
     };
     results['geographic_targeting'] = { passed: true, relatedIssues: [] };
     results['language_settings'] = { passed: true, relatedIssues: [] };
-    results['network_separation'] = { passed: true, relatedIssues: [] };
+    results['network_separation'] = { 
+      passed: false, // Search partners are ON by default - should opt out
+      relatedIssues: [{
+        title: "Opt out of Search Partner Network on Search Campaigns",
+        severity: 'medium',
+        description: "Search campaigns have Search Partner Network enabled by default. For better control and performance, it's recommended to opt out of search partners and keep search campaigns focused on Google Search only.",
+        recommendation: "Go to Campaign Settings → Networks → Uncheck 'Include Google search partners' to have full control over where your ads appear and better optimize performance.",
+        estimated_value_at_risk: 0
+      }]
+    };
     
     // Campaign Settings checks - more specific matching
     results['campaign_objective'] = { 
