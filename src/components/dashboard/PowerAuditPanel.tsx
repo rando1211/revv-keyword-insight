@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { CheckCircle, AlertTriangle, XCircle, TrendingUp, TrendingDown, Activity, Target, DollarSign, BarChart3, Users, Zap, Calendar, Play, Loader2, Volume2, Circle } from 'lucide-react';
+import { CheckCircle, AlertTriangle, XCircle, TrendingUp, TrendingDown, Activity, Target, DollarSign, BarChart3, Users, Zap, Calendar, Play, Loader2, Volume2, Circle, ExternalLink, Pause, Settings, Copy } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -147,7 +147,7 @@ export const PowerAuditPanel = ({ selectedAccount }: PowerAuditPanelProps) => {
             </TabsContent>
 
             <TabsContent value="issues" className="space-y-4">
-              <IssuesTab issues={auditResults.issues} />
+              <IssuesTab issues={auditResults.issues} toast={toast} />
             </TabsContent>
 
             <TabsContent value="insights" className="space-y-4">
@@ -1163,7 +1163,7 @@ const KeywordsTab = ({ keywordAnalysis, bidStrategyAnalysis }: { keywordAnalysis
 };
 
 // Enhanced Issues Tab Component with Google Ads Audit Checklist
-const IssuesTab = ({ issues }: { issues: any }) => {
+const IssuesTab = ({ issues, toast }: { issues: any; toast: any }) => {
   console.log('🔍 Issues data received:', issues);
   
   const issuesList = issues?.issues || [];
@@ -1577,19 +1577,125 @@ const IssuesTab = ({ issues }: { issues: any }) => {
                   )}
 
                   {/* Impact & Action */}
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="font-medium text-sm">Recommended Action:</h4>
-                      <p className="text-sm text-muted-foreground">{issue.recommended_action || 'Review and optimize'}</p>
-                    </div>
-                    {issue.impact_estimate?.value && (
-                      <div className="text-right">
-                        <div className="text-sm font-medium">Potential Impact</div>
-                        <div className="text-lg font-bold text-green-600">
-                          ${(issue.impact_estimate.value || 0).toLocaleString()}
-                        </div>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="font-medium text-sm">Recommended Action:</h4>
+                        <p className="text-sm text-muted-foreground">{issue.recommended_action || 'Review and optimize'}</p>
                       </div>
-                    )}
+                      {issue.impact_estimate?.value && (
+                        <div className="text-right">
+                          <div className="text-sm font-medium">Potential Impact</div>
+                          <div className="text-lg font-bold text-green-600">
+                            ${(issue.impact_estimate.value || 0).toLocaleString()}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* Action Buttons */}
+                    <div className="flex gap-2 flex-wrap">
+                      {/* Parse entity name to extract campaign and keyword info */}
+                      {(() => {
+                        const entityName = issue.entity_name || '';
+                        const isKeywordIssue = entityName.includes('Keyword:');
+                        const isCampaignIssue = entityName.includes('Campaign:');
+                        const keywordMatch = entityName.match(/Keyword:\s*([^in]+)/);
+                        const campaignMatch = entityName.match(/in\s+(.+)$/) || entityName.match(/Campaign:\s+(.+)$/);
+                        const keyword = keywordMatch?.[1]?.trim();
+                        const campaign = campaignMatch?.[1]?.trim();
+                        
+                        return (
+                          <>
+                            {/* View in Google Ads */}
+                            {campaign && (
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => {
+                                  window.open(`https://ads.google.com/aw/campaigns`, '_blank');
+                                  toast({
+                                    title: "Opening Google Ads",
+                                    description: `Search for "${campaign}" in your campaigns`,
+                                  });
+                                }}
+                              >
+                                <ExternalLink className="h-4 w-4 mr-1" />
+                                View in Google Ads
+                              </Button>
+                            )}
+                            
+                            {/* Pause Keyword for high spend no conversion */}
+                            {isKeywordIssue && issue.summary?.includes('High Spend') && keyword && (
+                              <Button 
+                                variant="destructive" 
+                                size="sm"
+                                onClick={() => {
+                                  toast({
+                                    title: "Pause Keyword",
+                                    description: `To pause "${keyword}", go to Google Ads → ${campaign} → Keywords → Pause`,
+                                  });
+                                }}
+                              >
+                                <Pause className="h-4 w-4 mr-1" />
+                                Pause Keyword
+                              </Button>
+                            )}
+                            
+                            {/* Add as Negative Keyword */}
+                            {isKeywordIssue && keyword && (
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => {
+                                  toast({
+                                    title: "Add Negative Keyword",
+                                    description: `Add "${keyword}" as a negative keyword in ${campaign}`,
+                                  });
+                                }}
+                              >
+                                <XCircle className="h-4 w-4 mr-1" />
+                                Add as Negative
+                              </Button>
+                            )}
+                            
+                            {/* Review Campaign for declining performance */}
+                            {isCampaignIssue && (issue.summary?.includes('Declining') || issue.summary?.includes('Severe')) && (
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => {
+                                  toast({
+                                    title: "Review Campaign Settings",
+                                    description: "Check targeting, bid strategy, and ad copy in Google Ads",
+                                  });
+                                }}
+                              >
+                                <Settings className="h-4 w-4 mr-1" />
+                                Review Settings
+                              </Button>
+                            )}
+                            
+                            {/* Copy issue details */}
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={() => {
+                                const details = `Issue: ${issue.summary}\nEntity: ${entityName}\nAction: ${issue.recommended_action}\nImpact: $${issue.impact_estimate?.value || 0}`;
+                                navigator.clipboard.writeText(details);
+                                toast({
+                                  title: "Copied to clipboard",
+                                  description: "Issue details copied",
+                                });
+                              }}
+                            >
+                              <Copy className="h-4 w-4 mr-1" />
+                              Copy Details
+                            </Button>
+                          </>
+                        );
+                      })()}
+                    </div>
                   </div>
 
                   {/* Affected Children */}
