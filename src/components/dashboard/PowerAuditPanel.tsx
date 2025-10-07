@@ -1323,15 +1323,15 @@ const IssuesTab = ({ issues, toast }: { issues: any; toast: any }) => {
       );
     };
     
-    // Account Structure checks - fail if multiple high-severity issues
+    // Account Structure checks - only fail with structure-specific signals (not available yet)
     results['account_hierarchy'] = { 
-      passed: highSeverityCount < 3,
-      relatedIssues: highSeverityCount >= 3 ? issuesList.slice(0, 3) : []
+      passed: true,
+      relatedIssues: []
     };
     results['naming_conventions'] = { passed: true, relatedIssues: [] };
     results['campaign_segmentation'] = { 
-      passed: highSeverityCount < 5,
-      relatedIssues: highSeverityCount >= 5 ? issuesList.slice(0, 3) : []
+      passed: true,
+      relatedIssues: []
     };
     results['geographic_targeting'] = { passed: true, relatedIssues: [] };
     results['language_settings'] = { passed: true, relatedIssues: [] };
