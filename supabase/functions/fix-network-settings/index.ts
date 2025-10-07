@@ -83,22 +83,19 @@ serve(async (req) => {
     }
 
     // Build the network settings update (v20 camelCase fields)
+    // Only update the specific fields requested - don't touch others
     const networkSettings: any = {};
     const updateMaskPaths: string[] = [];
 
-    if (disableSearchPartners !== undefined) {
-      networkSettings.targetSearchNetwork = !disableSearchPartners;
+    if (disableSearchPartners) {
+      networkSettings.targetSearchNetwork = false;
       updateMaskPaths.push('networkSettings.targetSearchNetwork');
     }
 
-    if (disableDisplayNetwork !== undefined) {
-      networkSettings.targetContentNetwork = !disableDisplayNetwork;
+    if (disableDisplayNetwork) {
+      networkSettings.targetContentNetwork = false;
       updateMaskPaths.push('networkSettings.targetContentNetwork');
     }
-
-    // Always ensure Google Search is enabled
-    networkSettings.targetGoogleSearch = true;
-    updateMaskPaths.push('networkSettings.targetGoogleSearch');
 
     console.log('📝 Updating network settings:', { networkSettings, updateMaskPaths });
 
