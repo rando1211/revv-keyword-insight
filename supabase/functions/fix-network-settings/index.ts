@@ -138,22 +138,27 @@ serve(async (req) => {
     if (!developerToken) {
       throw new Error('Missing Google Ads developer token');
     }
-    const loginCustomerIdClean = credentials.customer_id
+
+    // Include login-customer-id only when using shared/manager credentials
+    const includeLoginHeader = !credentials.uses_own_credentials;
+    const loginCustomerIdClean = includeLoginHeader && credentials.customer_id
       ? credentials.customer_id.replace(/^customers\//, '').replace(/-/g, '')
       : undefined;
 
-    const buildHeaders = (token: string) => ({
+    const buildHeaders = (token: string, withLoginHeader = includeLoginHeader) => ({
       'Authorization': `Bearer ${token}`,
       'developer-token': developerToken,
       'Content-Type': 'application/json',
-      ...(loginCustomerIdClean ? { 'login-customer-id': loginCustomerIdClean } : {})
+      ...(withLoginHeader && loginCustomerIdClean ? { 'login-customer-id': loginCustomerIdClean } : {}),
+      // Help Google route the request to the intended customer
+      'linked-customer-id': cleanCustomerId,
     });
 
     // Send request helper
-    const sendRequest = async (token: string) => {
+    const sendRequest = async (token: string, withLoginHeader = includeLoginHeader) => {
       const res = await fetch(apiUrl, {
         method: 'POST',
-        headers: buildHeaders(token),
+        headers: buildHeaders(token, withLoginHeader),
         body: JSON.stringify(operation),
       });
       const text = await res.text();
@@ -189,6 +194,12 @@ serve(async (req) => {
           .eq('user_id', user.id);
         ({ res: response, text: responseText } = await sendRequest(accessToken));
       }
+    }
+
+    // If still unauthorized and we included login header, retry once without it
+    if (response.status === 401 && includeLoginHeader) {
+      console.log('🔁 Still 401, retrying without login-customer-id header...');
+      ({ res: response, text: responseText } = await sendRequest(accessToken, false));
     }
 
     if (!response.ok) {
