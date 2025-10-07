@@ -29,6 +29,51 @@ export const PowerAuditPanel = ({ selectedAccount }: PowerAuditPanelProps) => {
   const [showNegativeReview, setShowNegativeReview] = useState(false);
   const { toast } = useToast();
 
+  // Optimistically update audit results after a fix
+  const updateAuditResultsAfterFix = (campaignId: string, fixType: string) => {
+    if (!auditResults) return;
+
+    setAuditResults((prev: any) => {
+      if (!prev) return prev;
+
+      // Remove the fixed issue from issues list
+      const updatedIssuesList = (prev.issues?.issues || []).filter((issue: any) => 
+        !(String(issue.campaign_id) === String(campaignId) && issue.fix_type === fixType)
+      );
+
+      // Update the campaign in campaigns array
+      const updatedCampaigns = (prev.campaigns || []).map((c: any) => {
+        if (String(c.id) === String(campaignId)) {
+          if (fixType === 'disable_networks') {
+            return {
+              ...c,
+              search_partners_enabled: false,
+              display_network_enabled: false,
+            };
+          }
+        }
+        return c;
+      });
+
+      // Recalculate totals
+      const newTotals = {
+        ...prev.issues?.totals,
+        medium: Math.max(0, (prev.issues?.totals?.medium || 0) - 1),
+      };
+
+      return {
+        ...prev,
+        issues: {
+          ...prev.issues,
+          issues: updatedIssuesList,
+          totals: newTotals,
+          campaigns: updatedCampaigns,
+        },
+        campaigns: updatedCampaigns,
+      };
+    });
+  };
+
   const runAudit = async () => {
     if (!selectedAccount?.customerId) {
       toast({
@@ -60,21 +105,10 @@ export const PowerAuditPanel = ({ selectedAccount }: PowerAuditPanelProps) => {
       console.log('🔍 Audit Results:', data);
       setAuditResults(data);
       
-      // Don't show toast if this is a post-fix refresh
-      const isPostFixRefresh = sessionStorage.getItem('postFixRefresh') === 'true';
-      sessionStorage.removeItem('postFixRefresh');
-      
-      if (!isPostFixRefresh) {
-        toast({
-          title: "Enterprise Audit Complete",
-          description: "Advanced analysis generated with health scoring and AI insights",
-        });
-      } else {
-        toast({
-          title: "Audit Updated",
-          description: "Results refreshed with your latest changes",
-        });
-      }
+      toast({
+        title: "Enterprise Audit Complete",
+        description: "Advanced analysis generated with health scoring and AI insights",
+      });
     } catch (error) {
       console.error('Enterprise audit error:', error);
       toast({
@@ -167,7 +201,7 @@ export const PowerAuditPanel = ({ selectedAccount }: PowerAuditPanelProps) => {
                 issues={{ ...auditResults.issues, campaigns: auditResults.campaigns }} 
                 toast={toast}
                 selectedAccount={selectedAccount}
-                onRefreshAudit={runAudit}
+                onUpdateAfterFix={updateAuditResultsAfterFix}
               />
             </TabsContent>
 
@@ -1184,11 +1218,11 @@ const KeywordsTab = ({ keywordAnalysis, bidStrategyAnalysis }: { keywordAnalysis
 };
 
 // Enhanced Issues Tab Component with Google Ads Audit Checklist
-const IssuesTab = ({ issues, toast, selectedAccount, onRefreshAudit }: { 
+const IssuesTab = ({ issues, toast, selectedAccount, onUpdateAfterFix }: { 
   issues: any; 
   toast: any;
   selectedAccount?: any;
-  onRefreshAudit?: () => void;
+  onUpdateAfterFix?: (campaignId: string, fixType: string) => void;
 }) => {
   console.log('🔍 Issues data received:', issues);
   
@@ -1249,19 +1283,9 @@ const IssuesTab = ({ issues, toast, selectedAccount, onRefreshAudit }: {
         description: `Successfully updated network settings for ${updatedCampaignName} (${updatedCampaignId || pendingFix.campaign_id})`,
       });
 
-      // Refresh audit to show updated results
-      if (onRefreshAudit) {
-        // Mark this as a post-fix refresh
-        sessionStorage.setItem('postFixRefresh', 'true');
-        
-        toast({
-          title: "Refreshing Audit Results",
-          description: "Please wait while we update your audit...",
-        });
-        // Small delay to allow Google Ads API to propagate the change
-        setTimeout(() => {
-          onRefreshAudit();
-        }, 1000);
+      // Optimistically update audit results locally
+      if (onUpdateAfterFix) {
+        onUpdateAfterFix(updatedCampaignId || pendingFix.campaign_id, 'disable_networks');
       }
     } catch (error) {
       console.error('❌ Fix execution failed:', error);
