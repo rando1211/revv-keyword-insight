@@ -1670,23 +1670,12 @@ const IssuesTab = ({ issues, toast }: { issues: any; toast: any }) => {
                                       </span>
                                     </div>
                                      <div className="space-y-2">
-                                      {relatedIssues.slice(0, 2).map((issue: any, issueIdx: number) => (
+                                      {relatedIssues.map((issue: any, issueIdx: number) => (
                                         <div key={issueIdx} className="bg-white p-2 rounded border border-red-200 text-xs">
                                           <div className="font-medium text-red-900">{issue.entity_name || issue.title}</div>
                                           <div className="text-red-700 mt-1">{issue.summary || issue.description}</div>
-                                          <div className="flex gap-2 mt-2">
-                                            <Button 
-                                              variant="outline" 
-                                              size="sm"
-                                              className="h-6 text-xs"
-                                              onClick={() => {
-                                                const issueCard = document.getElementById(`issue-${issueIdx}`);
-                                                issueCard?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                                              }}
-                                            >
-                                              View Details
-                                            </Button>
-                                            {issue.fix_type && (
+                                          {issue.fix_type && (
+                                            <div className="flex gap-2 mt-2">
                                               <Button 
                                                 variant="default" 
                                                 size="sm"
@@ -1695,15 +1684,10 @@ const IssuesTab = ({ issues, toast }: { issues: any; toast: any }) => {
                                               >
                                                 Fix
                                               </Button>
-                                            )}
-                                          </div>
+                                            </div>
+                                          )}
                                         </div>
                                       ))}
-                                      {relatedIssues.length > 2 && (
-                                        <div className="text-xs text-red-600">
-                                          +{relatedIssues.length - 2} more issue{relatedIssues.length - 2 > 1 ? 's' : ''}
-                                        </div>
-                                      )}
                                     </div>
                                   </div>
                                 )}
