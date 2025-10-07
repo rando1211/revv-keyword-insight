@@ -1295,78 +1295,92 @@ const IssuesTab = ({ issues }: { issues: any }) => {
     }
   };
 
-  // Calculate audit results for each checklist item
+  // Calculate audit results based on detected issues - more conservative approach
   const calculateAuditResults = () => {
     const results: Record<string, boolean> = {};
     
-    // Account Structure checks
-    results['account_hierarchy'] = true; // Baseline assumption
-    results['naming_conventions'] = true;
-    results['campaign_segmentation'] = true;
+    // Count issues by category and severity for better assessment
+    const highSeverityCount = totals.high || 0;
+    const mediumSeverityCount = totals.medium || 0;
+    const hasPerformanceIssues = issuesList.some((i: any) => i.category?.toLowerCase() === 'performance');
+    const hasBudgetIssues = issuesList.some((i: any) => i.category?.toLowerCase() === 'budget');
+    const hasHighSpendNoConversions = issuesList.some((i: any) => 
+      i.summary?.toLowerCase().includes('high spend') && 
+      i.summary?.toLowerCase().includes('no conversions')
+    );
+    const hasDecliningCampaigns = issuesList.some((i: any) => 
+      i.summary?.toLowerCase().includes('declining') || 
+      i.summary?.toLowerCase().includes('decline')
+    );
+    
+    // Account Structure checks - fail if multiple high-severity issues
+    results['account_hierarchy'] = highSeverityCount < 3;
+    results['naming_conventions'] = true; // Can't determine from data
+    results['campaign_segmentation'] = highSeverityCount < 5;
     results['geographic_targeting'] = true;
     results['language_settings'] = true;
     results['network_separation'] = true;
     
-    // Campaign Settings checks
-    results['campaign_objective'] = true;
-    results['location_targeting'] = true;
+    // Campaign Settings checks - fail based on performance issues
+    results['campaign_objective'] = !hasDecliningCampaigns;
+    results['location_targeting'] = highSeverityCount < 4;
     results['ad_schedule'] = true;
-    results['budget_allocation'] = !(issues?.budget_constraints?.length > 0);
-    results['bid_strategies'] = true;
-    results['device_adjustments'] = true;
-    results['audience_targeting'] = true;
+    results['budget_allocation'] = !hasBudgetIssues && highSeverityCount < 3;
+    results['bid_strategies'] = !hasDecliningCampaigns;
+    results['device_adjustments'] = highSeverityCount < 5;
+    results['audience_targeting'] = !hasPerformanceIssues || highSeverityCount < 4;
     
-    // Ad Groups & Keywords checks
-    results['tight_ad_groups'] = true;
-    results['match_types'] = true;
-    results['negative_keywords'] = !(issuesList.some((i: any) => i.category?.toLowerCase() === 'keywords' && i.summary?.includes('negative')));
-    results['search_terms_reviewed'] = true;
-    results['keyword_intent'] = true;
-    results['no_duplicate_keywords'] = true;
-    results['long_tail_keywords'] = true;
+    // Ad Groups & Keywords checks - fail for wasteful spend
+    results['tight_ad_groups'] = highSeverityCount < 4;
+    results['match_types'] = !hasHighSpendNoConversions;
+    results['negative_keywords'] = !hasHighSpendNoConversions; // Critical: wasteful keywords indicate missing negatives
+    results['search_terms_reviewed'] = !hasHighSpendNoConversions;
+    results['keyword_intent'] = !hasHighSpendNoConversions;
+    results['no_duplicate_keywords'] = highSeverityCount < 5;
+    results['long_tail_keywords'] = highSeverityCount < 6;
     
     // Ad Copy & Creative checks
-    results['rsa_count'] = !(issuesList.some((i: any) => i.category?.toLowerCase() === 'assets' && i.summary?.includes('RSA')));
-    results['rsa_filled'] = !(issues?.asset_completeness?.some((i: any) => i.issue?.includes('headlines') || i.issue?.includes('descriptions')));
-    results['ad_copy_tailored'] = true;
-    results['clear_ctas'] = true;
+    results['rsa_count'] = !(issues?.asset_completeness?.length > 2);
+    results['rsa_filled'] = !(issues?.asset_completeness?.length > 0);
+    results['ad_copy_tailored'] = !hasDecliningCampaigns && highSeverityCount < 4;
+    results['clear_ctas'] = highSeverityCount < 5;
     results['ad_customizers'] = true;
-    results['extensions_setup'] = !(issues?.asset_completeness?.length > 0);
-    results['ad_strength'] = true;
+    results['extensions_setup'] = !(issues?.asset_completeness?.length > 1);
+    results['ad_strength'] = !(issues?.asset_completeness?.length > 0);
     
-    // Tracking & Conversions checks
-    results['conversion_actions'] = true;
-    results['conversion_tracking'] = !(issuesList.some((i: any) => i.category?.toLowerCase() === 'tracking'));
-    results['no_duplicate_conversions'] = true;
-    results['offline_conversions'] = true;
+    // Tracking & Conversions checks - fail if high spend with no conversions
+    results['conversion_actions'] = !hasHighSpendNoConversions;
+    results['conversion_tracking'] = !hasHighSpendNoConversions;
+    results['no_duplicate_conversions'] = !hasHighSpendNoConversions;
+    results['offline_conversions'] = highSeverityCount < 6;
     results['ga4_linked'] = true;
     results['call_tracking'] = true;
-    results['value_based_bidding'] = true;
+    results['value_based_bidding'] = !hasDecliningCampaigns;
     
-    // Performance & Optimization checks
-    results['ctr_benchmarks'] = !(issuesList.some((i: any) => i.summary?.toLowerCase().includes('ctr') && i.severity === 'high'));
-    results['quality_score'] = true;
-    results['impression_share'] = true;
-    results['search_term_analysis'] = true;
-    results['bidding_strategy_tested'] = true;
-    results['ad_rotation'] = true;
+    // Performance & Optimization checks - critical area
+    results['ctr_benchmarks'] = !hasPerformanceIssues && highSeverityCount < 3;
+    results['quality_score'] = !hasHighSpendNoConversions && highSeverityCount < 4;
+    results['impression_share'] = highSeverityCount < 5;
+    results['search_term_analysis'] = !hasHighSpendNoConversions; // Critical failure
+    results['bidding_strategy_tested'] = !hasDecliningCampaigns;
+    results['ad_rotation'] = highSeverityCount < 6;
     results['pmax_reviewed'] = true;
     
     // Landing Pages checks
-    results['landing_page_relevance'] = !(issues?.broken_urls?.length > 0);
-    results['page_speed'] = !(issuesList.some((i: any) => i.category?.toLowerCase() === 'landing page'));
-    results['tracking_pixels'] = true;
-    results['clear_cta_fold'] = true;
-    results['frictionless_forms'] = true;
-    results['thankyou_tracked'] = true;
-    results['ab_tests'] = true;
+    results['landing_page_relevance'] = !(issues?.broken_urls?.length > 0) && !hasDecliningCampaigns;
+    results['page_speed'] = highSeverityCount < 5;
+    results['tracking_pixels'] = !hasHighSpendNoConversions;
+    results['clear_cta_fold'] = !hasDecliningCampaigns;
+    results['frictionless_forms'] = !hasDecliningCampaigns;
+    results['thankyou_tracked'] = highSeverityCount < 6;
+    results['ab_tests'] = highSeverityCount < 7;
     
-    // Budget & Spend checks
-    results['budgets_aligned'] = !(issues?.budget_constraints?.length > 0);
-    results['spend_pacing'] = true;
-    results['spend_distribution'] = true;
-    results['wasted_spend'] = !(issuesList.some((i: any) => i.summary?.toLowerCase().includes('wasted') || i.summary?.toLowerCase().includes('irrelevant')));
-    results['high_value_priority'] = true;
+    // Budget & Spend checks - critical with wasted spend
+    results['budgets_aligned'] = !hasBudgetIssues && highSeverityCount < 3;
+    results['spend_pacing'] = !hasBudgetIssues;
+    results['spend_distribution'] = highSeverityCount < 4;
+    results['wasted_spend'] = !hasHighSpendNoConversions; // Critical failure
+    results['high_value_priority'] = !hasDecliningCampaigns && !hasHighSpendNoConversions;
     
     return results;
   };
