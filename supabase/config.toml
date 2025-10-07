@@ -38,3 +38,6 @@ verify_jwt = false
 
 [functions.auto-generate-campaign]
 verify_jwt = false
+
+[functions.fix-network-settings]
+verify_jwt = false

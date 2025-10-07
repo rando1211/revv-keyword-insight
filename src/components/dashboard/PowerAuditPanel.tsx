@@ -147,7 +147,12 @@ export const PowerAuditPanel = ({ selectedAccount }: PowerAuditPanelProps) => {
             </TabsContent>
 
             <TabsContent value="issues" className="space-y-4">
-              <IssuesTab issues={{ ...auditResults.issues, campaigns: auditResults.campaigns }} toast={toast} />
+              <IssuesTab 
+                issues={{ ...auditResults.issues, campaigns: auditResults.campaigns }} 
+                toast={toast}
+                selectedAccount={selectedAccount}
+                onRefreshAudit={runAudit}
+              />
             </TabsContent>
 
             <TabsContent value="insights" className="space-y-4">
@@ -1163,8 +1168,17 @@ const KeywordsTab = ({ keywordAnalysis, bidStrategyAnalysis }: { keywordAnalysis
 };
 
 // Enhanced Issues Tab Component with Google Ads Audit Checklist
-const IssuesTab = ({ issues, toast }: { issues: any; toast: any }) => {
+const IssuesTab = ({ issues, toast, selectedAccount, onRefreshAudit }: { 
+  issues: any; 
+  toast: any;
+  selectedAccount?: any;
+  onRefreshAudit?: () => void;
+}) => {
   console.log('🔍 Issues data received:', issues);
+  
+  const [isFixingIssue, setIsFixingIssue] = useState<string | null>(null);
+  const [showFixDialog, setShowFixDialog] = useState(false);
+  const [pendingFix, setPendingFix] = useState<any>(null);
   
   const issuesList = issues?.issues || [];
   const totals = issues?.totals || { high: 0, medium: 0, low: 0, estimated_value_at_risk: 0 };
@@ -1173,19 +1187,61 @@ const IssuesTab = ({ issues, toast }: { issues: any; toast: any }) => {
 
   const handleFixIssue = async (issue: any) => {
     if (issue.fix_type === 'disable_networks') {
-      toast({
-        title: "Network Settings Update",
-        description: `Disabling networks for ${issue.entity_name}...`,
+      setPendingFix(issue);
+      setShowFixDialog(true);
+    }
+  };
+
+  const executeNetworkFix = async () => {
+    if (!pendingFix || !selectedAccount) return;
+
+    const issueKey = `${pendingFix.campaign_id}_network`;
+    setIsFixingIssue(issueKey);
+    setShowFixDialog(false);
+
+    try {
+      console.log('🔧 Executing network fix:', pendingFix);
+
+      const { data: session } = await supabase.auth.getSession();
+      if (!session?.session?.access_token) {
+        throw new Error('No active session');
+      }
+
+      const { data, error } = await supabase.functions.invoke('fix-network-settings', {
+        body: {
+          customerId: selectedAccount.customerId,
+          campaignId: pendingFix.campaign_id,
+          disableSearchPartners: pendingFix.networks_to_disable?.search_partners || false,
+          disableDisplayNetwork: pendingFix.networks_to_disable?.display_network || false,
+        },
+        headers: {
+          Authorization: `Bearer ${session.session.access_token}`,
+        },
       });
-      
-      // This will be implemented with the optimization execution
-      console.log('🔧 Fixing network settings:', issue);
-      
+
+      if (error) throw error;
+
+      console.log('✅ Network fix result:', data);
+
       toast({
-        title: "Feature Coming Soon",
-        description: "One-click network disabling will be available in the next update. For now, please update in Google Ads.",
-        variant: "default",
+        title: "Network Settings Updated",
+        description: `Successfully updated network settings for ${pendingFix.entity_name}`,
       });
+
+      // Refresh audit to show updated results
+      if (onRefreshAudit) {
+        setTimeout(() => onRefreshAudit(), 2000);
+      }
+    } catch (error) {
+      console.error('❌ Fix execution failed:', error);
+      toast({
+        title: "Fix Failed",
+        description: error.message || "Could not update network settings. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsFixingIssue(null);
+      setPendingFix(null);
     }
   };
 
@@ -1674,18 +1730,26 @@ const IssuesTab = ({ issues, toast }: { issues: any; toast: any }) => {
                                         <div key={issueIdx} className="bg-white p-2 rounded border border-red-200 text-xs">
                                           <div className="font-medium text-red-900">{issue.entity_name || issue.title}</div>
                                           <div className="text-red-700 mt-1">{issue.summary || issue.description}</div>
-                                          {issue.fix_type && (
-                                            <div className="flex gap-2 mt-2">
-                                              <Button 
-                                                variant="default" 
-                                                size="sm"
-                                                className="h-6 text-xs"
-                                                onClick={() => handleFixIssue(issue)}
-                                              >
-                                                Fix
-                                              </Button>
-                                            </div>
-                                          )}
+                                           {issue.fix_type && (
+                                             <div className="flex gap-2 mt-2">
+                                               <Button 
+                                                 variant="default" 
+                                                 size="sm"
+                                                 className="h-6 text-xs"
+                                                 onClick={() => handleFixIssue(issue)}
+                                                 disabled={isFixingIssue === `${issue.campaign_id}_network`}
+                                               >
+                                                 {isFixingIssue === `${issue.campaign_id}_network` ? (
+                                                   <>
+                                                     <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                                                     Fixing...
+                                                   </>
+                                                 ) : (
+                                                   'Fix'
+                                                 )}
+                                               </Button>
+                                             </div>
+                                           )}
                                         </div>
                                       ))}
                                     </div>
@@ -1984,6 +2048,43 @@ const IssuesTab = ({ issues, toast }: { issues: any; toast: any }) => {
           </Card>
         </>
       )}
+      
+      {/* Fix Confirmation Dialog */}
+      <AlertDialog open={showFixDialog} onOpenChange={setShowFixDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Update Network Settings</AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingFix && (
+                <div className="space-y-3 pt-2">
+                  <p className="font-medium">Campaign: {pendingFix.entity_name}</p>
+                  <div className="p-3 bg-muted rounded-lg">
+                    <p className="text-sm mb-2">This will:</p>
+                    <ul className="list-disc list-inside space-y-1 text-sm">
+                      {pendingFix.networks_to_disable?.search_partners && (
+                        <li>Disable Search Partners network</li>
+                      )}
+                      {pendingFix.networks_to_disable?.display_network && (
+                        <li>Disable Display Network</li>
+                      )}
+                      <li>Keep Google Search enabled (always on)</li>
+                    </ul>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    This change will be applied immediately to your Google Ads account.
+                  </p>
+                </div>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={executeNetworkFix}>
+              Apply Changes
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
