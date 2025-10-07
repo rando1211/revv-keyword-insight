@@ -34,15 +34,19 @@ serve(async (req) => {
 
     const { customerId, campaignId, disableSearchPartners, disableDisplayNetwork } = await req.json();
     
+    // Remove 'customers/' prefix if present
+    const cleanCustomerId = customerId.replace(/^customers\//, '');
+    
     console.log('🔧 Fixing network settings:', {
       customerId,
+      cleanCustomerId,
       campaignId,
       disableSearchPartners,
       disableDisplayNetwork,
       userId: user.id
     });
 
-    if (!customerId || !campaignId) {
+    if (!cleanCustomerId || !campaignId) {
       throw new Error('Missing required parameters: customerId and campaignId');
     }
 
@@ -113,13 +117,13 @@ serve(async (req) => {
     console.log('📝 Updating network settings:', { networkSettings, updateMaskPaths });
 
     // Call Google Ads API to update campaign network settings
-    const apiUrl = `https://googleads.googleapis.com/v18/customers/${customerId}/campaigns:mutate`;
+    const apiUrl = `https://googleads.googleapis.com/v18/customers/${cleanCustomerId}/campaigns:mutate`;
     
     const operation = {
       operations: [
         {
           update: {
-            resourceName: `customers/${customerId}/campaigns/${campaignId}`,
+            resourceName: `customers/${cleanCustomerId}/campaigns/${campaignId}`,
             network_settings: networkSettings
           },
           updateMask: updateMaskPaths.join(',')
