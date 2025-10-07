@@ -41,6 +41,10 @@ export const PowerAuditPanel = ({ selectedAccount }: PowerAuditPanelProps) => {
 
     console.log('🔄 Starting audit refresh...');
     setIsLoading(true);
+    
+    // Clear any cached audit data
+    setAuditResults(null);
+    
     try {
       // Add timestamp to force fresh data
       const { data, error } = await supabase.functions.invoke('enterprise-audit', {
@@ -55,10 +59,22 @@ export const PowerAuditPanel = ({ selectedAccount }: PowerAuditPanelProps) => {
 
       console.log('🔍 Audit Results:', data);
       setAuditResults(data);
-      toast({
-        title: "Enterprise Audit Complete",
-        description: "Advanced analysis generated with health scoring and AI insights",
-      });
+      
+      // Don't show toast if this is a post-fix refresh
+      const isPostFixRefresh = sessionStorage.getItem('postFixRefresh') === 'true';
+      sessionStorage.removeItem('postFixRefresh');
+      
+      if (!isPostFixRefresh) {
+        toast({
+          title: "Enterprise Audit Complete",
+          description: "Advanced analysis generated with health scoring and AI insights",
+        });
+      } else {
+        toast({
+          title: "Audit Updated",
+          description: "Results refreshed with your latest changes",
+        });
+      }
     } catch (error) {
       console.error('Enterprise audit error:', error);
       toast({
@@ -1235,7 +1251,17 @@ const IssuesTab = ({ issues, toast, selectedAccount, onRefreshAudit }: {
 
       // Refresh audit to show updated results
       if (onRefreshAudit) {
-        setTimeout(() => onRefreshAudit(), 2000);
+        // Mark this as a post-fix refresh
+        sessionStorage.setItem('postFixRefresh', 'true');
+        
+        toast({
+          title: "Refreshing Audit Results",
+          description: "Please wait while we update your audit...",
+        });
+        // Small delay to allow Google Ads API to propagate the change
+        setTimeout(() => {
+          onRefreshAudit();
+        }, 1000);
       }
     } catch (error) {
       console.error('❌ Fix execution failed:', error);
