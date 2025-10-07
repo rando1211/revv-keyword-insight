@@ -752,6 +752,16 @@ function aggregateAdvancedMetrics(current: any[], baseline: any[]) {
       const targetContentNetwork = row.campaign.networkSettings?.targetContentNetwork ?? row.campaign.network_settings?.target_content_network;
       const targetGoogleSearch = row.campaign.networkSettings?.targetGoogleSearch ?? row.campaign.network_settings?.target_google_search;
       
+      // Debug logging for Glamis campaign
+      if (row.campaign.name.includes('Glamis')) {
+        console.log(`🔍 DEBUG Glamis Campaign Network Settings:`);
+        console.log(`  Raw networkSettings:`, row.campaign.networkSettings);
+        console.log(`  Raw network_settings:`, row.campaign.network_settings);
+        console.log(`  targetSearchNetwork value: ${targetSearchNetwork} (type: ${typeof targetSearchNetwork})`);
+        console.log(`  targetContentNetwork value: ${targetContentNetwork} (type: ${typeof targetContentNetwork})`);
+        console.log(`  targetGoogleSearch value: ${targetGoogleSearch} (type: ${typeof targetGoogleSearch})`);
+      }
+      
       currentMap.set(campaignId, {
         id: campaignId,
         name: row.campaign.name,
