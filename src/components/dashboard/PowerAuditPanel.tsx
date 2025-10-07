@@ -147,7 +147,7 @@ export const PowerAuditPanel = ({ selectedAccount }: PowerAuditPanelProps) => {
             </TabsContent>
 
             <TabsContent value="issues" className="space-y-4">
-              <IssuesTab issues={auditResults.issues} toast={toast} />
+              <IssuesTab issues={{ ...auditResults.issues, campaigns: auditResults.campaigns }} toast={toast} />
             </TabsContent>
 
             <TabsContent value="insights" className="space-y-4">
@@ -1168,6 +1168,7 @@ const IssuesTab = ({ issues, toast }: { issues: any; toast: any }) => {
   
   const issuesList = issues?.issues || [];
   const totals = issues?.totals || { high: 0, medium: 0, low: 0, estimated_value_at_risk: 0 };
+  // Use campaigns from the parent audit results (passed via context)
   const campaigns = issues?.campaigns || [];
 
   const handleFixIssue = async (issue: any) => {
@@ -1367,7 +1368,7 @@ const IssuesTab = ({ issues, toast }: { issues: any; toast: any }) => {
     
     // Network separation check - find Search campaigns with Search Partners or Display Network enabled
     const searchCampaignsWithWrongNetworks = campaigns.filter((c: any) => 
-      c.campaign_type === 'SEARCH' && (
+      c.type === 'SEARCH' && (
         c.search_partners_enabled === true || 
         c.display_network_enabled === true
       )
@@ -1375,14 +1376,14 @@ const IssuesTab = ({ issues, toast }: { issues: any; toast: any }) => {
     
     results['network_separation'] = { 
       passed: searchCampaignsWithWrongNetworks.length === 0,
-      relatedIssues: searchCampaignsWithWrongNetworks.map(campaign => {
+      relatedIssues: searchCampaignsWithWrongNetworks.map((campaign: any) => {
         const networks = [];
         if (campaign.search_partners_enabled) networks.push('Search Partners');
         if (campaign.display_network_enabled) networks.push('Display Network');
         
         return {
-          entity_name: campaign.campaign_name,
-          campaign_id: campaign.campaign_id,
+          entity_name: campaign.name,
+          campaign_id: campaign.id,
           summary: `${networks.join(' and ')} enabled on Search campaign`,
           title: "Disable unnecessary networks",
           severity: 'medium',
