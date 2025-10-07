@@ -1223,9 +1223,14 @@ const IssuesTab = ({ issues, toast, selectedAccount, onRefreshAudit }: {
 
       console.log('✅ Network fix result:', data);
 
+      // Derive actual campaign updated from server response to avoid any mismatch
+      const resourceName = (data as any)?.result?.results?.[0]?.resourceName as string | undefined;
+      const updatedCampaignId = resourceName?.split('/')?.pop();
+      const updatedCampaignName = campaigns.find((c: any) => String(c.id) === String(updatedCampaignId))?.name || pendingFix.entity_name;
+
       toast({
         title: "Network Settings Updated",
-        description: `Successfully updated network settings for ${pendingFix.entity_name}`,
+        description: `Successfully updated network settings for ${updatedCampaignName} (${updatedCampaignId || pendingFix.campaign_id})`,
       });
 
       // Refresh audit to show updated results
