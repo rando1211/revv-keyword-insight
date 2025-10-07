@@ -1671,39 +1671,9 @@ const IssuesTab = ({ issues, toast }: { issues: any; toast: any }) => {
         </CardContent>
       </Card>
 
-      {/* AI-Detected Issues Summary (if available) */}
+      {/* AI-Detected Issues List */}
       {issuesList.length > 0 && (
         <>
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <AlertTriangle className="h-5 w-5 text-orange-600" />
-                <span>AI-Detected Issues Summary</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-red-600">{totals.high || 0}</div>
-                  <div className="text-sm text-muted-foreground">High Severity</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-orange-600">{totals.medium || 0}</div>
-                  <div className="text-sm text-muted-foreground">Medium Severity</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-blue-600">{totals.low || 0}</div>
-                  <div className="text-sm text-muted-foreground">Low Severity</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-green-600">${(totals.estimated_value_at_risk || 0).toLocaleString()}</div>
-                  <div className="text-sm text-muted-foreground">Value at Risk</div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* AI-Detected Issues List */}
           <div className="space-y-4">
             {issuesList.map((issue: any, index: number) => (
             <Card key={index} id={`issue-${index}`} className={`border-l-4 ${getSeverityColor(issue.severity || 'medium')}`}>
