@@ -747,15 +747,20 @@ function aggregateAdvancedMetrics(current: any[], baseline: any[]) {
       
       console.log(`💰 Campaign "${row.campaign.name}" budget: $${dailyBudget} (raw: ${budgetMicros})`);
       
+      // Explicitly convert network settings to boolean to handle any string/truthy values
+      const targetSearchNetwork = row.campaign.networkSettings?.targetSearchNetwork ?? row.campaign.network_settings?.target_search_network;
+      const targetContentNetwork = row.campaign.networkSettings?.targetContentNetwork ?? row.campaign.network_settings?.target_content_network;
+      const targetGoogleSearch = row.campaign.networkSettings?.targetGoogleSearch ?? row.campaign.network_settings?.target_google_search;
+      
       currentMap.set(campaignId, {
         id: campaignId,
         name: row.campaign.name,
         type: row.campaign.advertisingChannelType || row.campaign.advertising_channel_type,
         bidding_strategy: row.campaign.biddingStrategyType || row.campaign.bidding_strategy_type,
         daily_budget: dailyBudget,
-        search_partners_enabled: row.campaign.networkSettings?.targetSearchNetwork || row.campaign.network_settings?.target_search_network || false,
-        display_network_enabled: row.campaign.networkSettings?.targetContentNetwork || row.campaign.network_settings?.target_content_network || false,
-        target_google_search: row.campaign.networkSettings?.targetGoogleSearch || row.campaign.network_settings?.target_google_search || false,
+        search_partners_enabled: targetSearchNetwork === true,
+        display_network_enabled: targetContentNetwork === true,
+        target_google_search: targetGoogleSearch === true,
         metrics: { 
           impressions: 0, clicks: 0, cost: 0, conversions: 0, conversion_value: 0,
           search_impression_share: 0, budget_lost_impression_share: 0,
