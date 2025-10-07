@@ -1180,7 +1180,7 @@ const IssuesTab = ({ issues, toast }: { issues: any; toast: any }) => {
         "Campaigns segmented by goals (Search vs Display vs Shopping vs Video)",
         "Geographic targeting aligns with business footprint",
         "Language settings correct",
-        "Networks (Search vs Display) properly separated"
+        "Search partners disabled for Search campaigns (opt out)"
       ]
     },
     {
@@ -1348,11 +1348,14 @@ const IssuesTab = ({ issues, toast }: { issues: any; toast: any }) => {
     results['network_separation'] = { 
       passed: false, // Search partners are ON by default - should opt out
       relatedIssues: [{
+        entity_name: "Search Partner Network",
+        summary: "Opt out of Google Search Partners on Search campaigns",
         title: "Opt out of Search Partner Network on Search Campaigns",
         severity: 'medium',
         description: "Search campaigns have Search Partner Network enabled by default. For better control and performance, it's recommended to opt out of search partners and keep search campaigns focused on Google Search only.",
         recommendation: "Go to Campaign Settings → Networks → Uncheck 'Include Google search partners' to have full control over where your ads appear and better optimize performance.",
-        estimated_value_at_risk: 0
+        estimated_value_at_risk: 0,
+        synthetic: true
       }]
     };
     
@@ -1626,24 +1629,31 @@ const IssuesTab = ({ issues, toast }: { issues: any; toast: any }) => {
                                         {relatedIssues.length} issue{relatedIssues.length > 1 ? 's' : ''} detected:
                                       </span>
                                     </div>
-                                    <div className="space-y-2">
+                                     <div className="space-y-2">
                                       {relatedIssues.slice(0, 2).map((issue: any, issueIdx: number) => (
                                         <div key={issueIdx} className="bg-white p-2 rounded border border-red-200 text-xs">
-                                          <div className="font-medium text-red-900">{issue.entity_name}</div>
-                                          <div className="text-red-700 mt-1">{issue.summary}</div>
+                                          <div className="font-medium text-red-900">{issue.entity_name || issue.title}</div>
+                                          <div className="text-red-700 mt-1">{issue.summary || issue.description}</div>
+                                          {issue.synthetic && (
+                                            <div className="text-xs text-gray-600 mt-1 italic">
+                                              💡 Best practice recommendation
+                                            </div>
+                                          )}
                                           <div className="flex gap-2 mt-2">
-                                            <Button 
-                                              variant="outline" 
-                                              size="sm"
-                                              className="h-6 text-xs"
-                                              onClick={() => {
-                                                // Scroll to the full issue card
-                                                const issueCard = document.getElementById(`issue-${issueIdx}`);
-                                                issueCard?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                                              }}
-                                            >
-                                              View Details
-                                            </Button>
+                                            {!issue.synthetic && (
+                                              <Button 
+                                                variant="outline" 
+                                                size="sm"
+                                                className="h-6 text-xs"
+                                                onClick={() => {
+                                                  // Scroll to the full issue card
+                                                  const issueCard = document.getElementById(`issue-${issueIdx}`);
+                                                  issueCard?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                                }}
+                                              >
+                                                View Details
+                                              </Button>
+                                            )}
                                             <Button 
                                               variant="outline" 
                                               size="sm"
