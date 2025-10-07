@@ -34,9 +34,10 @@ serve(async (req) => {
 
     const { customerId, campaignId, disableSearchPartners, disableDisplayNetwork } = await req.json();
     
-    // Remove 'customers/' prefix if present
+    // Remove 'customers/' prefix if present and dashes
     const cleanCustomerId = customerId.replace(/^customers\//, '');
-    
+    const numericCustomerId = cleanCustomerId.replace(/-/g, '');
+
     console.log('🔧 Fixing network settings:', {
       customerId,
       cleanCustomerId,
@@ -50,81 +51,66 @@ serve(async (req) => {
       throw new Error('Missing required parameters: customerId and campaignId');
     }
 
-    // Get user's Google Ads credentials
-    const { data: credentials, error: credError } = await supabase
-      .from('user_google_ads_credentials')
-      .select('*')
-      .eq('user_id', user.id)
-      .single();
+    // Get fresh Google Ads credentials via edge function
+    console.log('🔑 Getting user credentials...');
+    const { data: credentialsData, error: credentialsError } = await supabase.functions.invoke('get-user-credentials', {
+      headers: { authorization: authHeader },
+    });
 
-    if (credError || !credentials) {
-      throw new Error('Google Ads credentials not found');
+    if (credentialsError || !credentialsData?.success) {
+      console.error('❌ Failed to get credentials:', credentialsError || credentialsData);
+      throw new Error('Failed to get Google Ads credentials');
     }
 
-    // Get fresh access token
-    let accessToken = credentials.access_token;
-    
-    // Check if token needs refresh
-    if (credentials.token_expires_at && new Date(credentials.token_expires_at) <= new Date()) {
-      console.log('🔄 Token expired, refreshing...');
-      
-      const refreshResponse = await fetch('https://oauth2.googleapis.com/token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({
-          client_id: credentials.client_id,
-          client_secret: credentials.client_secret,
-          refresh_token: credentials.refresh_token,
-          grant_type: 'refresh_token',
-        }),
-      });
+    const { credentials } = credentialsData as any;
+    let accessToken: string = credentials.access_token;
+    let developerToken: string | undefined = credentials.developer_token;
+    const usesOwnCredentials = !!credentials.uses_own_credentials;
 
-      if (!refreshResponse.ok) {
-        throw new Error('Failed to refresh access token');
-      }
-
-      const refreshData = await refreshResponse.json();
-      accessToken = refreshData.access_token;
-
-      // Update token in database
-      await supabase
-        .from('user_google_ads_credentials')
-        .update({
-          access_token: accessToken,
-          token_expires_at: new Date(Date.now() + (refreshData.expires_in * 1000)).toISOString(),
-        })
-        .eq('user_id', user.id);
+    // Fallback to env developer token if missing
+    if (!developerToken) {
+      developerToken = Deno.env.get('GOOGLE_DEVELOPER_TOKEN') || Deno.env.get('Developer Token');
     }
 
-    // Build the network settings update
+    console.log('✅ Credentials obtained:', {
+      hasDeveloperToken: !!developerToken,
+      hasAccessToken: !!accessToken,
+      usesOwnCredentials,
+    });
+
+    if (!developerToken) {
+      throw new Error('Missing Google Ads developer token');
+    }
+
+    // Build the network settings update (v20 camelCase fields)
     const networkSettings: any = {};
     const updateMaskPaths: string[] = [];
 
     if (disableSearchPartners !== undefined) {
-      networkSettings.target_search_network = !disableSearchPartners;
-      updateMaskPaths.push('network_settings.target_search_network');
+      networkSettings.targetSearchNetwork = !disableSearchPartners;
+      updateMaskPaths.push('networkSettings.targetSearchNetwork');
     }
 
     if (disableDisplayNetwork !== undefined) {
-      networkSettings.target_content_network = !disableDisplayNetwork;
-      updateMaskPaths.push('network_settings.target_content_network');
+      networkSettings.targetContentNetwork = !disableDisplayNetwork;
+      updateMaskPaths.push('networkSettings.targetContentNetwork');
     }
 
     // Always ensure Google Search is enabled
-    networkSettings.target_google_search = true;
-    updateMaskPaths.push('network_settings.target_google_search');
+    networkSettings.targetGoogleSearch = true;
+    updateMaskPaths.push('networkSettings.targetGoogleSearch');
 
     console.log('📝 Updating network settings:', { networkSettings, updateMaskPaths });
 
     // Call Google Ads API to update campaign network settings
-    const apiUrl = `https://googleads.googleapis.com/v18/customers/${cleanCustomerId}/campaigns:mutate`;
+    const apiUrl = `https://googleads.googleapis.com/v20/customers/${numericCustomerId}/campaigns:mutate`;
     
     const operation = {
       operations: [
         {
           update: {
-            resourceName: `customers/${cleanCustomerId}/campaigns/${campaignId}`,
-            network_settings: networkSettings
+            resourceName: `customers/${numericCustomerId}/campaigns/${campaignId}`,
+            networkSettings: networkSettings
           },
           updateMask: updateMaskPaths.join(',')
         }
@@ -133,32 +119,63 @@ serve(async (req) => {
 
     console.log('📤 Sending API request:', JSON.stringify(operation, null, 2));
 
-    // Prepare headers with developer token and optional login customer id
-    const developerToken = credentials.developer_token || Deno.env.get('GOOGLE_DEVELOPER_TOKEN');
-    if (!developerToken) {
-      throw new Error('Missing Google Ads developer token');
+    // Dynamically discover a working login-customer-id (manager) if needed
+    console.log('🔍 Discovering login-customer-id dynamically...');
+    let loginCustomerId: string | undefined;
+    try {
+      const customersResponse = await fetch('https://googleads.googleapis.com/v20/customers:listAccessibleCustomers', {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'developer-token': developerToken!,
+        },
+      });
+
+      if (customersResponse.ok) {
+        const customersData = await customersResponse.json();
+        const accessibleCustomers: string[] = customersData.resourceNames || [];
+        console.log('📋 Accessible customers:', accessibleCustomers);
+        for (const customerResource of accessibleCustomers) {
+          const testManagerId = customerResource.split('/')[1];
+          try {
+            const testResponse = await fetch(`https://googleads.googleapis.com/v20/customers/${numericCustomerId}/googleAds:search`, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'developer-token': developerToken!,
+                'login-customer-id': testManagerId,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ query: 'SELECT customer.id FROM customer LIMIT 1' }),
+            });
+            if (testResponse.ok) {
+              loginCustomerId = testManagerId;
+              console.log(`✅ Found working login-customer-id: ${loginCustomerId}`);
+              break;
+            }
+          } catch (e) {
+            console.log(`❌ Error testing manager ${testManagerId}:`, e);
+          }
+        }
+      } else {
+        const errorText = await customersResponse.text();
+        console.warn('⚠️ Failed to list accessible customers:', errorText);
+      }
+    } catch (e) {
+      console.warn('⚠️ Error during login-customer discovery:', e);
     }
 
-    // Include login-customer-id only when using shared/manager credentials
-    const includeLoginHeader = !credentials.uses_own_credentials;
-    const loginCustomerIdClean = includeLoginHeader && credentials.customer_id
-      ? credentials.customer_id.replace(/^customers\//, '').replace(/-/g, '')
-      : undefined;
-
-    const buildHeaders = (token: string, withLoginHeader = includeLoginHeader) => ({
+    const buildHeaders = (token: string, withLogin = !!loginCustomerId) => ({
       'Authorization': `Bearer ${token}`,
-      'developer-token': developerToken,
+      'developer-token': developerToken!,
+      ...(withLogin && loginCustomerId ? { 'login-customer-id': loginCustomerId } : {}),
       'Content-Type': 'application/json',
-      ...(withLoginHeader && loginCustomerIdClean ? { 'login-customer-id': loginCustomerIdClean } : {}),
-      // Help Google route the request to the intended customer
-      'linked-customer-id': cleanCustomerId,
     });
 
     // Send request helper
-    const sendRequest = async (token: string, withLoginHeader = includeLoginHeader) => {
+    const sendRequest = async (token: string, withLogin = !!loginCustomerId) => {
       const res = await fetch(apiUrl, {
         method: 'POST',
-        headers: buildHeaders(token, withLoginHeader),
+        headers: buildHeaders(token, withLogin),
         body: JSON.stringify(operation),
       });
       const text = await res.text();
@@ -169,35 +186,20 @@ serve(async (req) => {
     // First attempt
     let { res: response, text: responseText } = await sendRequest(accessToken);
 
-    // If unauthorized, try refreshing the token once and retry
+    // If unauthorized, re-fetch fresh credentials and retry
     if (response.status === 401) {
-      console.log('🔁 401 received, attempting token refresh and retry...');
-      const refreshResponse = await fetch('https://oauth2.googleapis.com/token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({
-          client_id: credentials.client_id,
-          client_secret: credentials.client_secret,
-          refresh_token: credentials.refresh_token,
-          grant_type: 'refresh_token',
-        }),
+      console.log('🔁 401 received, re-fetching credentials and retrying...');
+      const { data: retryCreds, error: retryErr } = await supabase.functions.invoke('get-user-credentials', {
+        headers: { authorization: authHeader },
       });
-      if (refreshResponse.ok) {
-        const refreshData = await refreshResponse.json();
-        accessToken = refreshData.access_token;
-        await supabase
-          .from('user_google_ads_credentials')
-          .update({
-            access_token: accessToken,
-            token_expires_at: new Date(Date.now() + (refreshData.expires_in * 1000)).toISOString(),
-          })
-          .eq('user_id', user.id);
+      if (!retryErr && retryCreds?.success) {
+        accessToken = retryCreds.credentials.access_token;
         ({ res: response, text: responseText } = await sendRequest(accessToken));
       }
     }
 
     // If still unauthorized and we included login header, retry once without it
-    if (response.status === 401 && includeLoginHeader) {
+    if (response.status === 401 && loginCustomerId) {
       console.log('🔁 Still 401, retrying without login-customer-id header...');
       ({ res: response, text: responseText } = await sendRequest(accessToken, false));
     }
