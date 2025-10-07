@@ -1322,6 +1322,16 @@ const IssuesTab = ({ issues, toast }: { issues: any; toast: any }) => {
         )
       );
     };
+
+    // Helper to specifically identify bidding-related issues
+    const findBiddingIssues = () => {
+      const biddingKeywords = ['bid','bidding','troas','tcpa','target cpa','target roas','manual cpc','maximize conversions','max conversions','smart bidding','enhanced cpc'];
+      return issuesList.filter((issue: any) => {
+        const text = `${issue.summary || ''} ${issue.recommended_action || ''}`.toLowerCase();
+        return biddingKeywords.some(kw => text.includes(kw));
+      });
+    };
+    const biddingIssues = findBiddingIssues();
     
     // Account Structure checks - only fail with structure-specific signals (not available yet)
     results['account_hierarchy'] = { 
@@ -1352,8 +1362,8 @@ const IssuesTab = ({ issues, toast }: { issues: any; toast: any }) => {
       relatedIssues: findRelatedIssues(['budget'])
     };
     results['bid_strategies'] = { 
-      passed: !hasDecliningCampaigns,
-      relatedIssues: findRelatedIssues(['declining', 'decline', 'severe decline'])
+      passed: biddingIssues.length === 0,
+      relatedIssues: biddingIssues
     };
     results['device_adjustments'] = { 
       passed: highSeverityCount < 5,
