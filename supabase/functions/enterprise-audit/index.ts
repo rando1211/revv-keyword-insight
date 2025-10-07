@@ -578,16 +578,13 @@ async function processEnterpriseAnalysis(
   // URL and landing page analysis
   const urlHealth = await performAdvancedUrlChecks(ads);
   
-  // Account health with strategic context
-  const healthScore = calculateAccountHealthScore(campaignMetrics.campaigns, ads, assets, searchTermsAnalysis, keywordAnalysis);
-  
   // Opportunity value with granular calculations
   const opportunityValue = calculateOpportunityValue(campaignMetrics.campaigns, searchTermsAnalysis, scalingOpportunities);
   
   // Enhanced performance mapping
   const performanceMap = generatePerformanceMap(campaignMetrics.campaigns);
   
-  // Enhanced AI insights & Issues Analysis
+  // Enhanced AI insights & Issues Analysis (MUST come before health score calculation)
   let aiInsights = null;
   let detailedIssues = null;
   
@@ -627,6 +624,16 @@ async function processEnterpriseAnalysis(
       keywordAnalysis
     });
   }
+  
+  // Account health score calculation (MUST come after issues are detected)
+  const healthScore = calculateAccountHealthScore(
+    campaignMetrics.campaigns, 
+    ads, 
+    assets, 
+    searchTermsAnalysis, 
+    keywordAnalysis, 
+    detailedIssues  // Pass detected issues to factor into score
+  );
 
   // Generate comprehensive checklist
   const checklist = generateAuditChecklist({
@@ -887,36 +894,54 @@ function getEfficiencyQuadrant(conversionChange: number, cpaChange: number): str
   return 'down_expensive';
 }
 
-function calculateAccountHealthScore(campaigns: any[], ads: any[], assets: any[], searchTermsAnalysis?: any, keywordAnalysis?: any): number {
+function calculateAccountHealthScore(campaigns: any[], ads: any[], assets: any[], searchTermsAnalysis?: any, keywordAnalysis?: any, detectedIssues?: any): number {
   let score = 100;
   
-  // Performance health (40% weight)
+  // Performance health (30% weight) - reduced from 40% to make room for issues
   const improvingCampaigns = campaigns.filter(c => c.performance_trend === 'improving').length;
+  const decliningCampaigns = campaigns.filter(c => c.performance_trend === 'declining').length;
   const totalCampaigns = campaigns.length;
-  const performanceScore = totalCampaigns > 0 ? (improvingCampaigns / totalCampaigns) * 40 : 0;
+  const performanceScore = totalCampaigns > 0 ? (improvingCampaigns / totalCampaigns) * 30 : 0;
   
-  // Asset health (30% weight)
+  // Penalize for declining campaigns
+  const decliningPenalty = totalCampaigns > 0 ? (decliningCampaigns / totalCampaigns) * 15 : 0;
+  
+  // Asset health (20% weight) - reduced from 30%
   const assetIssues = analyzeAssetCompleteness(ads, assets).issues.length;
-  const assetPenalty = Math.min(assetIssues * 2, 30);
-  const assetScore = 30 - assetPenalty;
+  const assetPenalty = Math.min(assetIssues * 2, 20);
+  const assetScore = 20 - assetPenalty;
   
-  // Search terms health (15% weight)
+  // Search terms health (10% weight) - reduced from 15%
   const searchTermsScore = searchTermsAnalysis ? 
-    Math.min(15, (searchTermsAnalysis.high_performing_terms.length / Math.max(searchTermsAnalysis.summary.total_terms_analyzed, 1)) * 15) : 10;
+    Math.min(10, (searchTermsAnalysis.high_performing_terms.length / Math.max(searchTermsAnalysis.summary.total_terms_analyzed, 1)) * 10) : 7;
   
-  // Keyword health (15% weight)
+  // Keyword health (10% weight) - reduced from 15%
   const keywordScore = keywordAnalysis ? 
-    Math.min(15, (keywordAnalysis.opportunities.length / Math.max(keywordAnalysis.match_type_analysis.total || 1, 1)) * 15) : 10;
+    Math.min(10, (keywordAnalysis.opportunities.length / Math.max(keywordAnalysis.match_type_analysis.total || 1, 1)) * 10) : 7;
 
-  // Budget efficiency (20% weight)
+  // Budget efficiency (15% weight) - reduced from 20%
   const budgetLimitedCampaigns = campaigns.filter(c => c.budget_limited).length;
-  const budgetPenalty = totalCampaigns > 0 ? (budgetLimitedCampaigns / totalCampaigns) * 20 : 0;
-  const budgetScore = 20 - budgetPenalty;
+  const budgetPenalty = totalCampaigns > 0 ? (budgetLimitedCampaigns / totalCampaigns) * 15 : 0;
+  const budgetScore = 15 - budgetPenalty;
   
-  // URL health (10% weight)
-  const urlScore = 10; // Simplified for now
+  // URL health (5% weight) - reduced from 10%
+  const urlScore = 5;
   
-  return Math.round(performanceScore + assetScore + searchTermsScore + keywordScore + budgetScore + urlScore);
+  // Critical Issues Penalty (NEW - 25% weight)
+  // This is where we factor in detected issues
+  let issuesPenalty = 0;
+  if (detectedIssues?.totals) {
+    // Each high severity issue = -5 points (up to -15)
+    issuesPenalty += Math.min(detectedIssues.totals.high * 5, 15);
+    // Each medium severity issue = -2 points (up to -8)
+    issuesPenalty += Math.min(detectedIssues.totals.medium * 2, 8);
+    // Each low severity issue = -0.5 points (up to -2)
+    issuesPenalty += Math.min(detectedIssues.totals.low * 0.5, 2);
+  }
+  
+  const finalScore = performanceScore + assetScore + searchTermsScore + keywordScore + budgetScore + urlScore - issuesPenalty - decliningPenalty;
+  
+  return Math.max(0, Math.round(finalScore));
 }
 
 function calculateOpportunityValue(campaigns: any[], searchTermsAnalysis?: any, scalingOpportunities?: any): number {
