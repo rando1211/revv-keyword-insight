@@ -1235,6 +1235,11 @@ const IssuesTab = ({ issues, toast, selectedAccount, onUpdateAfterFix }: {
   // Use campaigns from the parent audit results (passed via context)
   const campaigns = issues?.campaigns || [];
 
+  console.log('📊 IssuesTab render - campaigns count:', campaigns.length);
+  console.log('📊 Network issues in campaigns:', campaigns.filter((c: any) => 
+    c.type === 'SEARCH' && (c.search_partners_enabled || c.display_network_enabled)
+  ).length);
+
   const handleFixIssue = async (issue: any) => {
     if (issue.fix_type === 'disable_networks') {
       setPendingFix(issue);
@@ -1285,6 +1290,7 @@ const IssuesTab = ({ issues, toast, selectedAccount, onUpdateAfterFix }: {
 
       // Optimistically update audit results locally
       if (onUpdateAfterFix) {
+        console.log('🔄 Triggering optimistic update for campaign:', updatedCampaignId || pendingFix.campaign_id);
         onUpdateAfterFix(updatedCampaignId || pendingFix.campaign_id, 'disable_networks');
       }
     } catch (error) {
@@ -1671,6 +1677,13 @@ const IssuesTab = ({ issues, toast, selectedAccount, onUpdateAfterFix }: {
   };
   
   const auditResults = calculateAuditResults();
+  
+  console.log('📊 Audit Results calculated:', {
+    totalItems: Object.keys(auditResults).length,
+    passedItems: Object.values(auditResults).filter((result: any) => result.passed).length,
+    networkSeparationPassed: auditResults['network_separation']?.passed,
+    networkSeparationIssues: auditResults['network_separation']?.relatedIssues?.length || 0
+  });
   
   // Map checklist items to audit result keys
   const itemKeys: Record<string, string[]> = {
