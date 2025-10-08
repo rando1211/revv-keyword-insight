@@ -171,6 +171,7 @@ serve(async (req) => {
     }
 
     // Enhanced query with paths, ad strength, policy data
+    // IMPORTANT: No segments.date to avoid duplicate ads per day
     const adQuery = `
       SELECT 
         campaign.id, campaign.name,
@@ -183,8 +184,7 @@ serve(async (req) => {
         ad_group_ad.ad_strength,
         ad_group_ad.policy_summary.approval_status,
         metrics.impressions, metrics.clicks, metrics.cost_micros,
-        metrics.conversions, metrics.ctr, metrics.conversions_from_interactions_rate,
-        segments.date
+        metrics.conversions, metrics.ctr, metrics.conversions_from_interactions_rate
       FROM ad_group_ad
       WHERE campaign.advertising_channel_type = SEARCH
         AND ad_group_ad.ad.type = RESPONSIVE_SEARCH_AD
