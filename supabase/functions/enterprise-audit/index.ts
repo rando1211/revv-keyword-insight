@@ -1570,6 +1570,11 @@ function analyzeKeywordStrategy(keywords: any[], campaigns: any[]) {
   const qualityScoreIssues: any[] = [];
   const opportunities: any[] = [];
   
+  // NEW: Track ad group structure
+  const adGroupKeywordCounts = new Map<string, number>();
+  const duplicateKeywords = new Map<string, any[]>();
+  let longTailKeywordCount = 0;
+  
   console.log('🔍 Analyzing', keywords.length, 'keywords for quality scores...');
   let keywordsWithQS = 0;
   let keywordsWithLowQS = 0;
@@ -1579,6 +1584,35 @@ function analyzeKeywordStrategy(keywords: any[], campaigns: any[]) {
     const conversions = parseFloat(kw.metrics.conversions || '0');
     const matchType = kw.adGroupCriterion?.keyword?.matchType?.toLowerCase() || 
                       kw.keywordView?.resource?.matchType?.toLowerCase() || 'unknown';
+    
+    const keywordText = (kw.adGroupCriterion?.keyword?.text || '').toLowerCase().trim();
+    const adGroupId = kw.adGroup?.id || kw.ad_group?.id || '';
+    const campaignId = kw.campaign?.id || '';
+    
+    // NEW: Track keywords per ad group
+    if (adGroupId) {
+      adGroupKeywordCounts.set(adGroupId, (adGroupKeywordCounts.get(adGroupId) || 0) + 1);
+    }
+    
+    // NEW: Track duplicate keywords across campaigns
+    if (keywordText) {
+      const keywordKey = `${keywordText}|${matchType}`;
+      if (!duplicateKeywords.has(keywordKey)) {
+        duplicateKeywords.set(keywordKey, []);
+      }
+      duplicateKeywords.get(keywordKey)!.push({
+        keyword: keywordText,
+        campaign_name: kw.campaign?.name || 'Unknown',
+        campaign_id: campaignId,
+        ad_group_name: kw.adGroup?.name || kw.ad_group?.name || 'Unknown',
+        match_type: matchType
+      });
+    }
+    
+    // NEW: Count long-tail keywords (3+ words)
+    if (keywordText && keywordText.split(' ').length >= 3) {
+      longTailKeywordCount++;
+    }
     
     // Try multiple paths for quality score
     let qualityScore = 0;
@@ -1626,9 +1660,32 @@ function analyzeKeywordStrategy(keywords: any[], campaigns: any[]) {
     }
   });
   
+  // NEW: Analyze ad group tightness
+  const adGroupCounts = Array.from(adGroupKeywordCounts.values());
+  const avgKeywordsPerGroup = adGroupCounts.length > 0 
+    ? adGroupCounts.reduce((a, b) => a + b, 0) / adGroupCounts.length 
+    : 0;
+  const tightAdGroupsPct = adGroupCounts.filter(count => count >= 1 && count <= 20).length / adGroupCounts.length * 100;
+  
+  // NEW: Find actual duplicates (keywords in multiple campaigns)
+  const actualDuplicates = Array.from(duplicateKeywords.entries())
+    .filter(([_, instances]) => {
+      const uniqueCampaigns = new Set(instances.map(i => i.campaign_id));
+      return uniqueCampaigns.size > 1; // Same keyword in multiple campaigns
+    })
+    .map(([key, instances]) => ({
+      keyword: instances[0].keyword,
+      match_type: instances[0].match_type,
+      campaigns: instances.map(i => i.campaign_name).join(', '),
+      count: instances.length
+    }));
+  
   console.log('✅ Keywords with quality scores:', keywordsWithQS, '/', keywords.length);
   console.log('⚠️ Keywords with low QS (<= 6):', keywordsWithLowQS);
   console.log('📊 Quality score issues found:', qualityScoreIssues.length);
+  console.log('🎯 Ad groups analyzed:', adGroupCounts.length, 'Avg keywords/group:', avgKeywordsPerGroup.toFixed(1));
+  console.log('🔄 Duplicate keywords across campaigns:', actualDuplicates.length);
+  console.log('📏 Long-tail keywords (3+ words):', longTailKeywordCount);
 
   // Heuristic fallback only if API returned no QS at all
   if (keywordsWithQS === 0 && qualityScoreIssues.length === 0) {
@@ -1662,6 +1719,16 @@ function analyzeKeywordStrategy(keywords: any[], campaigns: any[]) {
     match_type_analysis: matchTypeAnalysis,
     quality_score_issues: qualityScoreIssues,
     opportunities,
+    ad_group_structure: {
+      avg_keywords_per_group: avgKeywordsPerGroup,
+      tight_groups_pct: tightAdGroupsPct,
+      total_ad_groups: adGroupCounts.length
+    },
+    duplicate_keywords: actualDuplicates,
+    long_tail_keywords: {
+      count: longTailKeywordCount,
+      percentage: keywords.length > 0 ? (longTailKeywordCount / keywords.length * 100) : 0
+    },
     strategy_recommendations: generateKeywordStrategyRecommendations(matchTypeAnalysis)
   };
 }
@@ -2292,13 +2359,25 @@ function generateAuditChecklist(data: any) {
       { item: 'Audience targeting layered', status: 'unknown', details: 'Review audience settings' }
     ],
     ad_groups_keywords: [
-      { item: 'Ad groups are tight (SKAGs or themed)', status: 'unknown', details: 'Manual review of ad group structure' },
+      { 
+        item: 'Ad groups are tight (SKAGs or themed)', 
+        status: keywords.ad_group_structure?.tight_groups_pct >= 70 ? 'pass' : keywords.ad_group_structure?.tight_groups_pct >= 50 ? 'warning' : 'fail', 
+        details: `${keywords.ad_group_structure?.avg_keywords_per_group?.toFixed(1) || 0} avg keywords/group (${keywords.ad_group_structure?.tight_groups_pct?.toFixed(0) || 0}% tight)` 
+      },
       { item: 'Match types balanced', status: keywords.match_type_analysis ? 'pass' : 'warning', details: JSON.stringify(keywords.match_type_analysis || {}) },
       { item: 'Negative keywords added', status: searchTerms.wasteful_terms?.length > 0 ? 'fail' : 'pass', details: `${searchTerms.wasteful_terms?.length || 0} wasteful terms need negatives` },
       { item: 'Search term reports reviewed for waste', status: searchTerms.total_waste_identified > 0 ? 'warning' : 'pass', details: `$${searchTerms.total_waste_identified?.toLocaleString() || 0} waste identified` },
       { item: 'Keyword intent aligned with business goals', status: 'unknown', details: 'Manual review recommended' },
-      { item: 'No duplicate keywords across campaigns', status: 'pass', details: 'No duplicates detected' },
-      { item: 'Long-tail keywords used where appropriate', status: 'unknown', details: 'Review keyword length distribution' }
+      { 
+        item: 'No duplicate keywords across campaigns', 
+        status: keywords.duplicate_keywords?.length === 0 ? 'pass' : keywords.duplicate_keywords?.length <= 5 ? 'warning' : 'fail', 
+        details: `${keywords.duplicate_keywords?.length || 0} duplicate keywords found` 
+      },
+      { 
+        item: 'Long-tail keywords used where appropriate', 
+        status: keywords.long_tail_keywords?.percentage >= 30 ? 'pass' : keywords.long_tail_keywords?.percentage >= 15 ? 'warning' : 'fail', 
+        details: `${keywords.long_tail_keywords?.count || 0} long-tail keywords (${keywords.long_tail_keywords?.percentage?.toFixed(0) || 0}%)` 
+      }
     ],
     ad_copy_creative: [
       { item: 'Each ad group has at least 3+ Responsive Search Ads', status: ads.rsa_coverage?.average_rsas_per_group >= 3 ? 'pass' : 'warning', details: `Avg ${ads.rsa_coverage?.average_rsas_per_group?.toFixed(1) || 0} RSAs/group` },
