@@ -1403,9 +1403,7 @@ const IssuesTab = ({ issues, toast, selectedAccount, onUpdateAfterFix, onRefresh
       icon: Zap,
       items: [
         "Correct campaign objective chosen (Leads, Sales, Traffic, etc.)",
-        "Location targeting: exclude irrelevant areas",
-        "Ad schedule aligned with business hours",
-        "Budget allocation matches business priorities",
+        "Ad schedule configured",
         "Bid strategies (Max Conversions, tCPA, tROAS, Manual CPC) match stage of maturity",
         "Device adjustments checked (mobile vs desktop)",
         "Audience targeting layered (remarketing, in-market, custom intent, exclusions)"
