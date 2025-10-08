@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { 
   Brain, 
   TrendingUp, 
@@ -1559,6 +1560,96 @@ ${riskFactors.map(risk => `• ${risk}`).join('\n')}
             )}
           </TabsContent>
         </Tabs>
+      )}
+
+      {selectedAd && (
+        <Dialog open={!!selectedAd} onOpenChange={(open) => { if (!open) setSelectedAd(null); }}>
+          <DialogContent className="max-w-3xl">
+            <DialogHeader>
+              <DialogTitle>
+                Ad #{String(selectedAd.adId).slice(-8)} Details
+              </DialogTitle>
+              <DialogDescription>
+                In-depth breakdown of score, issues, and assets for this RSA
+              </DialogDescription>
+            </DialogHeader>
+            {(() => {
+              const adDetail = creativesData?.adsStructured?.find((a: any) => a.adId === selectedAd?.adId);
+              const score = auditResults?.scores?.find((s: any) => s.adId === selectedAd?.adId);
+              return (
+                <div className="space-y-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="text-sm text-muted-foreground">
+                      {adDetail?.campaign} • {adDetail?.adGroup}
+                    </div>
+                    <Badge>
+                      {score?.score}/100 • {score?.grade}
+                    </Badge>
+                  </div>
+
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div className="p-3 rounded-md border">
+                      <div className="text-xs text-muted-foreground">Coverage</div>
+                      <div className="font-medium">{score?.breakdown?.coverageScore}/25</div>
+                    </div>
+                    <div className="p-3 rounded-md border">
+                      <div className="text-xs text-muted-foreground">Diversity</div>
+                      <div className="font-medium">{score?.breakdown?.diversityScore}/25</div>
+                    </div>
+                    <div className="p-3 rounded-md border">
+                      <div className="text-xs text-muted-foreground">Compliance</div>
+                      <div className="font-medium">{score?.breakdown?.complianceScore}/25</div>
+                    </div>
+                    <div className="p-3 rounded-md border">
+                      <div className="text-xs text-muted-foreground">Performance</div>
+                      <div className="font-medium">{score?.breakdown?.performanceScore}/25</div>
+                    </div>
+                  </div>
+
+                  {selectedAd?.findings?.length > 0 && (
+                    <div>
+                      <h4 className="font-medium mb-2">Issues ({selectedAd.findings.length})</h4>
+                      <div className="space-y-2 max-h-56 overflow-auto">
+                        {selectedAd.findings.map((f: any, i: number) => (
+                          <div key={i} className="p-3 rounded-md border bg-muted/40 text-sm">
+                            <div className="flex items-center justify-between">
+                              <span className="font-medium">{f.rule}</span>
+                              <Badge variant={f.severity === 'error' ? 'destructive' : f.severity === 'warn' ? 'secondary' : 'outline'}>
+                                {f.severity}
+                              </Badge>
+                            </div>
+                            <div className="text-muted-foreground mt-1">{f.message}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {adDetail?.assets?.length > 0 && (
+                    <div>
+                      <h4 className="font-medium mb-2">Assets ({adDetail.assets.length})</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-56 overflow-auto">
+                        {adDetail.assets.map((asset: any) => (
+                          <div key={asset.id} className="p-3 rounded-md border bg-card text-sm">
+                            <div className="flex items-center justify-between">
+                              <Badge variant="outline">{asset.type}</Badge>
+                              {asset.pinnedField && asset.pinnedField !== 'UNSPECIFIED' && (
+                                <Badge variant="secondary">Pinned: {asset.pinnedField}</Badge>
+                              )}
+                            </div>
+                            <div className="mt-2">
+                              {asset.text}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+          </DialogContent>
+        </Dialog>
       )}
 
       {/* No Data State */}
