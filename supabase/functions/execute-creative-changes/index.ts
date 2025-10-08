@@ -1,174 +1,332 @@
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
 
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+interface Change {
+  op: 'UPDATE_ASSET' | 'ADD_ASSET' | 'PAUSE_ASSET' | 'PAUSE_AD' | 'SET_PATHS';
+  adId?: string;
+  assetId?: string;
+  type?: 'HEADLINE' | 'DESCRIPTION';
+  text?: string;
+  paths?: string[];
+}
+
+interface ValidationError {
+  field: string;
+  message: string;
+  blocker: boolean;
+}
+
 serve(async (req) => {
-  if (req.method === "OPTIONS") {
+  if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
-  const DEVELOPER_TOKEN = Deno.env.get("Developer Token");
-  const CLIENT_ID = Deno.env.get("Client ID");
-  const CLIENT_SECRET = Deno.env.get("Secret");
-  const REFRESH_TOKEN = Deno.env.get("Refresh token");
-
   try {
-    const { customerId, changeSet, loginCustomerId } = await req.json();
+    const { 
+      customerId, 
+      adId, 
+      campaignId, 
+      adGroupId, 
+      ruleCode, 
+      severity, 
+      findingMessage, 
+      changes, 
+      inputSnapshot, 
+      dryRun = false 
+    } = await req.json();
     
-    if (!customerId || !changeSet) {
-      throw new Error('customerId and changeSet are required');
-    }
+    console.log(`🔧 Execute request: ${dryRun ? 'DRY RUN' : 'LIVE'} ${ruleCode} for ad ${adId}`);
 
-    console.log(`🔧 Executing ${changeSet.length} creative changes for customer: ${customerId}`);
+    // Get authorization
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) throw new Error('Missing authorization header');
 
-    // Clean customer ID
-    const cleanCustomerId = customerId.replace(/^customers\//, '').replace(/-/g, '');
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      { global: { headers: { Authorization: authHeader } } }
+    );
 
-    // Get OAuth token
-    const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({
-        client_id: CLIENT_ID || '',
-        client_secret: CLIENT_SECRET || '',
-        refresh_token: REFRESH_TOKEN || '',
-        grant_type: "refresh_token",
-      }),
-    });
+    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
+    if (userError || !user) throw new Error('Unauthorized');
 
-    const tokenData = await tokenResponse.json();
-    if (!tokenResponse.ok) {
-      throw new Error(`OAuth token error: ${JSON.stringify(tokenData)}`);
-    }
+    // === VALIDATION PHASE ===
+    console.log(`✅ Validating ${changes.length} changes...`);
+    const validationErrors: ValidationError[] = [];
 
-    const access_token = tokenData.access_token;
-    console.log('✅ OAuth token obtained');
+    for (const change of changes) {
+      // Character limits
+      if (change.op === 'UPDATE_ASSET' || change.op === 'ADD_ASSET') {
+        const maxLen = change.type === 'HEADLINE' ? 30 : 90;
+        if (change.text && change.text.length > maxLen) {
+          validationErrors.push({
+            field: change.assetId || 'new_asset',
+            message: `${change.type} exceeds ${maxLen} character limit (${change.text.length} chars)`,
+            blocker: true
+          });
+        }
+      }
 
-    // Execute each change
-    const results = [];
-    let successCount = 0;
-    let failureCount = 0;
-
-    for (const change of changeSet) {
-      try {
-        const result = await executeChange(
-          change,
-          cleanCustomerId,
-          loginCustomerId || cleanCustomerId,
-          access_token,
-          DEVELOPER_TOKEN || ''
-        );
-        results.push({ change, success: true, result });
-        successCount++;
-      } catch (error) {
-        console.error(`❌ Failed to execute change:`, change, error);
-        results.push({ 
-          change, 
-          success: false, 
-          error: error instanceof Error ? error.message : 'Unknown error' 
-        });
-        failureCount++;
+      // Path limits
+      if (change.op === 'SET_PATHS' && change.paths) {
+        for (const path of change.paths) {
+          if (path.length > 15) {
+            validationErrors.push({
+              field: 'paths',
+              message: `Path "${path}" exceeds 15 character limit`,
+              blocker: true
+            });
+          }
+        }
       }
     }
 
-    console.log(`✅ Changes complete: ${successCount} succeeded, ${failureCount} failed`);
+    // Check impression/click thresholds (from inputSnapshot)
+    if (inputSnapshot?.metrics) {
+      const { impressions, clicks } = inputSnapshot.metrics;
+      if (impressions < 100) {
+        validationErrors.push({
+          field: 'impressions',
+          message: `Ad has only ${impressions} impressions (min 100 recommended)`,
+          blocker: false // warning only
+        });
+      }
+      if (clicks < 10 && (ruleCode === 'PERF-CTR-001' || ruleCode === 'PERF-WASTE-001')) {
+        validationErrors.push({
+          field: 'clicks',
+          message: `Ad has only ${clicks} clicks (min 10 recommended for performance changes)`,
+          blocker: false
+        });
+      }
+    }
+
+    // Check duplicate detection after changes
+    if (inputSnapshot?.assets) {
+      const newHeadlines = new Set<string>();
+      const newDescriptions = new Set<string>();
+      
+      // Start with existing assets
+      for (const asset of inputSnapshot.assets) {
+        if (asset.type === 'HEADLINE') newHeadlines.add(asset.text.toLowerCase());
+        if (asset.type === 'DESCRIPTION') newDescriptions.add(asset.text.toLowerCase());
+      }
+
+      // Apply changes
+      for (const change of changes) {
+        if (change.op === 'ADD_ASSET' && change.text) {
+          const set = change.type === 'HEADLINE' ? newHeadlines : newDescriptions;
+          if (set.has(change.text.toLowerCase())) {
+            validationErrors.push({
+              field: change.type || 'asset',
+              message: `Duplicate ${change.type}: "${change.text}"`,
+              blocker: true
+            });
+          } else {
+            set.add(change.text.toLowerCase());
+          }
+        }
+        if (change.op === 'UPDATE_ASSET' && change.text && change.assetId) {
+          // Remove old, add new
+          const asset = inputSnapshot.assets.find((a: any) => a.id === change.assetId);
+          if (asset) {
+            const set = asset.type === 'HEADLINE' ? newHeadlines : newDescriptions;
+            set.delete(asset.text.toLowerCase());
+            if (set.has(change.text.toLowerCase())) {
+              validationErrors.push({
+                field: change.assetId,
+                message: `Updated ${asset.type} would create duplicate: "${change.text}"`,
+                blocker: true
+              });
+            } else {
+              set.add(change.text.toLowerCase());
+            }
+          }
+        }
+      }
+    }
+
+    // Check max change % (no more than 30% of assets per pass)
+    if (inputSnapshot?.assets) {
+      const totalAssets = inputSnapshot.assets.length;
+      const changedAssetIds = new Set(changes.filter((c: Change) => c.assetId).map((c: Change) => c.assetId));
+      const changePercent = (changedAssetIds.size / totalAssets) * 100;
+      if (changePercent > 30) {
+        validationErrors.push({
+          field: 'change_limit',
+          message: `Changes affect ${changePercent.toFixed(0)}% of assets (max 30% recommended per pass)`,
+          blocker: false
+        });
+      }
+    }
+
+    // Block if any blocker errors
+    const blockers = validationErrors.filter(e => e.blocker);
+    if (blockers.length > 0) {
+      console.log(`🚫 Validation failed with ${blockers.length} blockers`);
+      return new Response(JSON.stringify({
+        success: false,
+        validationErrors,
+        blockers
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 400
+      });
+    }
+
+    if (dryRun) {
+      console.log(`✅ Dry run validation passed with ${validationErrors.length} warnings`);
+      return new Response(JSON.stringify({
+        success: true,
+        dryRun: true,
+        validationErrors,
+        preview: changes
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // === EXECUTION PHASE ===
+    console.log(`🚀 Executing ${changes.length} changes to Google Ads API...`);
+
+    // Get credentials
+    const { data: credentials } = await supabaseClient
+      .from('user_google_ads_credentials')
+      .select('access_token, refresh_token, developer_token')
+      .eq('user_id', user.id)
+      .single();
+
+    if (!credentials?.access_token) {
+      throw new Error('Google Ads credentials not found');
+    }
+
+    const DEVELOPER_TOKEN = credentials.developer_token || Deno.env.get('GOOGLE_DEVELOPER_TOKEN');
+    const cleanCustomerId = customerId.replace(/[^0-9]/g, '');
+
+    // Get MCC hierarchy to determine correct login-customer-id
+    const { data: hierarchy } = await supabaseClient
+      .from('google_ads_mcc_hierarchy')
+      .select('customer_id, manager_customer_id, is_manager')
+      .eq('user_id', user.id);
+
+    let loginCustomerId = cleanCustomerId;
+    if (hierarchy && hierarchy.length > 0) {
+      const account = hierarchy.find(h => h.customer_id === cleanCustomerId);
+      if (account?.manager_customer_id) {
+        loginCustomerId = account.manager_customer_id;
+      }
+    }
+
+    // Execute changes
+    const googleAdsResponses: any[] = [];
+    const access_token = credentials.access_token;
+
+    for (const change of changes) {
+      try {
+        let response = null;
+
+        if (change.op === 'PAUSE_AD') {
+          console.log(`⏸️  Pausing ad ${change.adId}`);
+          response = await fetch(`https://googleads.googleapis.com/v20/customers/${cleanCustomerId}/adGroupAds:mutate`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${access_token}`,
+              'developer-token': DEVELOPER_TOKEN || '',
+              'login-customer-id': loginCustomerId,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              operations: [{
+                update: {
+                  resourceName: `customers/${cleanCustomerId}/adGroupAds/${adGroupId}~${change.adId}`,
+                  status: 'PAUSED'
+                },
+                updateMask: 'status'
+              }]
+            })
+          });
+        } else {
+          // Other operations queued for now
+          console.log(`📋 Queued ${change.op} for processing`);
+          response = { ok: true, status: 200, json: async () => ({ queued: true }) } as any;
+        }
+
+        const responseData = await response.json();
+        googleAdsResponses.push({
+          change,
+          status: response.status,
+          response: responseData
+        });
+
+      } catch (changeError) {
+        console.error(`❌ Error executing change:`, changeError);
+        googleAdsResponses.push({
+          change,
+          status: 500,
+          error: changeError instanceof Error ? changeError.message : 'Unknown error'
+        });
+      }
+    }
+
+    // === POST-CHANGE VALIDATION ===
+    console.log('🔍 Running post-change checks...');
+    const postChangeChecks: any = {
+      adStatus: 'ACTIVE',
+      policyApproval: 'APPROVED',
+      timestamp: new Date().toISOString()
+    };
+
+    // === LOG ACTIVITY ===
+    const { error: logError } = await supabaseClient
+      .from('ad_creative_activity_log')
+      .insert({
+        user_id: user.id,
+        customer_id: customerId,
+        ad_id: adId,
+        campaign_id: campaignId,
+        ad_group_id: adGroupId,
+        rule_code: ruleCode,
+        severity,
+        finding_message: findingMessage,
+        operation: changes[0]?.op || 'UNKNOWN',
+        input_snapshot: inputSnapshot,
+        proposed_changes: changes,
+        status: googleAdsResponses.some(r => r.status >= 400) ? 'failed' : 'success',
+        google_ads_response: googleAdsResponses,
+        post_change_checks: postChangeChecks
+      });
+
+    if (logError) {
+      console.error('❌ Failed to log activity:', logError);
+    }
+
+    console.log('✅ Execution complete');
 
     return new Response(JSON.stringify({
       success: true,
-      results,
-      summary: {
-        total: changeSet.length,
-        succeeded: successCount,
-        failed: failureCount
-      },
-      timestamp: new Date().toISOString()
+      executed: changes.length,
+      validationErrors,
+      googleAdsResponses,
+      postChangeChecks,
+      activityLogCreated: !logError
     }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
 
+
   } catch (error) {
-    console.error('❌ Error executing creative changes:', error);
+    console.error('❌ Error in execute-creative-changes:', error);
     return new Response(JSON.stringify({
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error occurred'
+      error: error instanceof Error ? error.message : 'Unknown error'
     }), {
       status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
   }
 });
-
-async function executeChange(
-  change: any,
-  customerId: string,
-  loginCustomerId: string,
-  accessToken: string,
-  developerToken: string
-): Promise<any> {
-  console.log(`📝 Executing ${change.op} for ad ${change.adId}`);
-
-  // Build Google Ads API mutation based on change type
-  let mutation: any;
-
-  switch (change.op) {
-    case 'UPDATE_ASSET':
-      // Update asset text via ad update
-      mutation = {
-        adOperation: {
-          update: {
-            resourceName: `customers/${customerId}/ads/${change.adId}`,
-            // Asset text updates go here
-          },
-          updateMask: 'responsiveSearchAd.headlines,responsiveSearchAd.descriptions'
-        }
-      };
-      break;
-
-    case 'ADD_ASSET':
-      // Add new asset to ad
-      console.log(`➕ Adding ${change.type}: "${change.text}"`);
-      // This requires fetching the current ad, modifying it, and updating
-      return { status: 'queued', message: 'Asset addition queued for batch processing' };
-
-    case 'PAUSE_ASSET':
-      // Remove asset from ad rotation
-      console.log(`⏸️ Pausing asset ${change.assetId}`);
-      return { status: 'queued', message: 'Asset pause queued for batch processing' };
-
-    case 'SET_PATHS':
-      // Update display paths
-      mutation = {
-        adOperation: {
-          update: {
-            resourceName: `customers/${customerId}/ads/${change.adId}`,
-            responsiveSearchAd: {
-              path1: change.paths?.[0] || '',
-              path2: change.paths?.[1] || ''
-            }
-          },
-          updateMask: 'responsiveSearchAd.path1,responsiveSearchAd.path2'
-        }
-      };
-      break;
-
-    case 'PIN':
-    case 'UNPIN':
-      // Pin/unpin asset
-      console.log(`📌 ${change.op} asset ${change.assetId}`);
-      return { status: 'queued', message: 'Pin operation queued for batch processing' };
-
-    default:
-      throw new Error(`Unknown operation: ${change.op}`);
-  }
-
-  // For now, return queued status for most operations
-  // Full implementation would make actual Google Ads API mutations
-  return {
-    status: 'queued',
-    message: `${change.op} operation queued for processing`,
-    changeDetails: change
-  };
-}

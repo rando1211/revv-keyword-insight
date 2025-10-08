@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { AdAuditActions } from "./AdAuditActions";
 import { 
   Brain, 
   TrendingUp, 
@@ -1072,16 +1073,44 @@ ${riskFactors.map(risk => `• ${risk}`).join('\n')}
                         </div>
                       </div>
 
-                      {/* Rule Violations */}
+                      {/* Rule Violations with Actions */}
                       {finding.findings.length > 0 && (
-                        <div className="flex flex-wrap gap-2 mt-3">
-                          {finding.findings.slice(0, 3).map((f: any, i: number) => (
-                            <Badge key={i} variant={f.severity === 'error' ? 'destructive' : f.severity === 'warn' ? 'secondary' : 'outline'}>
-                              {f.rule}: {f.message.substring(0, 40)}...
-                            </Badge>
-                          ))}
+                        <div className="space-y-3 mt-3">
+                          {finding.findings.slice(0, 3).map((f: any, i: number) => {
+                            // Get changes for this finding
+                            const findingChanges = auditResults.changeSet.filter(
+                              (c: any) => c.adId === finding.adId || c.assetId === f.assetId
+                            );
+                            
+                            return (
+                              <div key={i} className="p-3 bg-muted/30 rounded-lg">
+                                <div className="flex items-start justify-between gap-3">
+                                  <div className="flex-1">
+                                    <div className="flex items-center gap-2 mb-1">
+                                      <Badge variant={f.severity === 'error' ? 'destructive' : f.severity === 'warn' ? 'secondary' : 'outline'}>
+                                        {f.rule}
+                                      </Badge>
+                                      <span className="text-sm text-muted-foreground">{f.message}</span>
+                                    </div>
+                                  </div>
+                                  {findingChanges.length > 0 && (
+                                    <AdAuditActions
+                                      ad={ad}
+                                      finding={f}
+                                      changeSet={findingChanges}
+                                      customerId={customerId}
+                                      onExecute={() => {
+                                        // Refresh audit after execution
+                                        analyzeCreatives();
+                                      }}
+                                    />
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
                           {finding.findings.length > 3 && (
-                            <Badge variant="outline">+{finding.findings.length - 3} more</Badge>
+                            <Badge variant="outline">+{finding.findings.length - 3} more issues</Badge>
                           )}
                         </div>
                       )}
@@ -1114,13 +1143,13 @@ ${riskFactors.map(risk => `• ${risk}`).join('\n')}
                       </div>
                     ))}
                   </div>
-                  <Button className="w-full mt-4" onClick={() => {
+                  <Button className="w-full mt-4" variant="outline" onClick={() => {
                     toast({
-                      title: "Coming Soon",
-                      description: "One-click change execution will be available soon",
+                      title: "💡 Quick Actions",
+                      description: "Use the action buttons on each finding above to preview and apply fixes",
                     });
                   }}>
-                    Apply All Changes
+                    View All Changes
                   </Button>
                 </CardContent>
               </Card>

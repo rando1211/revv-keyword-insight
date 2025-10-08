@@ -14,6 +14,69 @@ export type Database = {
   }
   public: {
     Tables: {
+      ad_creative_activity_log: {
+        Row: {
+          ad_group_id: string | null
+          ad_id: string
+          campaign_id: string | null
+          created_at: string
+          customer_id: string
+          error_message: string | null
+          executed_at: string
+          finding_message: string | null
+          google_ads_response: Json | null
+          id: string
+          input_snapshot: Json
+          operation: string
+          post_change_checks: Json | null
+          proposed_changes: Json
+          rule_code: string
+          severity: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          ad_group_id?: string | null
+          ad_id: string
+          campaign_id?: string | null
+          created_at?: string
+          customer_id: string
+          error_message?: string | null
+          executed_at?: string
+          finding_message?: string | null
+          google_ads_response?: Json | null
+          id?: string
+          input_snapshot: Json
+          operation: string
+          post_change_checks?: Json | null
+          proposed_changes: Json
+          rule_code: string
+          severity: string
+          status: string
+          user_id: string
+        }
+        Update: {
+          ad_group_id?: string | null
+          ad_id?: string
+          campaign_id?: string | null
+          created_at?: string
+          customer_id?: string
+          error_message?: string | null
+          executed_at?: string
+          finding_message?: string | null
+          google_ads_response?: Json | null
+          id?: string
+          input_snapshot?: Json
+          operation?: string
+          post_change_checks?: Json | null
+          proposed_changes?: Json
+          rule_code?: string
+          severity?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       audit_leads: {
         Row: {
           account_name: string | null
