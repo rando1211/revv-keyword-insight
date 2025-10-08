@@ -596,6 +596,7 @@ serve(async (req) => {
       keywordsResults || [],
       adScheduleData.results || [],
       conversionActionsData.results || [],
+      recentNegativesData.results || [],
       windows,
       openaiApiKey
     );
@@ -629,6 +630,7 @@ async function processEnterpriseAnalysis(
   keywords: any[],
   adSchedule: any[],
   conversionActions: any[],
+  recentNegatives: any[],
   windows: any,
   openaiApiKey?: string
 ) {
@@ -722,7 +724,8 @@ async function processEnterpriseAnalysis(
     bidStrategy: bidStrategyAnalysis,
     assets: assetAnalysis,
     urlHealth,
-    adSchedule: adSchedule || []
+    adSchedule: adSchedule || [],
+    recentNegatives: recentNegatives || []
   });
 
   return {
@@ -2322,6 +2325,7 @@ function generateAuditChecklist(data: any) {
   const assets = data.assets || {};
   const urlHealth = data.urlHealth || {};
   const adScheduleData = data.adSchedule || [];
+  const recentNegativesData = data.recentNegatives || [];
 
   // Detect likely local campaigns by name patterns
   const localIndicators = ['local', 'near me', 'nearby', 'city', 'area', 'region', 'geo', 'location'];
@@ -2390,8 +2394,8 @@ function generateAuditChecklist(data: any) {
       { item: 'Match types balanced', status: keywords.match_type_analysis ? 'pass' : 'warning', details: JSON.stringify(keywords.match_type_analysis || {}) },
       { 
         item: 'Negative keywords added in last 7 days', 
-        status: recentNegativesData.results?.length > 0 ? 'pass' : 'fail', 
-        details: recentNegativesData.results?.length > 0 
+        status: recentNegativesData.length > 0 ? 'pass' : 'fail', 
+        details: recentNegativesData.length > 0 
           ? 'Recent negative keyword activity detected - search terms are being reviewed' 
           : 'No negative keywords added in the last 7 days - search terms may not be actively reviewed'
       },
