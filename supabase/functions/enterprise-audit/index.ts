@@ -176,6 +176,7 @@ serve(async (req) => {
         campaign.bidding_strategy_type,
         campaign.network_settings.target_google_search,
         campaign.network_settings.target_search_network,
+        campaign.network_settings.target_partner_search_network,
         campaign.network_settings.target_content_network,
         campaign_budget.amount_micros,
         metrics.cost_micros,
@@ -749,6 +750,7 @@ function aggregateAdvancedMetrics(current: any[], baseline: any[]) {
       
       // Explicitly convert network settings to boolean to handle any string/truthy values
       const targetSearchNetwork = row.campaign.networkSettings?.targetSearchNetwork ?? row.campaign.network_settings?.target_search_network;
+      const targetPartnerSearchNetwork = row.campaign.networkSettings?.targetPartnerSearchNetwork ?? row.campaign.network_settings?.target_partner_search_network;
       const targetContentNetwork = row.campaign.networkSettings?.targetContentNetwork ?? row.campaign.network_settings?.target_content_network;
       const targetGoogleSearch = row.campaign.networkSettings?.targetGoogleSearch ?? row.campaign.network_settings?.target_google_search;
       
@@ -758,7 +760,7 @@ function aggregateAdvancedMetrics(current: any[], baseline: any[]) {
         type: row.campaign.advertisingChannelType || row.campaign.advertising_channel_type,
         bidding_strategy: row.campaign.biddingStrategyType || row.campaign.bidding_strategy_type,
         daily_budget: dailyBudget,
-        search_partners_enabled: targetSearchNetwork === true,
+        search_partners_enabled: targetPartnerSearchNetwork === true,
         display_network_enabled: targetContentNetwork === true,
         target_google_search: targetGoogleSearch === true,
         metrics: { 
