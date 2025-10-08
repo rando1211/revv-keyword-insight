@@ -82,39 +82,21 @@ serve(async (req) => {
       throw new Error('Missing Google Ads developer token');
     }
 
-    // Build the network settings update (v20 camelCase fields)
-    // Only update the specific fields requested - don't touch others
-    const networkSettings: any = {};
-    const updateMaskPaths: string[] = [];
-
-    if (disableSearchPartners) {
-      networkSettings.targetSearchNetwork = false;
-      updateMaskPaths.push('networkSettings.targetSearchNetwork');
-    }
-
-    if (disableDisplayNetwork) {
-      networkSettings.targetContentNetwork = false;
-      updateMaskPaths.push('networkSettings.targetContentNetwork');
-    }
-
-    console.log('📝 Updating network settings:', { networkSettings, updateMaskPaths });
-
-    // Call Google Ads API to update campaign network settings
-    const apiUrl = `https://googleads.googleapis.com/v20/customers/${numericCustomerId}/campaigns:mutate`;
-    
-    const operation = {
-      operations: [
-        {
-          update: {
-            resourceName: `customers/${numericCustomerId}/campaigns/${campaignId}`,
-            networkSettings: networkSettings
-          },
-          updateMask: updateMaskPaths.join(',')
-        }
-      ]
+    // STEP 1: Read current network settings first
+    console.log('📖 Reading current network settings...');
+    const searchUrl = `https://googleads.googleapis.com/v20/customers/${numericCustomerId}/googleAds:search`;
+    const searchQuery = {
+      query: `
+        SELECT 
+          campaign.id,
+          campaign.name,
+          campaign.network_settings.target_google_search,
+          campaign.network_settings.target_search_network,
+          campaign.network_settings.target_content_network
+        FROM campaign
+        WHERE campaign.id = ${campaignId}
+      `
     };
-
-    console.log('📤 Sending API request:', JSON.stringify(operation, null, 2));
 
     // Dynamically discover a working login-customer-id (manager) if needed
     console.log('🔍 Discovering login-customer-id dynamically...');
@@ -134,7 +116,7 @@ serve(async (req) => {
         for (const customerResource of accessibleCustomers) {
           const testManagerId = customerResource.split('/')[1];
           try {
-            const testResponse = await fetch(`https://googleads.googleapis.com/v20/customers/${numericCustomerId}/googleAds:search`, {
+            const testResponse = await fetch(searchUrl, {
               method: 'POST',
               headers: {
                 'Authorization': `Bearer ${accessToken}`,
@@ -153,9 +135,6 @@ serve(async (req) => {
             console.log(`❌ Error testing manager ${testManagerId}:`, e);
           }
         }
-      } else {
-        const errorText = await customersResponse.text();
-        console.warn('⚠️ Failed to list accessible customers:', errorText);
       }
     } catch (e) {
       console.warn('⚠️ Error during login-customer discovery:', e);
@@ -168,8 +147,111 @@ serve(async (req) => {
       'Content-Type': 'application/json',
     });
 
+    // Fetch current settings
+    const searchResponse = await fetch(searchUrl, {
+      method: 'POST',
+      headers: buildHeaders(accessToken),
+      body: JSON.stringify(searchQuery),
+    });
+
+    if (!searchResponse.ok) {
+      const errorText = await searchResponse.text();
+      console.error('❌ Failed to read current settings:', errorText);
+      throw new Error('Failed to read current campaign settings');
+    }
+
+    const searchData = await searchResponse.json();
+    const currentSettings = searchData.results?.[0]?.campaign?.networkSettings;
+    
+    if (!currentSettings) {
+      throw new Error('Could not retrieve current network settings');
+    }
+
+    console.log('📋 Current network settings:', {
+      targetGoogleSearch: currentSettings.targetGoogleSearch,
+      targetSearchNetwork: currentSettings.targetSearchNetwork,
+      targetContentNetwork: currentSettings.targetContentNetwork,
+    });
+
+    // STEP 2: Build update payload - preserve existing values, only change what's requested
+    const networkSettings: any = {
+      targetGoogleSearch: currentSettings.targetGoogleSearch, // Preserve
+    };
+    
+    // Check if we actually need to make changes
+    let needsUpdate = false;
+
+    if (disableSearchPartners) {
+      if (currentSettings.targetSearchNetwork !== false) {
+        networkSettings.targetSearchNetwork = false;
+        needsUpdate = true;
+      } else {
+        networkSettings.targetSearchNetwork = currentSettings.targetSearchNetwork; // Already false
+      }
+    } else {
+      networkSettings.targetSearchNetwork = currentSettings.targetSearchNetwork; // Preserve
+    }
+
+    if (disableDisplayNetwork) {
+      if (currentSettings.targetContentNetwork !== false) {
+        networkSettings.targetContentNetwork = false;
+        needsUpdate = true;
+      } else {
+        networkSettings.targetContentNetwork = currentSettings.targetContentNetwork; // Already false
+      }
+    } else {
+      networkSettings.targetContentNetwork = currentSettings.targetContentNetwork; // Preserve
+    }
+
+    console.log('📝 Target network settings:', networkSettings);
+
+    // If nothing needs changing, return early
+    if (!needsUpdate) {
+      console.log('✅ No changes needed - settings already correct');
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          message: 'Network settings already correct - no changes needed',
+          current: currentSettings,
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // STEP 3: Try update with snake_case mask first
+    const apiUrl = `https://googleads.googleapis.com/v20/customers/${numericCustomerId}/campaigns:mutate`;
+    
+    // Try snake_case mask first, then camelCase if needed
+    const updateMasks = {
+      snake_case: [
+        'network_settings.target_google_search',
+        'network_settings.target_search_network',
+        'network_settings.target_content_network',
+      ],
+      camelCase: [
+        'networkSettings.targetGoogleSearch',
+        'networkSettings.targetSearchNetwork',
+        'networkSettings.targetContentNetwork',
+      ],
+    };
+
+    const buildOperation = (maskType: 'snake_case' | 'camelCase') => ({
+      operations: [
+        {
+          update: {
+            resourceName: `customers/${numericCustomerId}/campaigns/${campaignId}`,
+            networkSettings: networkSettings
+          },
+          updateMask: updateMasks[maskType].join(',')
+        }
+      ]
+    });
+
     // Send request helper
-    const sendRequest = async (token: string, withLogin = !!loginCustomerId) => {
+    const sendMutateRequest = async (token: string, maskType: 'snake_case' | 'camelCase', withLogin = !!loginCustomerId) => {
+      const operation = buildOperation(maskType);
+      console.log(`📤 Sending API request with ${maskType} mask:`, JSON.stringify(operation, null, 2));
+      
       const res = await fetch(apiUrl, {
         method: 'POST',
         headers: buildHeaders(token, withLogin),
@@ -180,8 +262,25 @@ serve(async (req) => {
       return { res, text } as const;
     };
 
-    // First attempt
-    let { res: response, text: responseText } = await sendRequest(accessToken);
+    // Verify settings helper
+    const verifySettings = async (token: string) => {
+      const verifyResponse = await fetch(searchUrl, {
+        method: 'POST',
+        headers: buildHeaders(token),
+        body: JSON.stringify(searchQuery),
+      });
+      
+      if (verifyResponse.ok) {
+        const verifyData = await verifyResponse.json();
+        const updatedSettings = verifyData.results?.[0]?.campaign?.networkSettings;
+        console.log('🔍 Verified settings after update:', updatedSettings);
+        return updatedSettings;
+      }
+      return null;
+    };
+
+    // STEP 4: Attempt update with snake_case first
+    let { res: response, text: responseText } = await sendMutateRequest(accessToken, 'snake_case');
 
     // If unauthorized, re-fetch fresh credentials and retry
     if (response.status === 401) {
@@ -191,14 +290,20 @@ serve(async (req) => {
       });
       if (!retryErr && retryCreds?.success) {
         accessToken = retryCreds.credentials.access_token;
-        ({ res: response, text: responseText } = await sendRequest(accessToken));
+        ({ res: response, text: responseText } = await sendMutateRequest(accessToken, 'snake_case'));
       }
     }
 
     // If still unauthorized and we included login header, retry once without it
     if (response.status === 401 && loginCustomerId) {
       console.log('🔁 Still 401, retrying without login-customer-id header...');
-      ({ res: response, text: responseText } = await sendRequest(accessToken, false));
+      ({ res: response, text: responseText } = await sendMutateRequest(accessToken, 'snake_case', false));
+    }
+
+    // If snake_case failed, try camelCase
+    if (!response.ok) {
+      console.log('⚠️ snake_case mask failed, trying camelCase...');
+      ({ res: response, text: responseText } = await sendMutateRequest(accessToken, 'camelCase'));
     }
 
     if (!response.ok) {
@@ -214,12 +319,34 @@ serve(async (req) => {
     }
 
     const result = JSON.parse(responseText);
-    console.log('✅ Network settings updated successfully:', result);
+    console.log('✅ Update mutate call succeeded:', result);
+
+    // STEP 5: Verify the changes were applied correctly
+    const verifiedSettings = await verifySettings(accessToken);
+    
+    if (verifiedSettings) {
+      const isCorrect = 
+        (!disableSearchPartners || verifiedSettings.targetSearchNetwork === false) &&
+        (!disableDisplayNetwork || verifiedSettings.targetContentNetwork === false) &&
+        verifiedSettings.targetGoogleSearch === currentSettings.targetGoogleSearch; // Should be preserved
+
+      if (!isCorrect) {
+        console.error('❌ Verification failed! Settings not as expected:', {
+          expected: networkSettings,
+          actual: verifiedSettings,
+        });
+        throw new Error('Network settings update verification failed - settings not correctly applied');
+      }
+
+      console.log('✅ Verification passed - settings correctly applied');
+    }
 
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: 'Network settings updated successfully',
+        message: 'Network settings updated and verified successfully',
+        before: currentSettings,
+        after: verifiedSettings || networkSettings,
         result 
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
