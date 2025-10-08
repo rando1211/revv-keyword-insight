@@ -182,21 +182,20 @@ serve(async (req) => {
         ad_group_ad.ad.responsive_search_ad.path2,
         ad_group_ad.ad_strength,
         ad_group_ad.policy_summary.approval_status,
-        ad_group_ad.policy_summary.policy_topic_entries,
         metrics.impressions, metrics.clicks, metrics.cost_micros,
         metrics.conversions, metrics.ctr, metrics.conversions_from_interactions_rate,
         segments.date
       FROM ad_group_ad
       WHERE campaign.advertising_channel_type = SEARCH
+        AND ad_group_ad.ad.type = RESPONSIVE_SEARCH_AD
         AND ad_group_ad.status != REMOVED
-        AND campaign.status = 'ENABLED'
-        AND ad_group.status = 'ENABLED'
-        AND metrics.impressions > 0
         ${dateFilter}
         ${campaignFilter}
       ORDER BY metrics.impressions DESC
-      LIMIT 20
+      LIMIT 50
     `;
+
+    console.log('📋 Ad Query:', adQuery);
 
     // Also fetch ad group keywords for context
     const keywordQuery = `
@@ -250,7 +249,11 @@ serve(async (req) => {
     }
 
     const apiData = await response.json();
-    console.log(`✅ Processed ${apiData.results?.length || 0} ads`);
+    console.log(`✅ API returned ${apiData.results?.length || 0} results`);
+    
+    if (!apiData.results || apiData.results.length === 0) {
+      console.log('⚠️ No RSA ads found. Response:', JSON.stringify(apiData).substring(0, 500));
+    }
 
     // Fetch keywords
     console.log('📊 Fetching keywords for context...');
@@ -442,6 +445,8 @@ serve(async (req) => {
         costPerConversion: totalConversions > 0 ? totalCost / totalConversions : 0
       }
     };
+
+    console.log(`📊 Final counts: ${adCreatives.length} creatives, ${adsStructured.length} ads, ${keywords.length} keywords, ${searchTerms.length} search terms`);
 
     return new Response(JSON.stringify({
       success: true,

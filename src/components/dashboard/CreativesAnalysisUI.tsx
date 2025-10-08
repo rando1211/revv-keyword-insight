@@ -88,6 +88,25 @@ export const CreativesAnalysisUI = ({ customerId, campaignIds, onBack }: Creativ
       if (!creativesResponse.success) throw new Error(creativesResponse.error);
 
       const { creatives, analysis, adsStructured, adGroupStats, keywords, searchTerms } = creativesResponse;
+      
+      console.log('📊 Fetch response:', { 
+        creatives: creatives?.length, 
+        adsStructured: adsStructured?.length,
+        keywords: keywords?.length,
+        searchTerms: searchTerms?.length
+      });
+
+      if (!adsStructured || adsStructured.length === 0) {
+        toast({
+          title: "⚠️ No RSA Ads Found",
+          description: `The selected campaign has no Responsive Search Ads with data in the selected timeframe. Try a different campaign or timeframe.`,
+          variant: "destructive",
+        });
+        setCreativesData(null);
+        setIsAnalyzing(false);
+        return;
+      }
+
       setCreativesData({ 
         creatives, 
         analysis, 
@@ -112,7 +131,7 @@ export const CreativesAnalysisUI = ({ customerId, campaignIds, onBack }: Creativ
 
       toast({
         title: "✅ RSA Audit Complete",
-        description: `Analyzed ${adsStructured?.length || 0} ads with ${creatives.length} assets across ${analysis.campaigns} campaigns`,
+        description: `Analyzed ${adsStructured?.length || 0} ads with ${creatives.length} assets. ${auditResults?.summary?.totalFindings || 0} issues found.`,
       });
 
     } catch (error) {
