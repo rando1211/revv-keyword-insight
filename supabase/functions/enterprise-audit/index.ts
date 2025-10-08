@@ -541,6 +541,7 @@ serve(async (req) => {
         campaign.id, ad_group.id, ad_group_ad.ad.id,
         ad_group_ad.ad.type, ad_group_ad.ad.responsive_search_ad.headlines,
         ad_group_ad.ad.responsive_search_ad.descriptions,
+        ad_group_ad.ad.responsive_search_ad.strength,
         ad_group_ad.ad.final_urls, ad_group_ad.policy_summary.approval_status,
         metrics.impressions, metrics.clicks, metrics.conversions,
         segments.date
@@ -651,7 +652,7 @@ async function processEnterpriseAnalysis(
   const scalingOpportunities = identifyScalingOpportunities(campaignMetrics.campaigns, budgetAnalysis);
   
   // Creative and asset strategic analysis
-  const creativeAnalysis = analyzeCreativePerformance(ads, campaignMetrics.campaigns);
+  const creativeAnalysis = analyzeCreativePerformance(ads, campaignMetrics.campaigns, keywords);
   const assetAnalysis = analyzeAssetCompleteness(ads, assets);
   
   // URL and landing page analysis
@@ -1995,13 +1996,82 @@ function identifyScalingOpportunities(campaigns: any[], budgetAnalysis: any) {
   };
 }
 
-function analyzeCreativePerformance(ads: any[], campaigns: any[]) {
+function analyzeCreativePerformance(ads: any[], campaigns: any[], keywords: any[]) {
   const campaignMap = new Map(campaigns.map(c => [c.id, c]));
   
   const issues: any[] = [];
   const opportunities: any[] = [];
   
-  // Group ads by campaign
+  // Common CTA phrases
+  const ctaPhrases = [
+    'shop now', 'buy now', 'get started', 'learn more', 'contact us', 
+    'call now', 'sign up', 'order now', 'book now', 'try now',
+    'get quote', 'request', 'schedule', 'discover', 'explore', 
+    'find out', 'start today', 'join', 'register', 'download'
+  ];
+  
+  // Group ads by ad group to analyze with keywords
+  const adsByAdGroup = ads.reduce((acc, ad) => {
+    const adGroupId = ad.adGroup?.id || ad.ad_group?.id;
+    if (!adGroupId) return acc;
+    if (!acc[adGroupId]) acc[adGroupId] = [];
+    acc[adGroupId].push(ad);
+    return acc;
+  }, {});
+  
+  // Group keywords by ad group
+  const keywordsByAdGroup = keywords.reduce((acc, kw) => {
+    const adGroupId = kw.adGroup?.id || kw.ad_group?.id;
+    if (!adGroupId) return acc;
+    if (!acc[adGroupId]) acc[adGroupId] = [];
+    const keywordText = (kw.adGroupCriterion?.keyword?.text || '').toLowerCase().trim();
+    if (keywordText) acc[adGroupId].push(keywordText);
+    return acc;
+  }, {});
+  
+  let totalRSAsAnalyzed = 0;
+  let rsasWithCTAs = 0;
+  let rsasWithKeywordRelevance = 0;
+  let rsasWithCustomizers = 0;
+  let totalAdGroups = 0;
+  
+  // Analyze RSAs per ad group
+  Object.keys(adsByAdGroup).forEach(adGroupId => {
+    const adGroupAds = adsByAdGroup[adGroupId];
+    const adGroupKeywords = keywordsByAdGroup[adGroupId] || [];
+    totalAdGroups++;
+    
+    adGroupAds.forEach(ad => {
+      const rsa = ad.adGroupAd?.ad?.responsiveSearchAd || ad.ad?.responsive_search_ad;
+      if (!rsa) return;
+      
+      totalRSAsAnalyzed++;
+      
+      // Extract headlines and descriptions
+      const headlines = (rsa.headlines || []).map((h: any) => (h.text || '').toLowerCase());
+      const descriptions = (rsa.descriptions || []).map((d: any) => (d.text || '').toLowerCase());
+      
+      // Check for CTA in descriptions
+      const hasCTA = descriptions.some(desc => 
+        ctaPhrases.some(cta => desc.includes(cta))
+      );
+      if (hasCTA) rsasWithCTAs++;
+      
+      // Check for dynamic keyword insertion or ad customizers (DKI syntax: {keyword:default}, ad customizers: {CUSTOMIZER.})
+      const allAdText = [...headlines, ...descriptions].join(' ');
+      const hasDKI = allAdText.includes('{keyword:') || allAdText.includes('{customizer.');
+      if (hasDKI) rsasWithCustomizers++;
+      
+      // Check keyword relevance (at least 1 keyword in headlines or descriptions)
+      const hasKeywordRelevance = adGroupKeywords.length === 0 || adGroupKeywords.some(kw => 
+        allAdText.includes(kw.toLowerCase()) || 
+        kw.split(' ').some(word => word.length > 3 && allAdText.includes(word))
+      );
+      if (hasKeywordRelevance) rsasWithKeywordRelevance++;
+    });
+  });
+  
+  // Group ads by campaign for existing checks
   const adsByCampaign = ads.reduce((acc, ad) => {
     const campaignId = ad.campaign.id;
     if (!acc[campaignId]) acc[campaignId] = [];
@@ -2040,9 +2110,85 @@ function analyzeCreativePerformance(ads: any[], campaigns: any[]) {
     }
   });
   
+  // Calculate RSA coverage per ad group
+  const avgRSAsPerGroup = totalAdGroups > 0 ? totalRSAsAnalyzed / totalAdGroups : 0;
+  
+  // Calculate percentages
+  const ctaPercentage = totalRSAsAnalyzed > 0 ? (rsasWithCTAs / totalRSAsAnalyzed) * 100 : 0;
+  const keywordRelevancePercentage = totalRSAsAnalyzed > 0 ? (rsasWithKeywordRelevance / totalRSAsAnalyzed) * 100 : 0;
+  const customizerPercentage = totalRSAsAnalyzed > 0 ? (rsasWithCustomizers / totalRSAsAnalyzed) * 100 : 0;
+  
+  // RSA completeness and ad strength analysis
+  let totalHeadlineSlots = 0;
+  let filledHeadlineSlots = 0;
+  let totalDescSlots = 0;
+  let filledDescSlots = 0;
+  let adStrengthCounts = { excellent: 0, good: 0, average: 0, poor: 0, unspecified: 0 };
+  
+  ads.forEach(ad => {
+    const rsa = ad.adGroupAd?.ad?.responsiveSearchAd || ad.ad?.responsive_search_ad;
+    if (!rsa) return;
+    
+    const headlines = rsa.headlines || [];
+    const descriptions = rsa.descriptions || [];
+    
+    // RSAs can have up to 15 headlines and 4 descriptions
+    totalHeadlineSlots += 15;
+    filledHeadlineSlots += headlines.filter((h: any) => h.text && h.text.trim()).length;
+    
+    totalDescSlots += 4;
+    filledDescSlots += descriptions.filter((d: any) => d.text && d.text.trim()).length;
+    
+    // Track ad strength
+    const strength = (rsa.strength || 'UNSPECIFIED').toLowerCase();
+    if (strength === 'excellent') adStrengthCounts.excellent++;
+    else if (strength === 'good') adStrengthCounts.good++;
+    else if (strength === 'average') adStrengthCounts.average++;
+    else if (strength === 'poor') adStrengthCounts.poor++;
+    else adStrengthCounts.unspecified++;
+  });
+  
+  const completenessPercentage = (totalHeadlineSlots + totalDescSlots) > 0
+    ? ((filledHeadlineSlots + filledDescSlots) / (totalHeadlineSlots + totalDescSlots)) * 100
+    : 0;
+  
+  const totalAdsWithStrength = totalRSAsAnalyzed - adStrengthCounts.unspecified;
+  const excellentPercentage = totalAdsWithStrength > 0 
+    ? (adStrengthCounts.excellent / totalAdsWithStrength) * 100 
+    : 0;
+  
   return {
     issues,
     opportunities,
+    rsa_coverage: {
+      total_rsas: totalRSAsAnalyzed,
+      average_rsas_per_group: avgRSAsPerGroup
+    },
+    rsa_completeness: {
+      pct_complete: completenessPercentage
+    },
+    cta_analysis: {
+      rsas_with_cta: rsasWithCTAs,
+      total_rsas: totalRSAsAnalyzed,
+      percentage: ctaPercentage
+    },
+    keyword_relevance: {
+      rsas_with_relevance: rsasWithKeywordRelevance,
+      total_rsas: totalRSAsAnalyzed,
+      percentage: keywordRelevancePercentage
+    },
+    customizer_usage: {
+      rsas_with_customizers: rsasWithCustomizers,
+      total_rsas: totalRSAsAnalyzed,
+      percentage: customizerPercentage
+    },
+    ad_strength_distribution: {
+      excellent: excellentPercentage,
+      good: totalAdsWithStrength > 0 ? (adStrengthCounts.good / totalAdsWithStrength) * 100 : 0,
+      average: totalAdsWithStrength > 0 ? (adStrengthCounts.average / totalAdsWithStrength) * 100 : 0,
+      poor: totalAdsWithStrength > 0 ? (adStrengthCounts.poor / totalAdsWithStrength) * 100 : 0,
+      counts: adStrengthCounts
+    },
     summary: {
       total_ads_analyzed: ads.length,
       campaigns_with_issues: issues.length
@@ -2413,10 +2559,25 @@ function generateAuditChecklist(data: any) {
     ad_copy_creative: [
       { item: 'Each ad group has at least 3+ Responsive Search Ads', status: ads.rsa_coverage?.average_rsas_per_group >= 3 ? 'pass' : 'warning', details: `Avg ${ads.rsa_coverage?.average_rsas_per_group?.toFixed(1) || 0} RSAs/group` },
       { item: 'RSAs have all headlines/descriptions filled', status: ads.rsa_completeness?.pct_complete >= 80 ? 'pass' : 'warning', details: `${ads.rsa_completeness?.pct_complete?.toFixed(0) || 0}% complete` },
-      { item: 'Ad copy tailored to keyword/ad group', status: 'unknown', details: 'Manual review of relevance' },
-      { item: 'Clear CTAs in every ad', status: 'unknown', details: 'Manual ad copy review' },
+      { 
+        item: 'Ad copy tailored to keyword/ad group', 
+        status: ads.keyword_relevance?.percentage >= 80 ? 'pass' : ads.keyword_relevance?.percentage >= 60 ? 'warning' : 'fail', 
+        details: `${ads.keyword_relevance?.rsas_with_relevance || 0}/${ads.keyword_relevance?.total_rsas || 0} RSAs (${ads.keyword_relevance?.percentage?.toFixed(0) || 0}%) have keyword relevance` 
+      },
+      { 
+        item: 'Clear CTAs in every ad', 
+        status: ads.cta_analysis?.percentage >= 90 ? 'pass' : ads.cta_analysis?.percentage >= 70 ? 'warning' : 'fail', 
+        details: `${ads.cta_analysis?.rsas_with_cta || 0}/${ads.cta_analysis?.total_rsas || 0} RSAs (${ads.cta_analysis?.percentage?.toFixed(0) || 0}%) have clear CTAs` 
+      },
+      { 
+        item: 'Proper use of ad customizers/dynamic keyword insertion (if needed)', 
+        status: ads.customizer_usage?.percentage > 0 ? 'pass' : 'unknown', 
+        details: ads.customizer_usage?.percentage > 0 
+          ? `${ads.customizer_usage?.rsas_with_customizers || 0} RSAs (${ads.customizer_usage?.percentage?.toFixed(0) || 0}%) use DKI/customizers` 
+          : 'No DKI or ad customizers detected (optional feature)' 
+      },
       { item: 'Assets/extensions set up', status: assets.asset_types?.length > 0 ? 'pass' : 'fail', details: `${assets.asset_types?.length || 0} asset types active` },
-      { item: 'Ad strength checked ("Excellent" when possible)', status: ads.ad_strength_distribution?.excellent > 50 ? 'pass' : 'warning', details: `${ads.ad_strength_distribution?.excellent || 0}% excellent` }
+      { item: 'Ad strength checked ("Excellent" when possible)', status: ads.ad_strength_distribution?.excellent >= 50 ? 'pass' : 'warning', details: `${ads.ad_strength_distribution?.excellent?.toFixed(0) || 0}% excellent` }
     ],
     tracking_conversions: [
       { item: 'Conversion actions defined', status: campaigns.some((c: any) => c.metrics?.conversions > 0) ? 'pass' : 'warning', details: 'Conversions detected' },
