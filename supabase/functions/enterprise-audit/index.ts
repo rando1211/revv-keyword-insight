@@ -285,8 +285,22 @@ serve(async (req) => {
       LIMIT 1000
     `;
 
+    // Conversion actions query to check tROAS readiness
+    const conversionActionsQuery = `
+      SELECT
+        conversion_action.id,
+        conversion_action.name,
+        conversion_action.status,
+        conversion_action.include_in_conversions_metric,
+        conversion_action.value_settings.default_value,
+        conversion_action.value_settings.always_use_default_value,
+        conversion_action.value_settings.value_source_type
+      FROM conversion_action
+      WHERE conversion_action.status IN (ENABLED, REMOVED)
+    `;
+
     console.log('📊 Fetching comprehensive campaign data...');
-    const [campaignResponse, baselineResponse, searchTermsResponse, keywordsQSResponse, keywordsMetricsResponse, adScheduleResponse] = await Promise.all([
+    const [campaignResponse, baselineResponse, searchTermsResponse, keywordsQSResponse, keywordsMetricsResponse, adScheduleResponse, conversionActionsResponse] = await Promise.all([
       fetch(apiUrl, {
         method: 'POST',
         headers,
@@ -321,6 +335,11 @@ serve(async (req) => {
         method: 'POST',
         headers,
         body: JSON.stringify({ query: adScheduleQuery })
+      }),
+      fetch(apiUrl, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ query: conversionActionsQuery })
       })
     ]);
 
@@ -330,7 +349,8 @@ serve(async (req) => {
       searchTerms: searchTermsResponse.status,
       keywordsQS: keywordsQSResponse.status,
       keywordsMetrics: keywordsMetricsResponse.status,
-      adSchedule: adScheduleResponse.status
+      adSchedule: adScheduleResponse.status,
+      conversionActions: conversionActionsResponse.status
     });
 
     if (!campaignResponse.ok) {
@@ -338,14 +358,17 @@ serve(async (req) => {
       console.log('❌ Campaign API Error:', errorText);
     }
 
-    const [campaignData, baselineCampaignData, searchTermsData, keywordsQSData, keywordsMetricsData, adScheduleData] = await Promise.all([
+    const [campaignData, baselineCampaignData, searchTermsData, keywordsQSData, keywordsMetricsData, adScheduleData, conversionActionsData] = await Promise.all([
       campaignResponse.ok ? campaignResponse.json() : { results: [] },
       baselineResponse.ok ? baselineResponse.json() : { results: [] },
       searchTermsResponse.ok ? searchTermsResponse.json() : { results: [] },
       keywordsQSResponse.ok ? keywordsQSResponse.json() : { results: [] },
       keywordsMetricsResponse.ok ? keywordsMetricsResponse.json() : { results: [] },
-      adScheduleResponse.ok ? adScheduleResponse.json() : { results: [] }
+      adScheduleResponse.ok ? adScheduleResponse.json() : { results: [] },
+      conversionActionsResponse.ok ? conversionActionsResponse.json() : { results: [] }
     ]);
+    
+    console.log('💰 Conversion actions found:', conversionActionsData.results?.length || 0);
 
     // Debug: log a sample campaign row to see structure
     if (campaignData.results?.[0]) {
@@ -549,6 +572,7 @@ serve(async (req) => {
       searchTermsData.results || [],
       keywordsResults || [],
       adScheduleData.results || [],
+      conversionActionsData.results || [],
       windows,
       openaiApiKey
     );
@@ -581,6 +605,7 @@ async function processEnterpriseAnalysis(
   searchTerms: any[],
   keywords: any[],
   adSchedule: any[],
+  conversionActions: any[],
   windows: any,
   openaiApiKey?: string
 ) {
@@ -593,8 +618,8 @@ async function processEnterpriseAnalysis(
   // Keywords match type and quality score analysis
   const keywordAnalysis = analyzeKeywordStrategy(keywords, campaignMetrics.campaigns);
   
-  // Bid strategy performance comparison
-  const bidStrategyAnalysis = analyzeBidStrategyImpact(campaignMetrics.campaigns);
+  // Bid strategy performance comparison with tROAS readiness
+  const bidStrategyAnalysis = analyzeBidStrategyImpact(campaignMetrics.campaigns, conversionActions);
   
   // Budget efficiency and scaling opportunities
   const budgetAnalysis = analyzeBudgetPacing(campaignMetrics.campaigns);
@@ -1658,9 +1683,44 @@ function generateKeywordStrategyRecommendations(matchTypeAnalysis: any) {
   return recommendations;
 }
 
-function analyzeBidStrategyImpact(campaigns: any[]) {
+// Helper function to determine tROAS readiness
+function getTROASReadiness(conversionActions: any[]) {
+  // Find primary conversion actions
+  const primaryConversions = conversionActions.filter((conv: any) => 
+    conv.conversionAction?.includeInConversionsMetric === true ||
+    conv.conversion_action?.include_in_conversions_metric === true
+  );
+
+  if (primaryConversions.length === 0) return { ready: false, reason: "No primary conversions" };
+
+  // Check value settings
+  for (const conversion of primaryConversions) {
+    const valueSettings = conversion.conversionAction?.valueSettings || conversion.conversion_action?.value_settings;
+    
+    if (!valueSettings) continue;
+
+    const usesStaticValue = valueSettings.alwaysUseDefaultValue === true || valueSettings.always_use_default_value === true;
+    const usesDynamicValue = valueSettings.alwaysUseDefaultValue === false || valueSettings.always_use_default_value === false;
+    const hasOfflineImport = valueSettings.valueSourceType === 'OFFLINE' || valueSettings.value_source_type === 'OFFLINE';
+
+    if (usesDynamicValue || hasOfflineImport) {
+      return { ready: true, reason: "✅ Dynamic value tracking enabled" };
+    }
+    if (usesStaticValue) {
+      return { ready: false, reason: "⚠️ Static values only - Use Target CPA instead" };
+    }
+  }
+
+  return { ready: false, reason: "❌ No value tracking - Use Maximize Conversions" };
+}
+
+function analyzeBidStrategyImpact(campaigns: any[], conversionActions: any[] = []) {
   const strategies: Record<string, any> = {};
   const maturityMismatches: any[] = [];
+  
+  // Analyze tROAS readiness once for all campaigns
+  const troasReadiness = getTROASReadiness(conversionActions);
+  console.log('🎯 tROAS Readiness:', troasReadiness);
   
   campaigns.forEach(campaign => {
     const strategy = campaign.bidding_strategy;
@@ -1681,12 +1741,25 @@ function analyzeBidStrategyImpact(campaigns: any[]) {
       isCorrectStrategy = strategy === 'MAXIMIZE_CONVERSIONS';
     } else if (conversions30d < 100) {
       maturityStage = 'Early Optimization';
-      recommendedStrategy = 'TARGET_CPA';
-      isCorrectStrategy = strategy === 'TARGET_CPA';
+      // Only recommend tROAS if dynamic value tracking is enabled AND sufficient conversions
+      if (troasReadiness.ready && conversions30d >= 30) {
+        recommendedStrategy = 'TARGET_ROAS';
+      } else if (!troasReadiness.ready && conversions30d >= 30) {
+        recommendedStrategy = 'TARGET_CPA';
+      } else {
+        recommendedStrategy = 'MAXIMIZE_CONVERSIONS';
+      }
+      isCorrectStrategy = strategy === recommendedStrategy;
     } else {
       maturityStage = 'Scaled / Mature';
-      recommendedStrategy = 'TARGET_ROAS';
-      isCorrectStrategy = strategy === 'TARGET_ROAS';
+      // Only recommend tROAS if conversion value tracking is properly configured
+      if (troasReadiness.ready) {
+        recommendedStrategy = 'TARGET_ROAS';
+        isCorrectStrategy = strategy === 'TARGET_ROAS';
+      } else {
+        recommendedStrategy = `TARGET_CPA (${troasReadiness.reason})`;
+        isCorrectStrategy = strategy === 'TARGET_CPA';
+      }
     }
     
     // Track mismatches
@@ -1697,6 +1770,7 @@ function analyzeBidStrategyImpact(campaigns: any[]) {
         conversions_30d: conversions30d,
         maturity_stage: maturityStage,
         recommended_strategy: recommendedStrategy,
+        troas_readiness: troasReadiness,
         issue: `Campaign has ${conversions30d} conversions (${maturityStage}) but using ${strategy}`
       });
     }
@@ -1738,6 +1812,7 @@ function analyzeBidStrategyImpact(campaigns: any[]) {
   return {
     strategy_breakdown: strategies,
     maturity_mismatches: maturityMismatches,
+    troas_readiness: troasReadiness,
     recommendations: generateBidStrategyRecommendations(strategies, maturityMismatches)
   };
 }

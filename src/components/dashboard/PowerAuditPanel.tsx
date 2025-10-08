@@ -1908,21 +1908,15 @@ const IssuesTab = ({ issues, toast, selectedAccount, onUpdateAfterFix, onRefresh
                                           const isBidStrategyMismatch = issue.campaign_name && issue.maturity_stage;
                                           
                                           if (isBidStrategyMismatch) {
-                                            // Validate Target ROAS requirements
-                                            const hasConversionValue = issue.conversions_30d > 0;
-                                            const hasSufficientConversions = issue.conversions_30d >= 15;
-                                            const isTargetRoas = issue.recommended_strategy?.toLowerCase().includes('target roas');
+                                            // Use backend tROAS readiness data
+                                            const troasReadiness = issue.troas_readiness || {};
+                                            const isTargetRoas = issue.recommended_strategy?.toUpperCase().includes('TARGET_ROAS') || 
+                                                               issue.recommended_strategy?.toLowerCase().includes('target roas');
                                             
-                                            // Modify recommendation if Target ROAS isn't viable
-                                            let finalRecommendation = issue.recommended_strategy;
+                                            // Display warning if tROAS not ready but recommended
                                             let warning = null;
-                                            
-                                            if (isTargetRoas && !hasSufficientConversions) {
-                                              finalRecommendation = 'Maximize Conversions (insufficient conversion volume for Target ROAS)';
-                                              warning = 'Target ROAS requires 15+ conversions/month. Build conversion history first with Maximize Conversions.';
-                                            } else if (isTargetRoas && !hasConversionValue) {
-                                              finalRecommendation = 'Enable conversion value tracking first';
-                                              warning = 'Target ROAS requires conversion value tracking to be enabled in your Google Ads account.';
+                                            if (isTargetRoas && !troasReadiness.ready) {
+                                              warning = troasReadiness.reason || 'Target ROAS requires dynamic conversion value tracking.';
                                             }
                                             
                                             // Render collapsible bid strategy mismatch card
@@ -1948,9 +1942,17 @@ const IssuesTab = ({ issues, toast, selectedAccount, onUpdateAfterFix, onRefresh
                                                         <span className="font-medium">Current Strategy:</span> {issue.current_strategy}
                                                       </div>
                                                       <div className="text-green-600">
-                                                        <span className="font-medium">Recommended:</span> {finalRecommendation}
+                                                        <span className="font-medium">Recommended:</span> {issue.recommended_strategy}
                                                       </div>
-                                                      {warning && (
+                                                      {troasReadiness.ready && isTargetRoas && (
+                                                        <div className="flex items-center gap-2 mt-2 p-2 bg-green-50 border border-green-200 rounded">
+                                                          <Badge variant="outline" className="bg-green-100 text-green-700 border-green-300">
+                                                            ✅ tROAS Ready
+                                                          </Badge>
+                                                          <span className="text-xs text-green-700">{troasReadiness.reason}</span>
+                                                        </div>
+                                                      )}
+                                                      {!troasReadiness.ready && isTargetRoas && warning && (
                                                         <Alert className="mt-2">
                                                           <AlertTriangle className="h-4 w-4" />
                                                           <AlertDescription className="text-xs">
