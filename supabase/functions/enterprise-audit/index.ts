@@ -723,7 +723,12 @@ async function processEnterpriseAnalysis(
     keyword_analysis: keywordAnalysis,
     bid_strategy_analysis: bidStrategyAnalysis,
     creative_analysis: creativeAnalysis,
-    issues: detailedIssues || {
+    issues: detailedIssues 
+      ? { 
+        ...detailedIssues, 
+        bid_strategy_mismatches: bidStrategyAnalysis.maturity_mismatches 
+      } 
+      : {
       wasteful_spend: searchTermsAnalysis.wasteful_terms.slice(0, 10),
       keyword_opportunities: keywordAnalysis.opportunities.slice(0, 5),
       budget_constraints: budgetAnalysis.constrained_campaigns,
