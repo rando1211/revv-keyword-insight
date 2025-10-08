@@ -1606,9 +1606,11 @@ const IssuesTab = ({ issues, toast, selectedAccount, onUpdateAfterFix, onRefresh
       passed: !hasBudgetIssues && highSeverityCount < 3,
       relatedIssues: findRelatedIssues(['budget'])
     };
+    // Check for bid strategy maturity mismatches
+    const bidStrategyMismatches = issues?.bid_strategy_mismatches || [];
     results['bid_strategies'] = { 
-      passed: biddingIssues.length === 0,
-      relatedIssues: biddingIssues
+      passed: biddingIssues.length === 0 && bidStrategyMismatches.length === 0,
+      relatedIssues: bidStrategyMismatches.length > 0 ? bidStrategyMismatches : biddingIssues
     };
     results['device_adjustments'] = { 
       passed: highSeverityCount < 5,
@@ -1898,41 +1900,73 @@ const IssuesTab = ({ issues, toast, selectedAccount, onUpdateAfterFix, onRefresh
                                       <span className="text-xs font-medium text-red-700">
                                         {relatedIssues.length} issue{relatedIssues.length > 1 ? 's' : ''} detected:
                                       </span>
-                                    </div>
-                                     <div className="space-y-2">
-                                      {relatedIssues.map((issue: any, issueIdx: number) => (
-                                        <div key={issueIdx} className="bg-white p-2 rounded border border-red-200 text-xs flex items-start gap-2">
-                                          {issue.fix_type && (
-                                            <Checkbox
-                                              checked={selectedCampaigns.has(issue.campaign_id)}
-                                              onCheckedChange={() => toggleCampaign(issue.campaign_id)}
-                                              className="mt-1"
-                                            />
-                                          )}
-                                          <div className="flex-1">
-                                            <div className="font-medium text-red-900">{issue.entity_name || issue.title}</div>
-                                            <div className="text-red-700 mt-1">{issue.summary || issue.description}</div>
-                                          </div>
-                                          {issue.fix_type && (
-                                            <Button 
-                                              variant="default" 
-                                              size="sm"
-                                              className="h-6 text-xs"
-                                              onClick={() => handleFixIssue(issue)}
-                                              disabled={isFixingIssue === `${issue.campaign_id}_network`}
-                                            >
-                                              {isFixingIssue === `${issue.campaign_id}_network` ? (
-                                                <>
-                                                  <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                                                  Fixing...
-                                                </>
-                                              ) : (
-                                                'Fix'
-                                              )}
-                                            </Button>
-                                          )}
-                                        </div>
-                                      ))}
+                                     </div>
+                                      <div className="space-y-2">
+                                       {relatedIssues.map((issue: any, issueIdx: number) => {
+                                         // Check if this is a bid strategy mismatch
+                                         const isBidStrategyMismatch = issue.campaign_name && issue.maturity_stage;
+                                         
+                                         if (isBidStrategyMismatch) {
+                                           // Render bid strategy mismatch card
+                                           return (
+                                             <div key={issueIdx} className="p-3 bg-amber-50 border border-amber-200 rounded">
+                                               <div className="flex justify-between items-start mb-2">
+                                                 <span className="font-medium text-amber-900">{issue.campaign_name}</span>
+                                                 <Badge variant="outline">{issue.conversions_30d} conversions</Badge>
+                                               </div>
+                                               <div className="text-sm space-y-1">
+                                                 <div className="text-muted-foreground">
+                                                   <span className="font-medium">Stage:</span> {issue.maturity_stage}
+                                                 </div>
+                                                 <div className="text-red-600">
+                                                   <span className="font-medium">Current:</span> {issue.current_strategy}
+                                                 </div>
+                                                 <div className="text-green-600">
+                                                   <span className="font-medium">Recommended:</span> {issue.recommended_strategy}
+                                                 </div>
+                                                 <div className="text-xs text-muted-foreground mt-2">
+                                                   {issue.issue}
+                                                 </div>
+                                               </div>
+                                             </div>
+                                           );
+                                         }
+                                         
+                                         // Render regular issue card
+                                         return (
+                                           <div key={issueIdx} className="bg-white p-2 rounded border border-red-200 text-xs flex items-start gap-2">
+                                             {issue.fix_type && (
+                                               <Checkbox
+                                                 checked={selectedCampaigns.has(issue.campaign_id)}
+                                                 onCheckedChange={() => toggleCampaign(issue.campaign_id)}
+                                                 className="mt-1"
+                                               />
+                                             )}
+                                             <div className="flex-1">
+                                               <div className="font-medium text-red-900">{issue.entity_name || issue.title}</div>
+                                               <div className="text-red-700 mt-1">{issue.summary || issue.description}</div>
+                                             </div>
+                                             {issue.fix_type && (
+                                               <Button 
+                                                 variant="default" 
+                                                 size="sm"
+                                                 className="h-6 text-xs"
+                                                 onClick={() => handleFixIssue(issue)}
+                                                 disabled={isFixingIssue === `${issue.campaign_id}_network`}
+                                               >
+                                                 {isFixingIssue === `${issue.campaign_id}_network` ? (
+                                                   <>
+                                                     <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                                                     Fixing...
+                                                   </>
+                                                 ) : (
+                                                   'Fix'
+                                                 )}
+                                               </Button>
+                                             )}
+                                           </div>
+                                         );
+                                       })}
                                     </div>
                                   </div>
                                 )}
@@ -1947,49 +1981,6 @@ const IssuesTab = ({ issues, toast, selectedAccount, onUpdateAfterFix, onRefresh
               );
             })}
           </Accordion>
-        </CardContent>
-      </Card>
-
-      {/* Bid Strategy Maturity Mismatches */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <Settings className="h-5 w-5 text-amber-500" />
-            <span>Bid Strategy Maturity Mismatches</span>
-          </CardTitle>
-          <CardDescription>
-            Campaigns using bid strategies that don't match their maturity stage
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {issues?.bid_strategy_mismatches?.length > 0 ? (
-            <div className="space-y-3">
-              {issues.bid_strategy_mismatches.map((mismatch: any, index: number) => (
-                <div key={index} className="p-3 bg-amber-50 border border-amber-200 rounded">
-                  <div className="flex justify-between items-start mb-2">
-                    <span className="font-medium">{mismatch.campaign_name}</span>
-                    <Badge variant="outline">{mismatch.conversions_30d} conversions</Badge>
-                  </div>
-                  <div className="text-sm space-y-1">
-                    <div className="text-muted-foreground">
-                      <span className="font-medium">Stage:</span> {mismatch.maturity_stage}
-                    </div>
-                    <div className="text-red-600">
-                      <span className="font-medium">Current:</span> {mismatch.current_strategy}
-                    </div>
-                    <div className="text-green-600">
-                      <span className="font-medium">Recommended:</span> {mismatch.recommended_strategy}
-                    </div>
-                    <div className="text-xs text-muted-foreground mt-2">
-                      {mismatch.issue}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-muted-foreground">All campaigns using appropriate bid strategies for their maturity stage</p>
-          )}
         </CardContent>
       </Card>
 
