@@ -97,9 +97,13 @@ export const CreativesAnalysisUI = ({ customerId, campaignIds, onBack }: Creativ
       });
 
       if (!adsStructured || adsStructured.length === 0) {
+        const suggestion = campaignIds && campaignIds.length > 0 
+          ? "The selected campaign(s) have no RSA ads. Try selecting Search campaigns or clear the filter to audit all campaigns."
+          : "No RSA ads found in any campaigns. RSA ads only exist in Search campaigns.";
+        
         toast({
           title: "⚠️ No RSA Ads Found",
-          description: `The selected campaign has no Responsive Search Ads with data in the selected timeframe. Try a different campaign or timeframe.`,
+          description: suggestion,
           variant: "destructive",
         });
         setCreativesData(null);
@@ -901,7 +905,7 @@ ${riskFactors.map(risk => `• ${risk}`).join('\n')}
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex items-end">
+            <div className="flex flex-col items-end gap-2">
               <Button 
                 onClick={analyzeCreatives} 
                 disabled={isAnalyzing}
@@ -919,6 +923,9 @@ ${riskFactors.map(risk => `• ${risk}`).join('\n')}
                   </>
                 )}
               </Button>
+              <p className="text-xs text-muted-foreground text-center w-full">
+                💡 Tip: Leave campaigns blank to audit all Search campaigns
+              </p>
             </div>
           </div>
         </CardContent>
