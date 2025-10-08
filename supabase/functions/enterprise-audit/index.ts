@@ -801,9 +801,6 @@ async function processEnterpriseAnalysis(
         ...checklist.ad_groups_keywords,
         ...checklist.ad_copy_creative,
         ...checklist.tracking_conversions,
-        ...checklist.performance_optimization,
-        ...checklist.landing_pages,
-        ...checklist.budget_spend,
         ...checklist.advanced_checks
       ];
       checklist.summary = {
@@ -2700,31 +2697,6 @@ function generateAuditChecklist(data: any) {
           ? `${conversions.troas_campaigns_with_value || 0}/${conversions.troas_campaigns_count || 0} tROAS campaigns have conversion value`
           : conversions.troas_readiness?.reason || 'Value tracking not configured for tROAS' 
       }
-    ],
-    performance_optimization: [
-      { item: 'CTR benchmarks met (Search > 3-5%+)', status: campaigns.some((c: any) => c.metrics?.ctr > 3) ? 'pass' : 'warning', details: 'Review campaign CTRs' },
-      { item: 'Quality Score checked', status: keywords.quality_score_issues?.length > 0 ? 'warning' : 'pass', details: `${keywords.quality_score_issues?.length || 0} QS issues` },
-      { item: 'Impression Share reviewed', status: campaigns.some((c: any) => c.metrics?.search_impression_share) ? 'pass' : 'unknown', details: 'Check lost IS' },
-      { item: 'Search term analysis done', status: searchTerms.wasteful_terms ? 'pass' : 'warning', details: 'Regular ST review needed' },
-      { item: 'Bidding strategy tested', status: 'pass', details: 'Multiple strategies in use' },
-      { item: 'Ad rotation set to "Optimize"', status: 'pass', details: 'Default Google optimization' },
-      { item: 'Performance Max campaigns reviewed', status: campaigns.some((c: any) => c.type === 'PERFORMANCE_MAX') ? 'pass' : 'unknown', details: 'Check PMax if present' }
-    ],
-    landing_pages: [
-      { item: 'Relevance: Landing page matches ad/keyword intent', status: 'unknown', details: 'Manual LP review needed' },
-      { item: 'Speed & mobile responsiveness tested', status: urlHealth.broken_urls?.length === 0 ? 'pass' : 'fail', details: `${urlHealth.broken_urls?.length || 0} broken URLs` },
-      { item: 'Tracking pixels installed', status: 'unknown', details: 'Verify pixel installation' },
-      { item: 'Clear CTA above the fold', status: 'unknown', details: 'LP design review' },
-      { item: 'Forms are short, frictionless', status: 'unknown', details: 'Review form length' },
-      { item: 'Thank-you page tracked', status: 'unknown', details: 'Check conversion tracking' },
-      { item: 'A/B tests in place', status: 'unknown', details: 'Implement LP testing' }
-    ],
-    budget_spend: [
-      { item: 'Daily budgets aligned with goals', status: 'pass', details: 'Budget settings active' },
-      { item: 'Spend pacing checked', status: budget.constrained_campaigns?.length > 0 ? 'warning' : 'pass', details: `${budget.constrained_campaigns?.length || 0} constrained` },
-      { item: 'Spend distribution across campaigns reviewed', status: 'pass', details: 'Multiple campaigns active' },
-      { item: 'Wasted spend identified', status: searchTerms.total_waste_identified > 0 ? 'warning' : 'pass', details: `$${searchTerms.total_waste_identified?.toLocaleString() || 0} waste` },
-      { item: 'High-value campaigns prioritized', status: 'unknown', details: 'Review budget allocation' }
     ],
     advanced_checks: [
       { item: 'Remarketing lists built', status: 'unknown', details: 'Check audience lists' },
