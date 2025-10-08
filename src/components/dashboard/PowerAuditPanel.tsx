@@ -202,6 +202,7 @@ export const PowerAuditPanel = ({ selectedAccount }: PowerAuditPanelProps) => {
                 toast={toast}
                 selectedAccount={selectedAccount}
                 onUpdateAfterFix={updateAuditResultsAfterFix}
+                onRefreshAudit={runAudit}
               />
             </TabsContent>
 
@@ -1218,11 +1219,12 @@ const KeywordsTab = ({ keywordAnalysis, bidStrategyAnalysis }: { keywordAnalysis
 };
 
 // Enhanced Issues Tab Component with Google Ads Audit Checklist
-const IssuesTab = ({ issues, toast, selectedAccount, onUpdateAfterFix }: { 
+const IssuesTab = ({ issues, toast, selectedAccount, onUpdateAfterFix, onRefreshAudit }: { 
   issues: any; 
   toast: any;
   selectedAccount?: any;
   onUpdateAfterFix?: (campaignId: string, fixType: string) => void;
+  onRefreshAudit?: () => Promise<void> | void;
 }) => {
   console.log('🔍 Issues data received:', issues);
   
@@ -1292,6 +1294,15 @@ const IssuesTab = ({ issues, toast, selectedAccount, onUpdateAfterFix }: {
       if (onUpdateAfterFix) {
         console.log('🔄 Triggering optimistic update for campaign:', updatedCampaignId || pendingFix.campaign_id);
         onUpdateAfterFix(updatedCampaignId || pendingFix.campaign_id, 'disable_networks');
+      }
+
+      // Re-fetch audit from server to ensure UI matches Google Ads
+      if (onRefreshAudit) {
+        try {
+          await onRefreshAudit();
+        } catch (e) {
+          console.warn('⚠️ Audit refresh failed, relying on optimistic update only:', e);
+        }
       }
     } catch (error) {
       console.error('❌ Fix execution failed:', error);
