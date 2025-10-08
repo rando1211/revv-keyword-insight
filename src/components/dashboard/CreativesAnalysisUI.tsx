@@ -1564,84 +1564,147 @@ ${riskFactors.map(risk => `• ${risk}`).join('\n')}
 
       {selectedAd && (
         <Dialog open={!!selectedAd} onOpenChange={(open) => { if (!open) setSelectedAd(null); }}>
-          <DialogContent className="max-w-3xl">
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>
-                Ad #{String(selectedAd.adId).slice(-8)} Details
+              <DialogTitle className="flex items-center gap-2">
+                Ad #{String(selectedAd.adId).slice(-8)} 
+                {(() => {
+                  const score = auditResults?.scores?.find((s: any) => s.adId === selectedAd?.adId);
+                  return (
+                    <Badge variant={score?.grade === 'Excellent' || score?.grade === 'Good' ? 'default' : 'destructive'}>
+                      {score?.score}/100 • {score?.grade}
+                    </Badge>
+                  );
+                })()}
               </DialogTitle>
               <DialogDescription>
-                In-depth breakdown of score, issues, and assets for this RSA
+                {(() => {
+                  const adDetail = creativesData?.adsStructured?.find((a: any) => a.adId === selectedAd?.adId);
+                  return `${adDetail?.campaign} • ${adDetail?.adGroup}`;
+                })()}
               </DialogDescription>
             </DialogHeader>
             {(() => {
               const adDetail = creativesData?.adsStructured?.find((a: any) => a.adId === selectedAd?.adId);
               const score = auditResults?.scores?.find((s: any) => s.adId === selectedAd?.adId);
+              
+              // Group findings by rule to deduplicate
+              const groupedFindings: Record<string, any[]> = {};
+              selectedAd?.findings?.forEach((f: any) => {
+                if (!groupedFindings[f.rule]) {
+                  groupedFindings[f.rule] = [];
+                }
+                groupedFindings[f.rule].push(f);
+              });
+              
               return (
                 <div className="space-y-4">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="text-sm text-muted-foreground">
-                      {adDetail?.campaign} • {adDetail?.adGroup}
-                    </div>
-                    <Badge>
-                      {score?.score}/100 • {score?.grade}
-                    </Badge>
-                  </div>
-
+                  {/* Score Breakdown */}
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    <div className="p-3 rounded-md border">
+                    <div className="p-3 rounded-md border text-center">
                       <div className="text-xs text-muted-foreground">Coverage</div>
-                      <div className="font-medium">{score?.breakdown?.coverageScore}/25</div>
+                      <div className="text-2xl font-bold">{score?.breakdown?.coverageScore}<span className="text-sm text-muted-foreground">/25</span></div>
                     </div>
-                    <div className="p-3 rounded-md border">
+                    <div className="p-3 rounded-md border text-center">
                       <div className="text-xs text-muted-foreground">Diversity</div>
-                      <div className="font-medium">{score?.breakdown?.diversityScore}/25</div>
+                      <div className="text-2xl font-bold">{score?.breakdown?.diversityScore}<span className="text-sm text-muted-foreground">/25</span></div>
                     </div>
-                    <div className="p-3 rounded-md border">
+                    <div className="p-3 rounded-md border text-center">
                       <div className="text-xs text-muted-foreground">Compliance</div>
-                      <div className="font-medium">{score?.breakdown?.complianceScore}/25</div>
+                      <div className="text-2xl font-bold">{score?.breakdown?.complianceScore}<span className="text-sm text-muted-foreground">/25</span></div>
                     </div>
-                    <div className="p-3 rounded-md border">
+                    <div className="p-3 rounded-md border text-center">
                       <div className="text-xs text-muted-foreground">Performance</div>
-                      <div className="font-medium">{score?.breakdown?.performanceScore}/25</div>
+                      <div className="text-2xl font-bold">{score?.breakdown?.performanceScore}<span className="text-sm text-muted-foreground">/25</span></div>
                     </div>
                   </div>
 
-                  {selectedAd?.findings?.length > 0 && (
+                  {/* Grouped Issues */}
+                  {Object.keys(groupedFindings).length > 0 && (
                     <div>
-                      <h4 className="font-medium mb-2">Issues ({selectedAd.findings.length})</h4>
-                      <div className="space-y-2 max-h-56 overflow-auto">
-                        {selectedAd.findings.map((f: any, i: number) => (
-                          <div key={i} className="p-3 rounded-md border bg-muted/40 text-sm">
-                            <div className="flex items-center justify-between">
-                              <span className="font-medium">{f.rule}</span>
-                              <Badge variant={f.severity === 'error' ? 'destructive' : f.severity === 'warn' ? 'secondary' : 'outline'}>
-                                {f.severity}
+                      <h4 className="font-medium mb-3 flex items-center gap-2">
+                        <AlertTriangle className="h-4 w-4" />
+                        Issues Found ({Object.keys(groupedFindings).length} types)
+                      </h4>
+                      <div className="space-y-3">
+                        {Object.entries(groupedFindings).map(([rule, findings]: [string, any[]]) => (
+                          <div key={rule} className="p-4 rounded-lg border bg-muted/30">
+                            <div className="flex items-start justify-between mb-2">
+                              <div>
+                                <div className="font-semibold text-sm flex items-center gap-2">
+                                  {rule}
+                                  {findings.length > 1 && (
+                                    <Badge variant="outline" className="text-xs">
+                                      {findings.length} instances
+                                    </Badge>
+                                  )}
+                                </div>
+                                <div className="text-sm text-muted-foreground mt-1">
+                                  {findings[0].message}
+                                </div>
+                              </div>
+                              <Badge variant={findings[0].severity === 'error' ? 'destructive' : findings[0].severity === 'warn' ? 'secondary' : 'outline'}>
+                                {findings[0].severity}
                               </Badge>
                             </div>
-                            <div className="text-muted-foreground mt-1">{f.message}</div>
+                            {findings.length > 1 && (
+                              <div className="text-xs text-muted-foreground mt-2 pl-2 border-l-2">
+                                Affects {findings.length} assets in this ad
+                              </div>
+                            )}
                           </div>
                         ))}
                       </div>
                     </div>
                   )}
 
+                  {/* Assets with metadata */}
                   {adDetail?.assets?.length > 0 && (
                     <div>
-                      <h4 className="font-medium mb-2">Assets ({adDetail.assets.length})</h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-56 overflow-auto">
-                        {adDetail.assets.map((asset: any) => (
-                          <div key={asset.id} className="p-3 rounded-md border bg-card text-sm">
-                            <div className="flex items-center justify-between">
-                              <Badge variant="outline">{asset.type}</Badge>
-                              {asset.pinnedField && asset.pinnedField !== 'UNSPECIFIED' && (
-                                <Badge variant="secondary">Pinned: {asset.pinnedField}</Badge>
-                              )}
+                      <h4 className="font-medium mb-3">
+                        Assets ({adDetail.assets.filter((a: any) => a.type === 'HEADLINE').length} Headlines, {adDetail.assets.filter((a: any) => a.type === 'DESCRIPTION').length} Descriptions)
+                      </h4>
+                      
+                      {/* Headlines */}
+                      <div className="mb-4">
+                        <div className="text-sm font-medium text-muted-foreground mb-2">Headlines</div>
+                        <div className="space-y-2">
+                          {adDetail.assets.filter((a: any) => a.type === 'HEADLINE').map((asset: any, idx: number) => (
+                            <div key={asset.id} className="p-3 rounded-md border bg-card flex items-start justify-between gap-3">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <Badge variant="outline" className="text-xs">H{idx + 1}</Badge>
+                                  {asset.pinnedField && asset.pinnedField !== 'UNSPECIFIED' && (
+                                    <Badge variant="secondary" className="text-xs">Pinned</Badge>
+                                  )}
+                                  <span className="text-xs text-muted-foreground">{asset.text.length} chars</span>
+                                </div>
+                                <div className="text-sm">{asset.text}</div>
+                              </div>
                             </div>
-                            <div className="mt-2">
-                              {asset.text}
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Descriptions */}
+                      <div>
+                        <div className="text-sm font-medium text-muted-foreground mb-2">Descriptions</div>
+                        <div className="space-y-2">
+                          {adDetail.assets.filter((a: any) => a.type === 'DESCRIPTION').map((asset: any, idx: number) => (
+                            <div key={asset.id} className="p-3 rounded-md border bg-card flex items-start justify-between gap-3">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <Badge variant="outline" className="text-xs">D{idx + 1}</Badge>
+                                  {asset.pinnedField && asset.pinnedField !== 'UNSPECIFIED' && (
+                                    <Badge variant="secondary" className="text-xs">Pinned</Badge>
+                                  )}
+                                  <span className="text-xs text-muted-foreground">{asset.text.length} chars</span>
+                                </div>
+                                <div className="text-sm">{asset.text}</div>
+                              </div>
                             </div>
-                          </div>
-                        ))}
+                          ))}
+                        </div>
                       </div>
                     </div>
                   )}
