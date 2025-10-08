@@ -299,8 +299,23 @@ serve(async (req) => {
       WHERE conversion_action.status IN (ENABLED, REMOVED)
     `;
 
+    // Check for recent negative keyword additions (last 7 days)
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const recentNegativesQuery = `
+      SELECT
+        campaign_criterion.criterion_id,
+        campaign_criterion.keyword.text,
+        campaign_criterion.keyword.match_type
+      FROM campaign_criterion
+      WHERE campaign.status = 'ENABLED'
+        AND campaign_criterion.negative = TRUE
+        AND campaign_criterion.status = 'ENABLED'
+        AND segments.date >= '${sevenDaysAgo}'
+      LIMIT 1
+    `;
+
     console.log('📊 Fetching comprehensive campaign data...');
-    const [campaignResponse, baselineResponse, searchTermsResponse, keywordsQSResponse, keywordsMetricsResponse, adScheduleResponse, conversionActionsResponse] = await Promise.all([
+    const [campaignResponse, baselineResponse, searchTermsResponse, keywordsQSResponse, keywordsMetricsResponse, adScheduleResponse, conversionActionsResponse, recentNegativesResponse] = await Promise.all([
       fetch(apiUrl, {
         method: 'POST',
         headers,
@@ -340,6 +355,11 @@ serve(async (req) => {
         method: 'POST',
         headers,
         body: JSON.stringify({ query: conversionActionsQuery })
+      }),
+      fetch(apiUrl, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ query: recentNegativesQuery })
       })
     ]);
 
@@ -350,7 +370,8 @@ serve(async (req) => {
       keywordsQS: keywordsQSResponse.status,
       keywordsMetrics: keywordsMetricsResponse.status,
       adSchedule: adScheduleResponse.status,
-      conversionActions: conversionActionsResponse.status
+      conversionActions: conversionActionsResponse.status,
+      recentNegatives: recentNegativesResponse.status
     });
 
     if (!campaignResponse.ok) {
@@ -358,17 +379,19 @@ serve(async (req) => {
       console.log('❌ Campaign API Error:', errorText);
     }
 
-    const [campaignData, baselineCampaignData, searchTermsData, keywordsQSData, keywordsMetricsData, adScheduleData, conversionActionsData] = await Promise.all([
+    const [campaignData, baselineCampaignData, searchTermsData, keywordsQSData, keywordsMetricsData, adScheduleData, conversionActionsData, recentNegativesData] = await Promise.all([
       campaignResponse.ok ? campaignResponse.json() : { results: [] },
       baselineResponse.ok ? baselineResponse.json() : { results: [] },
       searchTermsResponse.ok ? searchTermsResponse.json() : { results: [] },
       keywordsQSResponse.ok ? keywordsQSResponse.json() : { results: [] },
       keywordsMetricsResponse.ok ? keywordsMetricsResponse.json() : { results: [] },
       adScheduleResponse.ok ? adScheduleResponse.json() : { results: [] },
-      conversionActionsResponse.ok ? conversionActionsResponse.json() : { results: [] }
+      conversionActionsResponse.ok ? conversionActionsResponse.json() : { results: [] },
+      recentNegativesResponse.ok ? recentNegativesResponse.json() : { results: [] }
     ]);
     
     console.log('💰 Conversion actions found:', conversionActionsData.results?.length || 0);
+    console.log('🚫 Recent negatives found:', recentNegativesData.results?.length || 0);
 
     // Debug: log a sample campaign row to see structure
     if (campaignData.results?.[0]) {
@@ -2365,9 +2388,13 @@ function generateAuditChecklist(data: any) {
         details: `${keywords.ad_group_structure?.avg_keywords_per_group?.toFixed(1) || 0} avg keywords/group (${keywords.ad_group_structure?.tight_groups_pct?.toFixed(0) || 0}% tight)` 
       },
       { item: 'Match types balanced', status: keywords.match_type_analysis ? 'pass' : 'warning', details: JSON.stringify(keywords.match_type_analysis || {}) },
-      { item: 'Negative keywords added', status: searchTerms.wasteful_terms?.length > 0 ? 'fail' : 'pass', details: `${searchTerms.wasteful_terms?.length || 0} wasteful terms need negatives` },
-      { item: 'Search term reports reviewed for waste', status: searchTerms.total_waste_identified > 0 ? 'warning' : 'pass', details: `$${searchTerms.total_waste_identified?.toLocaleString() || 0} waste identified` },
-      { item: 'Keyword intent aligned with business goals', status: 'unknown', details: 'Manual review recommended' },
+      { 
+        item: 'Negative keywords added in last 7 days', 
+        status: recentNegativesData.results?.length > 0 ? 'pass' : 'fail', 
+        details: recentNegativesData.results?.length > 0 
+          ? 'Recent negative keyword activity detected - search terms are being reviewed' 
+          : 'No negative keywords added in the last 7 days - search terms may not be actively reviewed'
+      },
       { 
         item: 'No duplicate keywords across campaigns', 
         status: keywords.duplicate_keywords?.length === 0 ? 'pass' : keywords.duplicate_keywords?.length <= 5 ? 'warning' : 'fail', 
