@@ -49,5 +49,5 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.execute-creative-changes]
-verify_jwt = false
+verify_jwt = true
 
