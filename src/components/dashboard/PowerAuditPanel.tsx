@@ -6,9 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { CheckCircle, AlertTriangle, XCircle, TrendingUp, TrendingDown, Activity, Target, DollarSign, BarChart3, Users, Zap, Calendar, Play, Loader2, Volume2, Circle, ExternalLink, Pause, Settings, Copy } from 'lucide-react';
+import { CheckCircle, AlertTriangle, XCircle, TrendingUp, TrendingDown, Activity, Target, DollarSign, BarChart3, Users, Zap, Calendar, Play, Loader2, Volume2, Circle, ExternalLink, Pause, Settings, Copy, ChevronDown } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { GoogleAdsAccount } from '@/lib/google-ads-service';
@@ -1902,35 +1903,70 @@ const IssuesTab = ({ issues, toast, selectedAccount, onUpdateAfterFix, onRefresh
                                       </span>
                                      </div>
                                       <div className="space-y-2">
-                                       {relatedIssues.map((issue: any, issueIdx: number) => {
-                                         // Check if this is a bid strategy mismatch
-                                         const isBidStrategyMismatch = issue.campaign_name && issue.maturity_stage;
-                                         
-                                         if (isBidStrategyMismatch) {
-                                           // Render bid strategy mismatch card
-                                           return (
-                                             <div key={issueIdx} className="p-3 bg-amber-50 border border-amber-200 rounded">
-                                               <div className="flex justify-between items-start mb-2">
-                                                 <span className="font-medium text-amber-900">{issue.campaign_name}</span>
-                                                 <Badge variant="outline">{issue.conversions_30d} conversions</Badge>
-                                               </div>
-                                               <div className="text-sm space-y-1">
-                                                 <div className="text-muted-foreground">
-                                                   <span className="font-medium">Stage:</span> {issue.maturity_stage}
-                                                 </div>
-                                                 <div className="text-red-600">
-                                                   <span className="font-medium">Current:</span> {issue.current_strategy}
-                                                 </div>
-                                                 <div className="text-green-600">
-                                                   <span className="font-medium">Recommended:</span> {issue.recommended_strategy}
-                                                 </div>
-                                                 <div className="text-xs text-muted-foreground mt-2">
-                                                   {issue.issue}
-                                                 </div>
-                                               </div>
-                                             </div>
-                                           );
-                                         }
+                                        {relatedIssues.map((issue: any, issueIdx: number) => {
+                                          // Check if this is a bid strategy mismatch
+                                          const isBidStrategyMismatch = issue.campaign_name && issue.maturity_stage;
+                                          
+                                          if (isBidStrategyMismatch) {
+                                            // Validate Target ROAS requirements
+                                            const hasConversionValue = issue.conversions_30d > 0;
+                                            const hasSufficientConversions = issue.conversions_30d >= 15;
+                                            const isTargetRoas = issue.recommended_strategy?.toLowerCase().includes('target roas');
+                                            
+                                            // Modify recommendation if Target ROAS isn't viable
+                                            let finalRecommendation = issue.recommended_strategy;
+                                            let warning = null;
+                                            
+                                            if (isTargetRoas && !hasSufficientConversions) {
+                                              finalRecommendation = 'Maximize Conversions (insufficient conversion volume for Target ROAS)';
+                                              warning = 'Target ROAS requires 15+ conversions/month. Build conversion history first with Maximize Conversions.';
+                                            } else if (isTargetRoas && !hasConversionValue) {
+                                              finalRecommendation = 'Enable conversion value tracking first';
+                                              warning = 'Target ROAS requires conversion value tracking to be enabled in your Google Ads account.';
+                                            }
+                                            
+                                            // Render collapsible bid strategy mismatch card
+                                            return (
+                                              <Collapsible key={issueIdx}>
+                                                <div className="p-3 bg-amber-50 border border-amber-200 rounded">
+                                                  <CollapsibleTrigger className="w-full">
+                                                    <div className="flex justify-between items-center">
+                                                      <div className="flex items-center gap-2">
+                                                        <ChevronDown className="h-4 w-4 text-amber-700 transition-transform duration-200" />
+                                                        <span className="font-medium text-amber-900">{issue.campaign_name}</span>
+                                                      </div>
+                                                      <Badge variant="outline" className="ml-2">{issue.conversions_30d} conversions</Badge>
+                                                    </div>
+                                                  </CollapsibleTrigger>
+                                                  
+                                                  <CollapsibleContent>
+                                                    <div className="text-sm space-y-2 mt-3 pt-3 border-t border-amber-200">
+                                                      <div className="text-muted-foreground">
+                                                        <span className="font-medium">Maturity Stage:</span> {issue.maturity_stage}
+                                                      </div>
+                                                      <div className="text-red-600">
+                                                        <span className="font-medium">Current Strategy:</span> {issue.current_strategy}
+                                                      </div>
+                                                      <div className="text-green-600">
+                                                        <span className="font-medium">Recommended:</span> {finalRecommendation}
+                                                      </div>
+                                                      {warning && (
+                                                        <Alert className="mt-2">
+                                                          <AlertTriangle className="h-4 w-4" />
+                                                          <AlertDescription className="text-xs">
+                                                            {warning}
+                                                          </AlertDescription>
+                                                        </Alert>
+                                                      )}
+                                                      <div className="text-xs text-muted-foreground mt-2 pt-2 border-t border-amber-100">
+                                                        {issue.issue}
+                                                      </div>
+                                                    </div>
+                                                  </CollapsibleContent>
+                                                </div>
+                                              </Collapsible>
+                                            );
+                                          }
                                          
                                          // Render regular issue card
                                          return (
