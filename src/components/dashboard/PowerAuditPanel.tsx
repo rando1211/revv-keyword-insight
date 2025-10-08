@@ -1445,8 +1445,7 @@ const IssuesTab = ({ issues, toast, selectedAccount, onUpdateAfterFix, onRefresh
         "No duplicate or inflated conversions",
         "Offline conversions imported (if sales close offline)",
         "GA4 linked properly",
-        "Call tracking enabled (if relevant)",
-        "Value-based bidding in place (if LTV data available)"
+        "Call tracking enabled (if relevant)"
       ]
     },
     {
@@ -1697,10 +1696,6 @@ const IssuesTab = ({ issues, toast, selectedAccount, onUpdateAfterFix, onRefresh
     results['offline_conversions'] = { passed: highSeverityCount < 6, relatedIssues: [] };
     results['ga4_linked'] = { passed: true, relatedIssues: [] };
     results['call_tracking'] = { passed: true, relatedIssues: [] };
-    results['value_based_bidding'] = { 
-      passed: !hasDecliningCampaigns,
-      relatedIssues: findRelatedIssues(['declining'])
-    };
     
     // Performance & Optimization checks - critical area
     results['ctr_benchmarks'] = { 
@@ -1781,7 +1776,7 @@ const IssuesTab = ({ issues, toast, selectedAccount, onUpdateAfterFix, onRefresh
     "Campaign Settings": ['campaign_objective', 'ad_schedule', 'bid_strategies', 'device_adjustments', 'audience_targeting'],
     "Ad Groups & Keywords": ['tight_ad_groups', 'match_types', 'negative_keywords', 'search_terms_reviewed', 'keyword_intent', 'no_duplicate_keywords', 'long_tail_keywords'],
     "Ad Copy & Creative": ['rsa_count', 'rsa_filled', 'ad_copy_tailored', 'clear_ctas', 'ad_customizers', 'extensions_setup', 'ad_strength'],
-    "Tracking & Conversions": ['conversion_actions', 'conversion_tracking', 'no_duplicate_conversions', 'offline_conversions', 'ga4_linked', 'call_tracking', 'value_based_bidding'],
+    "Tracking & Conversions": ['conversion_actions', 'conversion_tracking', 'no_duplicate_conversions', 'offline_conversions', 'ga4_linked', 'call_tracking'],
     "Performance & Optimization": ['ctr_benchmarks', 'quality_score', 'impression_share', 'search_term_analysis', 'bidding_strategy_tested', 'ad_rotation', 'pmax_reviewed'],
     "Landing Pages": ['landing_page_relevance', 'page_speed', 'tracking_pixels', 'clear_cta_fold', 'frictionless_forms', 'thankyou_tracked', 'ab_tests'],
     "Budget & Spend": ['budgets_aligned', 'spend_pacing', 'spend_distribution', 'wasted_spend', 'high_value_priority']

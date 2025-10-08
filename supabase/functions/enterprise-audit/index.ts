@@ -2687,15 +2687,6 @@ function generateAuditChecklist(data: any) {
         details: conversions.call_tracking_enabled 
           ? `${conversions.call_conversion_actions || 0} call conversion actions configured` 
           : 'No call tracking detected (may not be needed)' 
-      },
-      { 
-        item: 'Value-based bidding in place (if LTV data available)', 
-        status: conversions.troas_readiness?.ready 
-          ? (conversions.troas_campaigns_with_value > 0 ? 'pass' : 'warning')
-          : 'fail', 
-        details: conversions.troas_readiness?.ready 
-          ? `${conversions.troas_campaigns_with_value || 0}/${conversions.troas_campaigns_count || 0} tROAS campaigns have conversion value`
-          : conversions.troas_readiness?.reason || 'Value tracking not configured for tROAS' 
       }
     ],
     advanced_checks: [
