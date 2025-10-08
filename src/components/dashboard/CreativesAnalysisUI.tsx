@@ -1580,7 +1580,8 @@ ${riskFactors.map(risk => `• ${risk}`).join('\n')}
               <DialogDescription>
                 {(() => {
                   const adDetail = creativesData?.adsStructured?.find((a: any) => a.adId === selectedAd?.adId);
-                  return `${adDetail?.campaign} • ${adDetail?.adGroup}`;
+                  const passedRules = 14 - (selectedAd?.findings?.length || 0);
+                  return `${adDetail?.campaign} • ${adDetail?.adGroup} • ${passedRules} rules passed, ${selectedAd?.findings?.length || 0} issues found`;
                 })()}
               </DialogDescription>
             </DialogHeader>
@@ -1596,6 +1597,30 @@ ${riskFactors.map(risk => `• ${risk}`).join('\n')}
                 }
                 groupedFindings[f.rule].push(f);
               });
+
+              // All possible rules
+              const allRules = [
+                { id: 'ADS-CHAR-001', name: 'Character Limits', category: 'Compliance' },
+                { id: 'ADS-DUP-002', name: 'Asset Uniqueness', category: 'Diversity' },
+                { id: 'ADS-PIN-003', name: 'Pinning Strategy', category: 'Compliance' },
+                { id: 'ADS-CASE-004', name: 'Formatting & Case', category: 'Compliance' },
+                { id: 'ADS-POL-005', name: 'Policy Compliance', category: 'Compliance' },
+                { id: 'ADS-COV-006', name: 'Asset Coverage', category: 'Coverage' },
+                { id: 'ADS-NGRAM-007', name: 'Asset Performance', category: 'Performance' },
+                { id: 'ADS-MATCH-008', name: 'Query/Benefit/CTA', category: 'Coverage' },
+                { id: 'ADS-PATH-009', name: 'Display Paths', category: 'Coverage' },
+                { id: 'ADS-SOC-010', name: 'Social Proof/Offers', category: 'Coverage' },
+                { id: 'PERF-CTR-001', name: 'CTR Performance', category: 'Performance' },
+                { id: 'PERF-WASTE-001', name: 'Wasted Spend', category: 'Performance' },
+                { id: 'PERF-CVR-001', name: 'Conversion Rate', category: 'Performance' },
+                { id: 'PERF-IMPR-001', name: 'Impression Volume', category: 'Performance' },
+              ];
+
+              const ruleStatus = allRules.map(rule => ({
+                ...rule,
+                passed: !groupedFindings[rule.id],
+                findings: groupedFindings[rule.id] || []
+              }));
               
               return (
                 <div className="space-y-4">
@@ -1616,6 +1641,41 @@ ${riskFactors.map(risk => `• ${risk}`).join('\n')}
                     <div className="p-3 rounded-md border text-center">
                       <div className="text-xs text-muted-foreground">Performance</div>
                       <div className="text-2xl font-bold">{score?.breakdown?.performanceScore}<span className="text-sm text-muted-foreground">/25</span></div>
+                    </div>
+                  </div>
+
+                  {/* Rules Checklist */}
+                  <div>
+                    <h4 className="font-medium mb-3 flex items-center gap-2">
+                      <CheckCircle className="h-4 w-4" />
+                      Rules Checklist ({ruleStatus.filter(r => r.passed).length}/{allRules.length} passing)
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-56 overflow-auto">
+                      {ruleStatus.map((rule) => (
+                        <div 
+                          key={rule.id} 
+                          className={`p-2 rounded-md border text-sm flex items-center justify-between ${
+                            rule.passed ? 'bg-green-50 border-green-200 dark:bg-green-950 dark:border-green-800' : 'bg-red-50 border-red-200 dark:bg-red-950 dark:border-red-800'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            {rule.passed ? (
+                              <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+                            ) : (
+                              <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400" />
+                            )}
+                            <div>
+                              <div className="font-medium">{rule.name}</div>
+                              <div className="text-xs text-muted-foreground">{rule.id}</div>
+                            </div>
+                          </div>
+                          {!rule.passed && rule.findings.length > 1 && (
+                            <Badge variant="outline" className="text-xs">
+                              {rule.findings.length}x
+                            </Badge>
+                          )}
+                        </div>
+                      ))}
                     </div>
                   </div>
 
