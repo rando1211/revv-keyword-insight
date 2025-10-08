@@ -174,6 +174,7 @@ serve(async (req) => {
         campaign.status,
         campaign.advertising_channel_type,
         campaign.bidding_strategy_type,
+        campaign.advertising_channel_sub_type,
         campaign.network_settings.target_google_search,
         campaign.network_settings.target_search_network,
         campaign.network_settings.target_partner_search_network,
@@ -195,6 +196,21 @@ serve(async (req) => {
         AND segments.date BETWEEN '${windows.current.start}' AND '${windows.current.end}'
       ORDER BY metrics.cost_micros DESC
       LIMIT 200
+    `;
+
+    // Ad schedule query to check if campaigns have schedules
+    const adScheduleQuery = `
+      SELECT
+        campaign.id,
+        campaign.name,
+        ad_schedule_view.start_hour,
+        ad_schedule_view.start_minute,
+        ad_schedule_view.end_hour,
+        ad_schedule_view.end_minute,
+        ad_schedule_view.day_of_week
+      FROM ad_schedule_view
+      WHERE campaign.status IN (ENABLED, PAUSED)
+      LIMIT 500
     `;
 
     // Search terms query - simplified and working format
@@ -270,7 +286,7 @@ serve(async (req) => {
     `;
 
     console.log('📊 Fetching comprehensive campaign data...');
-    const [campaignResponse, baselineResponse, searchTermsResponse, keywordsQSResponse, keywordsMetricsResponse] = await Promise.all([
+    const [campaignResponse, baselineResponse, searchTermsResponse, keywordsQSResponse, keywordsMetricsResponse, adScheduleResponse] = await Promise.all([
       fetch(apiUrl, {
         method: 'POST',
         headers,
@@ -300,6 +316,11 @@ serve(async (req) => {
         method: 'POST',
         headers,
         body: JSON.stringify({ query: keywordsMetricsQuery })
+      }),
+      fetch(apiUrl, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ query: adScheduleQuery })
       })
     ]);
 
@@ -308,7 +329,8 @@ serve(async (req) => {
       baseline: baselineResponse.status,
       searchTerms: searchTermsResponse.status,
       keywordsQS: keywordsQSResponse.status,
-      keywordsMetrics: keywordsMetricsResponse.status
+      keywordsMetrics: keywordsMetricsResponse.status,
+      adSchedule: adScheduleResponse.status
     });
 
     if (!campaignResponse.ok) {
@@ -316,12 +338,13 @@ serve(async (req) => {
       console.log('❌ Campaign API Error:', errorText);
     }
 
-    const [campaignData, baselineCampaignData, searchTermsData, keywordsQSData, keywordsMetricsData] = await Promise.all([
+    const [campaignData, baselineCampaignData, searchTermsData, keywordsQSData, keywordsMetricsData, adScheduleData] = await Promise.all([
       campaignResponse.ok ? campaignResponse.json() : { results: [] },
       baselineResponse.ok ? baselineResponse.json() : { results: [] },
       searchTermsResponse.ok ? searchTermsResponse.json() : { results: [] },
       keywordsQSResponse.ok ? keywordsQSResponse.json() : { results: [] },
-      keywordsMetricsResponse.ok ? keywordsMetricsResponse.json() : { results: [] }
+      keywordsMetricsResponse.ok ? keywordsMetricsResponse.json() : { results: [] },
+      adScheduleResponse.ok ? adScheduleResponse.json() : { results: [] }
     ]);
 
     // Debug: log a sample campaign row to see structure
@@ -648,7 +671,8 @@ async function processEnterpriseAnalysis(
     budget: budgetAnalysis,
     bidStrategy: bidStrategyAnalysis,
     assets: assetAnalysis,
-    urlHealth
+    urlHealth,
+    adSchedule: adScheduleData.results || []
   });
 
   return {
@@ -753,11 +777,13 @@ function aggregateAdvancedMetrics(current: any[], baseline: any[]) {
       const targetPartnerSearchNetwork = row.campaign.networkSettings?.targetPartnerSearchNetwork ?? row.campaign.network_settings?.target_partner_search_network;
       const targetContentNetwork = row.campaign.networkSettings?.targetContentNetwork ?? row.campaign.network_settings?.target_content_network;
       const targetGoogleSearch = row.campaign.networkSettings?.targetGoogleSearch ?? row.campaign.network_settings?.target_google_search;
+      const channelSubType = row.campaign.advertisingChannelSubType || row.campaign.advertising_channel_sub_type;
       
       currentMap.set(campaignId, {
         id: campaignId,
         name: row.campaign.name,
         type: row.campaign.advertisingChannelType || row.campaign.advertising_channel_type,
+        sub_type: channelSubType,
         bidding_strategy: row.campaign.biddingStrategyType || row.campaign.bidding_strategy_type,
         daily_budget: dailyBudget,
         search_partners_enabled: targetPartnerSearchNetwork === true,
@@ -2056,6 +2082,7 @@ function generateAuditChecklist(data: any) {
   const bidStrategy = data.bidStrategy || {};
   const assets = data.assets || {};
   const urlHealth = data.urlHealth || {};
+  const adScheduleData = data.adSchedule || [];
 
   // Detect likely local campaigns by name patterns
   const localIndicators = ['local', 'near me', 'nearby', 'city', 'area', 'region', 'geo', 'location'];
@@ -2068,6 +2095,32 @@ function generateAuditChecklist(data: any) {
     ? `${likelyLocalCampaigns.length} likely local campaign(s) detected - verify location targeting is set up`
     : 'Manual review recommended';
 
+  // Check campaign objectives - map subtypes to meaningful objectives
+  const objectiveMapping: { [key: string]: string } = {
+    'SEARCH_MOBILE_APP': 'App Downloads',
+    'DISPLAY_MOBILE_APP': 'App Downloads',
+    'SHOPPING_SMART_ADS': 'Shopping/Sales',
+    'SHOPPING_GOAL_OPTIMIZED_ADS': 'Shopping/Sales',
+    'SHOPPING_COMPARISON_LISTING_ADS': 'Shopping/Sales',
+    'VIDEO_ACTION': 'Conversions/Leads',
+    'VIDEO_REACH': 'Brand Awareness',
+    'DISPLAY_SMART_CAMPAIGN': 'Smart Display',
+    'STANDARD_SHOPPING': 'Shopping/Sales'
+  };
+  
+  const campaignsWithObjectives = campaigns.filter((c: any) => c.sub_type && objectiveMapping[c.sub_type]);
+  const objectiveStatus = campaignsWithObjectives.length > 0 ? 'pass' : 'unknown';
+  const objectiveDetails = campaignsWithObjectives.length > 0
+    ? `${campaignsWithObjectives.length} campaign(s) with clear objectives: ${[...new Set(campaignsWithObjectives.map((c: any) => objectiveMapping[c.sub_type]))].join(', ')}`
+    : 'Review campaign subtypes and objectives';
+
+  // Check ad schedules
+  const campaignsWithSchedules = new Set(adScheduleData.map((s: any) => s.campaign?.id).filter(Boolean));
+  const scheduleStatus = campaignsWithSchedules.size > 0 ? 'pass' : 'warning';
+  const scheduleDetails = campaignsWithSchedules.size > 0
+    ? `${campaignsWithSchedules.size} campaign(s) have ad schedules configured`
+    : 'No ad schedules found - campaigns running 24/7';
+
   return {
     account_structure: [
       { item: 'Proper account hierarchy (Campaigns → Ad Groups → Ads → Keywords)', status: campaigns.length > 0 ? 'pass' : 'fail', details: `${campaigns.length} campaigns found` },
@@ -2077,10 +2130,8 @@ function generateAuditChecklist(data: any) {
       { item: 'Networks (Search vs Display) properly separated', status: 'pass', details: 'Review campaign settings' }
     ],
     campaign_settings: [
-      { item: 'Correct campaign objective chosen', status: 'unknown', details: 'Manual review of objectives' },
-      { item: 'Location targeting: exclude irrelevant areas', status: 'unknown', details: 'Review location settings' },
-      { item: 'Ad schedule aligned with business hours', status: 'unknown', details: 'Review ad scheduling' },
-      { item: 'Budget allocation matches business priorities', status: budget.constrained_campaigns?.length > 0 ? 'warning' : 'pass', details: `${budget.constrained_campaigns?.length || 0} budget-constrained campaigns` },
+      { item: 'Correct campaign objective chosen (Leads, Sales, Traffic, etc.)', status: objectiveStatus, details: objectiveDetails },
+      { item: 'Ad schedule configured', status: scheduleStatus, details: scheduleDetails },
       { item: 'Bid strategies match stage of maturity', status: bidStrategy.strategy_breakdown ? 'pass' : 'warning', details: Object.keys(bidStrategy.strategy_breakdown || {}).join(', ') || 'Review strategies' },
       { item: 'Device adjustments checked', status: 'unknown', details: 'Manual review recommended' },
       { item: 'Audience targeting layered', status: 'unknown', details: 'Review audience settings' }
