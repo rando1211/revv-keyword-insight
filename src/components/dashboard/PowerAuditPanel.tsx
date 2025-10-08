@@ -1779,90 +1779,9 @@ const IssuesTab = ({ issues, toast, selectedAccount, onUpdateAfterFix, onRefresh
   const totalItems = Object.keys(auditResults).length;
   const passedItems = Object.values(auditResults).filter((result: any) => result.passed).length;
   
-  // Extract network issues for dedicated section
-  const networkIssues = auditResults['network_separation']?.relatedIssues || [];
-
   // Always show the Google Ads Audit Checklist first
   return (
     <div className="space-y-6">
-      {/* Network Settings Issues - Dedicated Section */}
-      {networkIssues.length > 0 && (
-        <Card className="border-2 border-orange-200 bg-orange-50">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="flex items-center gap-2">
-                  <Settings className="h-5 w-5 text-orange-600" />
-                  Network Settings Issues
-                </CardTitle>
-                <CardDescription>
-                  {networkIssues.length} campaign{networkIssues.length !== 1 ? 's' : ''} with network settings that need attention
-                </CardDescription>
-              </div>
-              <div className="flex items-center gap-3">
-                <label className="flex items-center gap-2 text-sm cursor-pointer">
-                  <Checkbox 
-                    checked={selectedCampaigns.size === networkIssues.length && networkIssues.length > 0}
-                    onCheckedChange={() => toggleSelectAll(networkIssues)}
-                  />
-                  <span>Select All</span>
-                </label>
-                {selectedCampaigns.size > 0 && (
-                  <Button
-                    onClick={handleBulkFix}
-                    disabled={isFixingBulk}
-                    size="sm"
-                  >
-                    {isFixingBulk ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Fixing...
-                      </>
-                    ) : (
-                      `Fix ${selectedCampaigns.size} Selected`
-                    )}
-                  </Button>
-                )}
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {networkIssues.map((issue: any) => (
-              <div key={issue.campaign_id} className="flex items-start gap-3 p-3 bg-white rounded-lg border">
-                <Checkbox
-                  checked={selectedCampaigns.has(issue.campaign_id)}
-                  onCheckedChange={() => toggleCampaign(issue.campaign_id)}
-                  className="mt-1"
-                />
-                <div className="flex-1 space-y-1">
-                  <div className="font-medium">{issue.entity_name}</div>
-                  <div className="text-sm text-muted-foreground">{issue.summary}</div>
-                  <div className="text-xs text-muted-foreground">Campaign ID: {issue.campaign_id}</div>
-                </div>
-                <Button
-                  size="sm"
-                  variant="default"
-                  onClick={() => {
-                    setPendingFix(issue);
-                    setShowFixDialog(true);
-                  }}
-                  disabled={isFixingIssue === `${issue.campaign_id}_network`}
-                >
-                  {isFixingIssue === `${issue.campaign_id}_network` ? (
-                    <>
-                      <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                      Fixing...
-                    </>
-                  ) : (
-                    'Fix'
-                  )}
-                </Button>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      )}
-
       {/* Overall Audit Score */}
       <Card className="border-2 border-primary">
         <CardHeader>
@@ -1910,12 +1829,42 @@ const IssuesTab = ({ issues, toast, selectedAccount, onUpdateAfterFix, onRefresh
                         <IconComponent className="h-5 w-5 text-primary" />
                         <span className="font-semibold">{section.title}</span>
                       </div>
-                      <Badge 
-                        variant={sectionPassed === sectionTotal ? "default" : "secondary"}
-                        className="ml-2"
-                      >
-                        {sectionPassed}/{sectionTotal} passed
-                      </Badge>
+                      <div className="flex items-center gap-2">
+                        <Badge 
+                          variant={sectionPassed === sectionTotal ? "default" : "secondary"}
+                          className="ml-2"
+                        >
+                          {sectionPassed}/{sectionTotal} passed
+                        </Badge>
+                        {section.title === "Account Structure" && auditResults['network_separation']?.relatedIssues?.length > 0 && (
+                          <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                            <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                              <Checkbox 
+                                checked={selectedCampaigns.size === auditResults['network_separation'].relatedIssues.length}
+                                onCheckedChange={() => toggleSelectAll(auditResults['network_separation'].relatedIssues)}
+                              />
+                              <span>Select All</span>
+                            </label>
+                            {selectedCampaigns.size > 0 && (
+                              <Button
+                                onClick={handleBulkFix}
+                                disabled={isFixingBulk}
+                                size="sm"
+                                className="h-7 text-xs"
+                              >
+                                {isFixingBulk ? (
+                                  <>
+                                    <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                                    Fixing...
+                                  </>
+                                ) : (
+                                  `Fix ${selectedCampaigns.size}`
+                                )}
+                              </Button>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </AccordionTrigger>
                   <AccordionContent>
@@ -1954,29 +1903,36 @@ const IssuesTab = ({ issues, toast, selectedAccount, onUpdateAfterFix, onRefresh
                                     </div>
                                      <div className="space-y-2">
                                       {relatedIssues.map((issue: any, issueIdx: number) => (
-                                        <div key={issueIdx} className="bg-white p-2 rounded border border-red-200 text-xs">
-                                          <div className="font-medium text-red-900">{issue.entity_name || issue.title}</div>
-                                          <div className="text-red-700 mt-1">{issue.summary || issue.description}</div>
-                                           {issue.fix_type && (
-                                             <div className="flex gap-2 mt-2">
-                                               <Button 
-                                                 variant="default" 
-                                                 size="sm"
-                                                 className="h-6 text-xs"
-                                                 onClick={() => handleFixIssue(issue)}
-                                                 disabled={isFixingIssue === `${issue.campaign_id}_network`}
-                                               >
-                                                 {isFixingIssue === `${issue.campaign_id}_network` ? (
-                                                   <>
-                                                     <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                                                     Fixing...
-                                                   </>
-                                                 ) : (
-                                                   'Fix'
-                                                 )}
-                                               </Button>
-                                             </div>
-                                           )}
+                                        <div key={issueIdx} className="bg-white p-2 rounded border border-red-200 text-xs flex items-start gap-2">
+                                          {issue.fix_type && (
+                                            <Checkbox
+                                              checked={selectedCampaigns.has(issue.campaign_id)}
+                                              onCheckedChange={() => toggleCampaign(issue.campaign_id)}
+                                              className="mt-1"
+                                            />
+                                          )}
+                                          <div className="flex-1">
+                                            <div className="font-medium text-red-900">{issue.entity_name || issue.title}</div>
+                                            <div className="text-red-700 mt-1">{issue.summary || issue.description}</div>
+                                          </div>
+                                          {issue.fix_type && (
+                                            <Button 
+                                              variant="default" 
+                                              size="sm"
+                                              className="h-6 text-xs"
+                                              onClick={() => handleFixIssue(issue)}
+                                              disabled={isFixingIssue === `${issue.campaign_id}_network`}
+                                            >
+                                              {isFixingIssue === `${issue.campaign_id}_network` ? (
+                                                <>
+                                                  <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                                                  Fixing...
+                                                </>
+                                              ) : (
+                                                'Fix'
+                                              )}
+                                            </Button>
+                                          )}
                                         </div>
                                       ))}
                                     </div>
