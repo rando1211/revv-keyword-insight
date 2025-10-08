@@ -107,6 +107,24 @@ serve(async (req) => {
 });
 
 // === AUDIT RULES ENGINE ===
+
+// Helper: Extract displayed text length from keyword insertion syntax
+// Google Ads syntax: {Keyword:Default Text} or {KeyWord:Default Text}
+// Only "Default Text" counts toward character limits
+function getDisplayedTextLength(text: string): number {
+  // Match {Keyword:...} or {KeyWord:...} (case insensitive)
+  const keywordInsertionPattern = /\{keyword:([^}]+)\}/gi;
+  const match = keywordInsertionPattern.exec(text);
+  
+  if (match) {
+    // Return length of default text (what's after the colon)
+    return match[1].trim().length;
+  }
+  
+  // No keyword insertion syntax, return full text length
+  return text.length;
+}
+
 function auditAd(ad: Ad, adGroupStats: any, topQueries: string[], keywords: string[]): Finding[] {
   const findings: Finding[] = [];
   const headlines = ad.assets.filter(a => a.type === 'HEADLINE');
@@ -114,13 +132,14 @@ function auditAd(ad: Ad, adGroupStats: any, topQueries: string[], keywords: stri
 
   // Rule 1: Character limits (ADS-CHAR-001)
   ad.assets.forEach(asset => {
-    if ((asset.type === 'HEADLINE' && asset.text.length > 30) ||
-        (asset.type === 'DESCRIPTION' && asset.text.length > 90)) {
+    const displayedLength = getDisplayedTextLength(asset.text);
+    if ((asset.type === 'HEADLINE' && displayedLength > 30) ||
+        (asset.type === 'DESCRIPTION' && displayedLength > 90)) {
       findings.push({
         rule: 'ADS-CHAR-001',
         assetId: asset.id,
         severity: 'error',
-        message: `${asset.type} exceeds character limit: ${asset.text.length} chars`
+        message: `${asset.type} exceeds character limit: ${displayedLength} chars (displayed text)`
       });
     }
   });
