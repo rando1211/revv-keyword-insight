@@ -2057,12 +2057,22 @@ function generateAuditChecklist(data: any) {
   const assets = data.assets || {};
   const urlHealth = data.urlHealth || {};
 
+  // Detect likely local campaigns by name patterns
+  const localIndicators = ['local', 'near me', 'nearby', 'city', 'area', 'region', 'geo', 'location'];
+  const likelyLocalCampaigns = campaigns.filter((c: any) => 
+    localIndicators.some(indicator => c.name?.toLowerCase().includes(indicator))
+  );
+  
+  const geoStatus = likelyLocalCampaigns.length > 0 ? 'warning' : 'unknown';
+  const geoDetails = likelyLocalCampaigns.length > 0 
+    ? `${likelyLocalCampaigns.length} likely local campaign(s) detected - verify location targeting is set up`
+    : 'Manual review recommended';
+
   return {
     account_structure: [
       { item: 'Proper account hierarchy (Campaigns → Ad Groups → Ads → Keywords)', status: campaigns.length > 0 ? 'pass' : 'fail', details: `${campaigns.length} campaigns found` },
       { item: 'Naming conventions are clear and consistent', status: 'unknown', details: 'Manual review recommended' },
-      { item: 'Campaigns segmented by goals (Search vs Display vs Shopping vs Video)', status: campaigns.some((c: any) => c.type) ? 'pass' : 'warning', details: `${new Set(campaigns.map((c: any) => c.type)).size} campaign types` },
-      { item: 'Geographic targeting aligns with business footprint', status: 'unknown', details: 'Manual review recommended' },
+      { item: 'Geographic targeting aligns with business footprint', status: geoStatus, details: geoDetails },
       { item: 'Language settings correct', status: 'unknown', details: 'Manual review recommended' },
       { item: 'Networks (Search vs Display) properly separated', status: 'pass', details: 'Review campaign settings' }
     ],
