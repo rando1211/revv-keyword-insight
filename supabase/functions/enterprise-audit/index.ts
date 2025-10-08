@@ -1652,16 +1652,55 @@ function generateKeywordStrategyRecommendations(matchTypeAnalysis: any) {
 
 function analyzeBidStrategyImpact(campaigns: any[]) {
   const strategies: Record<string, any> = {};
+  const maturityMismatches: any[] = [];
   
   campaigns.forEach(campaign => {
     const strategy = campaign.bidding_strategy;
+    const conversions30d = campaign.metrics.conversions || 0;
+    
+    // Determine maturity stage based on conversion volume
+    let maturityStage = '';
+    let recommendedStrategy = '';
+    let isCorrectStrategy = false;
+    
+    if (conversions30d < 15) {
+      maturityStage = 'Manual / Legacy (Low Volume)';
+      recommendedStrategy = 'MANUAL_CPC or ENHANCED_CPC';
+      isCorrectStrategy = strategy === 'MANUAL_CPC' || strategy === 'ENHANCED_CPC';
+    } else if (conversions30d < 30) {
+      maturityStage = 'Learning / New Campaign';
+      recommendedStrategy = 'MAXIMIZE_CONVERSIONS';
+      isCorrectStrategy = strategy === 'MAXIMIZE_CONVERSIONS';
+    } else if (conversions30d < 100) {
+      maturityStage = 'Early Optimization';
+      recommendedStrategy = 'TARGET_CPA';
+      isCorrectStrategy = strategy === 'TARGET_CPA';
+    } else {
+      maturityStage = 'Scaled / Mature';
+      recommendedStrategy = 'TARGET_ROAS';
+      isCorrectStrategy = strategy === 'TARGET_ROAS';
+    }
+    
+    // Track mismatches
+    if (!isCorrectStrategy) {
+      maturityMismatches.push({
+        campaign_name: campaign.name,
+        current_strategy: strategy,
+        conversions_30d: conversions30d,
+        maturity_stage: maturityStage,
+        recommended_strategy: recommendedStrategy,
+        issue: `Campaign has ${conversions30d} conversions (${maturityStage}) but using ${strategy}`
+      });
+    }
+    
     if (!strategies[strategy]) {
       strategies[strategy] = {
         count: 0,
         total_cost: 0,
         total_conversions: 0,
         total_conv_value: 0,
-        campaigns: []
+        campaigns: [],
+        correct_maturity_count: 0
       };
     }
     
@@ -1669,11 +1708,14 @@ function analyzeBidStrategyImpact(campaigns: any[]) {
     strategies[strategy].total_cost += campaign.current_spend;
     strategies[strategy].total_conversions += campaign.metrics.conversions;
     strategies[strategy].total_conv_value += campaign.metrics.conversion_value;
+    if (isCorrectStrategy) strategies[strategy].correct_maturity_count++;
     strategies[strategy].campaigns.push({
       name: campaign.name,
       cost: campaign.current_spend,
       conversions: campaign.metrics.conversions,
-      performance_trend: campaign.performance_trend
+      performance_trend: campaign.performance_trend,
+      maturity_stage: maturityStage,
+      is_correct_strategy: isCorrectStrategy
     });
   });
   
@@ -1687,12 +1729,36 @@ function analyzeBidStrategyImpact(campaigns: any[]) {
   
   return {
     strategy_breakdown: strategies,
-    recommendations: generateBidStrategyRecommendations(strategies)
+    maturity_mismatches: maturityMismatches,
+    recommendations: generateBidStrategyRecommendations(strategies, maturityMismatches)
   };
 }
 
-function generateBidStrategyRecommendations(strategies: any) {
+function generateBidStrategyRecommendations(strategies: any, mismatches: any[]) {
   const recommendations = [];
+  
+  if (mismatches.length > 0) {
+    recommendations.push(`${mismatches.length} campaign(s) have bid strategies that don't match their maturity stage`);
+    
+    // Group by recommended action
+    const learningCampaigns = mismatches.filter(m => m.recommended_strategy === 'MAXIMIZE_CONVERSIONS');
+    const earlyOptCampaigns = mismatches.filter(m => m.recommended_strategy === 'TARGET_CPA');
+    const matureCampaigns = mismatches.filter(m => m.recommended_strategy === 'TARGET_ROAS');
+    const manualCampaigns = mismatches.filter(m => m.recommended_strategy.includes('MANUAL'));
+    
+    if (learningCampaigns.length > 0) {
+      recommendations.push(`Switch ${learningCampaigns.length} learning campaign(s) to Maximize Conversions`);
+    }
+    if (earlyOptCampaigns.length > 0) {
+      recommendations.push(`Upgrade ${earlyOptCampaigns.length} campaign(s) to Target CPA`);
+    }
+    if (matureCampaigns.length > 0) {
+      recommendations.push(`Upgrade ${matureCampaigns.length} mature campaign(s) to Target ROAS`);
+    }
+    if (manualCampaigns.length > 0) {
+      recommendations.push(`Consider Manual CPC for ${manualCampaigns.length} low-volume campaign(s)`);
+    }
+  }
   
   const strategyNames = Object.keys(strategies);
   if (strategyNames.length > 1) {
@@ -1707,7 +1773,7 @@ function generateBidStrategyRecommendations(strategies: any) {
       return best;
     });
     
-    recommendations.push(`${bestStrategy} appears to be performing best - consider testing on more campaigns`);
+    recommendations.push(`${bestStrategy} appears to be performing best overall`);
   }
   
   return recommendations;
@@ -2132,7 +2198,13 @@ function generateAuditChecklist(data: any) {
     campaign_settings: [
       { item: 'Correct campaign objective chosen (Leads, Sales, Traffic, etc.)', status: objectiveStatus, details: objectiveDetails },
       { item: 'Ad schedule configured', status: scheduleStatus, details: scheduleDetails },
-      { item: 'Bid strategies match stage of maturity', status: bidStrategy.strategy_breakdown ? 'pass' : 'warning', details: Object.keys(bidStrategy.strategy_breakdown || {}).join(', ') || 'Review strategies' },
+      { 
+        item: 'Bid strategies (Max Conversions, tCPA, tROAS, Manual CPC) match stage of maturity', 
+        status: bidStrategy.maturity_mismatches?.length > 0 ? 'fail' : 'pass', 
+        details: bidStrategy.maturity_mismatches?.length > 0 
+          ? `${bidStrategy.maturity_mismatches.length} campaign(s) using wrong strategy for their maturity stage` 
+          : 'All strategies aligned with campaign maturity'
+      },
       { item: 'Device adjustments checked', status: 'unknown', details: 'Manual review recommended' },
       { item: 'Audience targeting layered', status: 'unknown', details: 'Review audience settings' }
     ],
