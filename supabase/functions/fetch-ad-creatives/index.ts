@@ -171,7 +171,7 @@ serve(async (req) => {
     }
 
     // Enhanced query with paths, ad strength, policy data
-    // IMPORTANT: No segments.date to avoid duplicate ads per day
+    // Include segments.date to get daily rows, then aggregate in code
     const adQuery = `
       SELECT 
         campaign.id, campaign.name,
@@ -184,7 +184,8 @@ serve(async (req) => {
         ad_group_ad.ad_strength,
         ad_group_ad.policy_summary.approval_status,
         metrics.impressions, metrics.clicks, metrics.cost_micros,
-        metrics.conversions, metrics.ctr, metrics.conversions_from_interactions_rate
+        metrics.conversions, metrics.ctr, metrics.conversions_from_interactions_rate,
+        segments.date
       FROM ad_group_ad
       WHERE campaign.advertising_channel_type = SEARCH
         AND ad_group_ad.ad.type = RESPONSIVE_SEARCH_AD
@@ -249,10 +250,53 @@ serve(async (req) => {
     }
 
     const apiData = await response.json();
-    console.log(`✅ API returned ${apiData.results?.length || 0} results`);
+    const results = apiData.results || [];
+    console.log(`✅ API returned ${results.length} results`);
     
-    if (!apiData.results || apiData.results.length === 0) {
-      console.log('⚠️ No RSA ads found. Response:', JSON.stringify(apiData).substring(0, 500));
+    // Deduplicate and aggregate ads by adId (since segments.date creates one row per day)
+    const adMap = new Map();
+    
+    for (const row of results) {
+      const adId = row.adGroupAd?.ad?.id?.toString();
+      if (!adId) continue;
+      
+      if (!adMap.has(adId)) {
+        adMap.set(adId, {
+          ...row,
+          metrics: {
+            impressions: 0,
+            clicks: 0,
+            costMicros: 0,
+            conversions: 0,
+            ctr: 0,
+            conversionsFromInteractionsRate: 0,
+          }
+        });
+      }
+      
+      // Aggregate metrics
+      const ad = adMap.get(adId);
+      ad.metrics.impressions += row.metrics?.impressions || 0;
+      ad.metrics.clicks += row.metrics?.clicks || 0;
+      ad.metrics.costMicros += row.metrics?.costMicros || 0;
+      ad.metrics.conversions += row.metrics?.conversions || 0;
+    }
+    
+    // Recalculate derived metrics
+    for (const ad of adMap.values()) {
+      if (ad.metrics.impressions > 0) {
+        ad.metrics.ctr = ad.metrics.clicks / ad.metrics.impressions;
+      }
+      if (ad.metrics.clicks > 0) {
+        ad.metrics.conversionsFromInteractionsRate = ad.metrics.conversions / ad.metrics.clicks;
+      }
+    }
+    
+    const deduplicatedResults = Array.from(adMap.values());
+    console.log(`📊 Deduplicated ${results.length} rows into ${deduplicatedResults.length} unique ads`);
+    
+    if (deduplicatedResults.length === 0) {
+      console.log('⚠️ No RSA ads found after deduplication. Response:', JSON.stringify(apiData).substring(0, 500));
     }
 
     // Fetch keywords
@@ -289,10 +333,10 @@ serve(async (req) => {
     const campaignSet = new Set();
     const adGroupStats: any = {};
 
-    if (apiData.results) {
+    if (deduplicatedResults.length > 0) {
       // Calculate ad group level statistics
       const adGroupMetrics: any = {};
-      for (const result of apiData.results) {
+      for (const result of deduplicatedResults) {
         const agId = result.adGroup?.id;
         if (!agId) continue;
         if (!adGroupMetrics[agId]) {
@@ -315,7 +359,7 @@ serve(async (req) => {
       }
 
       // Process results into structured ads
-      for (const result of apiData.results) {
+      for (const result of deduplicatedResults) {
         const ad = result.adGroupAd?.ad;
         const metrics = result.metrics;
 
@@ -433,7 +477,7 @@ serve(async (req) => {
 
     const analysis = {
       totalAssets: adCreatives.length,
-      totalAds: apiData.results?.length || 0,
+      totalAds: deduplicatedResults.length,
       campaigns: campaignSet.size,
       performance: {
         totalClicks,
