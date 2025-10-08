@@ -1254,7 +1254,7 @@ const IssuesTab = ({ issues, toast, selectedAccount, onUpdateAfterFix, onRefresh
     }
   };
 
-  const executeNetworkFix = async (issue?: any) => {
+  const executeNetworkFix = async (issue?: any, skipRefresh = false) => {
     const fixIssue = issue || pendingFix;
     if (!fixIssue || !selectedAccount) return;
 
@@ -1291,10 +1291,12 @@ const IssuesTab = ({ issues, toast, selectedAccount, onUpdateAfterFix, onRefresh
       const updatedCampaignId = resourceName?.split('/')?.pop();
       const updatedCampaignName = campaigns.find((c: any) => String(c.id) === String(updatedCampaignId))?.name || fixIssue.entity_name;
 
-      toast({
-        title: "Network Settings Updated",
-        description: `Successfully updated network settings for ${updatedCampaignName} (${updatedCampaignId || fixIssue.campaign_id})`,
-      });
+      if (!skipRefresh) {
+        toast({
+          title: "Network Settings Updated",
+          description: `Successfully updated network settings for ${updatedCampaignName} (${updatedCampaignId || fixIssue.campaign_id})`,
+        });
+      }
 
       // Optimistically update audit results locally
       if (onUpdateAfterFix) {
@@ -1302,8 +1304,8 @@ const IssuesTab = ({ issues, toast, selectedAccount, onUpdateAfterFix, onRefresh
         onUpdateAfterFix(updatedCampaignId || fixIssue.campaign_id, 'disable_networks');
       }
 
-      // Re-fetch audit from server to ensure UI matches Google Ads
-      if (onRefreshAudit) {
+      // Re-fetch audit from server to ensure UI matches Google Ads (skip in bulk mode)
+      if (onRefreshAudit && !skipRefresh) {
         try {
           await onRefreshAudit();
         } catch (e) {
@@ -1317,6 +1319,7 @@ const IssuesTab = ({ issues, toast, selectedAccount, onUpdateAfterFix, onRefresh
         description: error.message || "Could not update network settings. Please try again.",
         variant: "destructive",
       });
+      throw error; // Re-throw to handle in bulk
     } finally {
       setIsFixingIssue(null);
       if (!issue) setPendingFix(null);
@@ -1330,10 +1333,33 @@ const IssuesTab = ({ issues, toast, selectedAccount, onUpdateAfterFix, onRefresh
     const networkIssues = auditResults['network_separation']?.relatedIssues || [];
     const fixes = networkIssues.filter((issue: any) => selectedCampaigns.has(issue.campaign_id));
     
+    let successCount = 0;
+    let failCount = 0;
+    
     try {
       for (const fix of fixes) {
-        await executeNetworkFix(fix);
+        try {
+          await executeNetworkFix(fix, true); // Skip refresh for each individual fix
+          successCount++;
+        } catch (error) {
+          failCount++;
+        }
       }
+      
+      // Refresh audit once at the end
+      if (onRefreshAudit && successCount > 0) {
+        try {
+          await onRefreshAudit();
+        } catch (e) {
+          console.warn('⚠️ Bulk audit refresh failed:', e);
+        }
+      }
+      
+      toast({
+        title: "Bulk Fix Complete",
+        description: `Successfully fixed ${successCount} campaign${successCount !== 1 ? 's' : ''}${failCount > 0 ? `, ${failCount} failed` : ''}`,
+      });
+      
       setSelectedCampaigns(new Set());
     } finally {
       setIsFixingBulk(false);
