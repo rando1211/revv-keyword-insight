@@ -8,6 +8,7 @@ import { Progress } from "@/components/ui/progress";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { CheckCircle, AlertTriangle, XCircle, TrendingUp, TrendingDown, Activity, Target, DollarSign, BarChart3, Users, Zap, Calendar, Play, Loader2, Volume2, Circle, ExternalLink, Pause, Settings, Copy } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { GoogleAdsAccount } from '@/lib/google-ads-service';
@@ -1232,6 +1233,10 @@ const IssuesTab = ({ issues, toast, selectedAccount, onUpdateAfterFix, onRefresh
   const [showFixDialog, setShowFixDialog] = useState(false);
   const [pendingFix, setPendingFix] = useState<any>(null);
   
+  // Bulk selection state
+  const [selectedCampaigns, setSelectedCampaigns] = useState<Set<string>>(new Set());
+  const [isFixingBulk, setIsFixingBulk] = useState(false);
+  
   const issuesList = issues?.issues || [];
   const totals = issues?.totals || { high: 0, medium: 0, low: 0, estimated_value_at_risk: 0 };
   // Use campaigns from the parent audit results (passed via context)
@@ -1249,15 +1254,16 @@ const IssuesTab = ({ issues, toast, selectedAccount, onUpdateAfterFix, onRefresh
     }
   };
 
-  const executeNetworkFix = async () => {
-    if (!pendingFix || !selectedAccount) return;
+  const executeNetworkFix = async (issue?: any) => {
+    const fixIssue = issue || pendingFix;
+    if (!fixIssue || !selectedAccount) return;
 
-    const issueKey = `${pendingFix.campaign_id}_network`;
+    const issueKey = `${fixIssue.campaign_id}_network`;
     setIsFixingIssue(issueKey);
-    setShowFixDialog(false);
+    if (!issue) setShowFixDialog(false);
 
     try {
-      console.log('🔧 Executing network fix:', pendingFix);
+      console.log('🔧 Executing network fix:', fixIssue);
 
       const { data: session } = await supabase.auth.getSession();
       if (!session?.session?.access_token) {
@@ -1267,9 +1273,9 @@ const IssuesTab = ({ issues, toast, selectedAccount, onUpdateAfterFix, onRefresh
       const { data, error } = await supabase.functions.invoke('fix-network-settings', {
         body: {
           customerId: selectedAccount.customerId,
-          campaignId: pendingFix.campaign_id,
-          disableSearchPartners: pendingFix.networks_to_disable?.search_partners || false,
-          disableDisplayNetwork: pendingFix.networks_to_disable?.display_network || false,
+          campaignId: fixIssue.campaign_id,
+          disableSearchPartners: fixIssue.networks_to_disable?.search_partners || false,
+          disableDisplayNetwork: fixIssue.networks_to_disable?.display_network || false,
         },
         headers: {
           Authorization: `Bearer ${session.session.access_token}`,
@@ -1283,17 +1289,17 @@ const IssuesTab = ({ issues, toast, selectedAccount, onUpdateAfterFix, onRefresh
       // Derive actual campaign updated from server response to avoid any mismatch
       const resourceName = (data as any)?.result?.results?.[0]?.resourceName as string | undefined;
       const updatedCampaignId = resourceName?.split('/')?.pop();
-      const updatedCampaignName = campaigns.find((c: any) => String(c.id) === String(updatedCampaignId))?.name || pendingFix.entity_name;
+      const updatedCampaignName = campaigns.find((c: any) => String(c.id) === String(updatedCampaignId))?.name || fixIssue.entity_name;
 
       toast({
         title: "Network Settings Updated",
-        description: `Successfully updated network settings for ${updatedCampaignName} (${updatedCampaignId || pendingFix.campaign_id})`,
+        description: `Successfully updated network settings for ${updatedCampaignName} (${updatedCampaignId || fixIssue.campaign_id})`,
       });
 
       // Optimistically update audit results locally
       if (onUpdateAfterFix) {
-        console.log('🔄 Triggering optimistic update for campaign:', updatedCampaignId || pendingFix.campaign_id);
-        onUpdateAfterFix(updatedCampaignId || pendingFix.campaign_id, 'disable_networks');
+        console.log('🔄 Triggering optimistic update for campaign:', updatedCampaignId || fixIssue.campaign_id);
+        onUpdateAfterFix(updatedCampaignId || fixIssue.campaign_id, 'disable_networks');
       }
 
       // Re-fetch audit from server to ensure UI matches Google Ads
@@ -1313,7 +1319,44 @@ const IssuesTab = ({ issues, toast, selectedAccount, onUpdateAfterFix, onRefresh
       });
     } finally {
       setIsFixingIssue(null);
-      setPendingFix(null);
+      if (!issue) setPendingFix(null);
+    }
+  };
+
+  const handleBulkFix = async () => {
+    if (selectedCampaigns.size === 0) return;
+    
+    setIsFixingBulk(true);
+    const networkIssues = auditResults['network_separation']?.relatedIssues || [];
+    const fixes = networkIssues.filter((issue: any) => selectedCampaigns.has(issue.campaign_id));
+    
+    try {
+      for (const fix of fixes) {
+        await executeNetworkFix(fix);
+      }
+      setSelectedCampaigns(new Set());
+    } finally {
+      setIsFixingBulk(false);
+    }
+  };
+
+  const toggleCampaign = (campaignId: string) => {
+    setSelectedCampaigns(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(campaignId)) {
+        newSet.delete(campaignId);
+      } else {
+        newSet.add(campaignId);
+      }
+      return newSet;
+    });
+  };
+
+  const toggleSelectAll = (networkIssues: any[]) => {
+    if (selectedCampaigns.size === networkIssues.length) {
+      setSelectedCampaigns(new Set());
+    } else {
+      setSelectedCampaigns(new Set(networkIssues.map((issue: any) => issue.campaign_id)));
     }
   };
 
@@ -1712,9 +1755,90 @@ const IssuesTab = ({ issues, toast, selectedAccount, onUpdateAfterFix, onRefresh
   const totalItems = Object.keys(auditResults).length;
   const passedItems = Object.values(auditResults).filter((result: any) => result.passed).length;
   
+  // Extract network issues for dedicated section
+  const networkIssues = auditResults['network_separation']?.relatedIssues || [];
+
   // Always show the Google Ads Audit Checklist first
   return (
     <div className="space-y-6">
+      {/* Network Settings Issues - Dedicated Section */}
+      {networkIssues.length > 0 && (
+        <Card className="border-2 border-orange-200 bg-orange-50">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Settings className="h-5 w-5 text-orange-600" />
+                  Network Settings Issues
+                </CardTitle>
+                <CardDescription>
+                  {networkIssues.length} campaign{networkIssues.length !== 1 ? 's' : ''} with network settings that need attention
+                </CardDescription>
+              </div>
+              <div className="flex items-center gap-3">
+                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                  <Checkbox 
+                    checked={selectedCampaigns.size === networkIssues.length && networkIssues.length > 0}
+                    onCheckedChange={() => toggleSelectAll(networkIssues)}
+                  />
+                  <span>Select All</span>
+                </label>
+                {selectedCampaigns.size > 0 && (
+                  <Button
+                    onClick={handleBulkFix}
+                    disabled={isFixingBulk}
+                    size="sm"
+                  >
+                    {isFixingBulk ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Fixing...
+                      </>
+                    ) : (
+                      `Fix ${selectedCampaigns.size} Selected`
+                    )}
+                  </Button>
+                )}
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {networkIssues.map((issue: any) => (
+              <div key={issue.campaign_id} className="flex items-start gap-3 p-3 bg-white rounded-lg border">
+                <Checkbox
+                  checked={selectedCampaigns.has(issue.campaign_id)}
+                  onCheckedChange={() => toggleCampaign(issue.campaign_id)}
+                  className="mt-1"
+                />
+                <div className="flex-1 space-y-1">
+                  <div className="font-medium">{issue.entity_name}</div>
+                  <div className="text-sm text-muted-foreground">{issue.summary}</div>
+                  <div className="text-xs text-muted-foreground">Campaign ID: {issue.campaign_id}</div>
+                </div>
+                <Button
+                  size="sm"
+                  variant="default"
+                  onClick={() => {
+                    setPendingFix(issue);
+                    setShowFixDialog(true);
+                  }}
+                  disabled={isFixingIssue === `${issue.campaign_id}_network`}
+                >
+                  {isFixingIssue === `${issue.campaign_id}_network` ? (
+                    <>
+                      <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                      Fixing...
+                    </>
+                  ) : (
+                    'Fix'
+                  )}
+                </Button>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Overall Audit Score */}
       <Card className="border-2 border-primary">
         <CardHeader>
@@ -2158,7 +2282,7 @@ const IssuesTab = ({ issues, toast, selectedAccount, onUpdateAfterFix, onRefresh
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={executeNetworkFix}>
+            <AlertDialogAction onClick={() => executeNetworkFix()}>
               Apply Changes
             </AlertDialogAction>
           </AlertDialogFooter>
