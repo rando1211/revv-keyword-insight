@@ -33,7 +33,7 @@ interface Finding {
 }
 
 interface Change {
-  op: 'UPDATE_ASSET' | 'ADD_ASSET' | 'PAUSE_ASSET' | 'SET_PATHS' | 'PIN' | 'UNPIN';
+  op: 'UPDATE_ASSET' | 'ADD_ASSET' | 'PAUSE_ASSET' | 'PAUSE_AD' | 'SET_PATHS' | 'PIN' | 'UNPIN';
   adId?: string;
   assetId?: string;
   type?: 'HEADLINE' | 'DESCRIPTION';
@@ -228,6 +228,55 @@ function auditAd(ad: Ad, adGroupStats: any, topQueries: string[], keywords: stri
     });
   }
 
+  // === PERFORMANCE-BASED RULES ===
+  
+  // Rule 11: Low CTR Performance (PERF-CTR-001)
+  const agStats = adGroupStats[ad.adGroupId];
+  if (agStats && ad.metrics.impressions > 100) {
+    const adCtr = ad.metrics.ctr;
+    const threshold = agStats.ctrMean - agStats.ctrStd;
+    
+    if (adCtr < threshold && agStats.ctrStd > 0) {
+      findings.push({
+        rule: 'PERF-CTR-001',
+        severity: 'error',
+        message: `CTR ${(adCtr * 100).toFixed(2)}% is significantly below ad group average ${(agStats.ctrMean * 100).toFixed(2)}%. Ad is underperforming.`
+      });
+    }
+  }
+  
+  // Rule 12: High Spend No Conversions (PERF-WASTE-001)
+  if (ad.metrics.cost > 50 && ad.metrics.conversions === 0 && ad.metrics.clicks > 20) {
+    findings.push({
+      rule: 'PERF-WASTE-001',
+      severity: 'error',
+      message: `Spent $${ad.metrics.cost.toFixed(2)} with ${ad.metrics.clicks} clicks but 0 conversions. Consider pausing.`
+    });
+  }
+  
+  // Rule 13: Poor Conversion Rate (PERF-CVR-001)
+  if (agStats && ad.metrics.clicks > 20 && agStats.crStd > 0) {
+    const adCr = ad.metrics.conversions / ad.metrics.clicks;
+    const crThreshold = agStats.crMean - agStats.crStd;
+    
+    if (adCr < crThreshold && ad.metrics.conversions > 0) {
+      findings.push({
+        rule: 'PERF-CVR-001',
+        severity: 'warn',
+        message: `Conversion rate ${(adCr * 100).toFixed(2)}% is below ad group average ${(agStats.crMean * 100).toFixed(2)}%. Review messaging alignment.`
+      });
+    }
+  }
+  
+  // Rule 14: Low Impressions (PERF-IMPR-001)
+  if (ad.metrics.impressions < 50) {
+    findings.push({
+      rule: 'PERF-IMPR-001',
+      severity: 'warn',
+      message: `Only ${ad.metrics.impressions} impressions. Ad may be throttled by low Ad Strength or poor relevance.`
+    });
+  }
+
   return findings;
 }
 
@@ -249,9 +298,10 @@ function calculateAdScore(ad: Ad, findings: Finding[]): any {
   const warnCount = findings.filter(f => f.severity === 'warn').length;
   const complianceScore = Math.max(0, 25 - errorCount * 10 - warnCount * 3);
 
-  // Performance score (0-25) - based on findings
-  const perfIssues = findings.filter(f => f.rule === 'ADS-NGRAM-007').length;
-  const performanceScore = Math.max(0, 25 - perfIssues * 5);
+  // Performance score (0-25) - based on real performance findings
+  const perfErrorCount = findings.filter(f => f.rule.startsWith('PERF-') && f.severity === 'error').length;
+  const perfWarnCount = findings.filter(f => f.rule.startsWith('PERF-') && f.severity === 'warn').length;
+  const performanceScore = Math.max(0, 25 - perfErrorCount * 10 - perfWarnCount * 5);
 
   const totalScore = Math.round(coverageScore + diversityScore + complianceScore + performanceScore);
   
@@ -340,6 +390,14 @@ function buildChangeSet(ad: Ad, findings: Finding[], context: any): Change[] {
           op: 'SET_PATHS',
           adId: ad.adId,
           paths: suggestPaths(context)
+        });
+        break;
+
+      case 'PERF-WASTE-001':
+        // Recommend pausing the entire ad for high spend/no conversions
+        changes.push({
+          op: 'PAUSE_ASSET',
+          adId: ad.adId
         });
         break;
     }
