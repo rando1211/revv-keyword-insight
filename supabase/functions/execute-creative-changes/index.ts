@@ -56,7 +56,8 @@ serve(async (req) => {
       { global: { headers: { Authorization: authHeader } } }
     );
 
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
+    const jwt = authHeader.replace('Bearer', '').trim();
+    const { data: { user }, error: userError } = await supabaseClient.auth.getUser(jwt);
     if (userError) {
       console.error('❌ Auth error:', userError);
       throw new Error(`Authentication failed: ${userError.message}`);
