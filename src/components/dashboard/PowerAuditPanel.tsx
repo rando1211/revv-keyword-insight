@@ -1185,6 +1185,40 @@ const KeywordsTab = ({ keywordAnalysis, bidStrategyAnalysis }: { keywordAnalysis
         </CardContent>
       </Card>
 
+      {bidStrategyAnalysis?.maturity_mismatches && bidStrategyAnalysis.maturity_mismatches.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Bid Strategy Maturity Mismatches</CardTitle>
+            <CardDescription>
+              Campaigns where the bid strategy doesn't match the campaign's maturity stage based on conversion volume
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {bidStrategyAnalysis.maturity_mismatches.map((mismatch: any, index: number) => (
+                <div key={index} className="p-3 bg-amber-50 border border-amber-200 rounded">
+                  <div className="flex justify-between items-start mb-2">
+                    <span className="font-medium">{mismatch.campaign_name}</span>
+                    <Badge variant="outline">{mismatch.conversions_30d} conversions</Badge>
+                  </div>
+                  <div className="text-sm space-y-1">
+                    <div className="text-muted-foreground">
+                      <span className="font-medium">Stage:</span> {mismatch.maturity_stage}
+                    </div>
+                    <div className="text-red-600">
+                      <span className="font-medium">Current:</span> {mismatch.current_strategy}
+                    </div>
+                    <div className="text-green-600">
+                      <span className="font-medium">Recommended:</span> {mismatch.recommended_strategy}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle>Quality Score Issues</CardTitle>
