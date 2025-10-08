@@ -1447,43 +1447,6 @@ const IssuesTab = ({ issues, toast, selectedAccount, onUpdateAfterFix, onRefresh
         "GA4 linked properly",
         "Call tracking enabled (if relevant)"
       ]
-    },
-    {
-      title: "Performance & Optimization",
-      icon: TrendingUp,
-      items: [
-        "CTR benchmarks by campaign type met (Search > 3–5%+)",
-        "Quality Score checked (keyword relevance, ad relevance, landing page experience)",
-        "Impression Share reviewed (Lost IS budget vs rank)",
-        "Search term analysis done for expansion/exclusion",
-        "Bidding strategy tested (manual vs automated)",
-        "Ad rotation set to 'Optimize'",
-        "Performance Max campaigns reviewed separately (feed health, asset groups)"
-      ]
-    },
-    {
-      title: "Landing Pages",
-      icon: Target,
-      items: [
-        "Relevance: Landing page matches ad/keyword intent",
-        "Speed & mobile responsiveness tested",
-        "Tracking pixels installed",
-        "Clear CTA above the fold",
-        "Forms are short, frictionless",
-        "Thank-you page tracked (separate conversion)",
-        "A/B tests in place (headlines, forms, CTAs)"
-      ]
-    },
-    {
-      title: "Budget & Spend",
-      icon: DollarSign,
-      items: [
-        "Daily budgets aligned with goals",
-        "Spend pacing checked (no underspending/overspending)",
-        "Account spend distribution across campaigns reviewed",
-        "Wasted spend identified (irrelevant clicks, poor performers)",
-        "High-value campaigns prioritized"
-      ]
     }
   ];
 
@@ -1697,67 +1660,6 @@ const IssuesTab = ({ issues, toast, selectedAccount, onUpdateAfterFix, onRefresh
     results['ga4_linked'] = { passed: true, relatedIssues: [] };
     results['call_tracking'] = { passed: true, relatedIssues: [] };
     
-    // Performance & Optimization checks - critical area
-    results['ctr_benchmarks'] = { 
-      passed: !hasPerformanceIssues && highSeverityCount < 3,
-      relatedIssues: findRelatedIssues(['ctr', 'click'])
-    };
-    results['quality_score'] = { 
-      passed: !hasHighSpendNoConversions && highSeverityCount < 4,
-      relatedIssues: findRelatedIssues(['quality score', 'keyword'])
-    };
-    results['impression_share'] = { passed: highSeverityCount < 5, relatedIssues: [] };
-    results['search_term_analysis'] = { 
-      passed: !hasHighSpendNoConversions,
-      relatedIssues: findRelatedIssues(['search term', 'wasteful', 'high spend'])
-    };
-    results['bidding_strategy_tested'] = { 
-      passed: !hasDecliningCampaigns,
-      relatedIssues: findRelatedIssues(['bid', 'strategy'])
-    };
-    results['ad_rotation'] = { passed: highSeverityCount < 6, relatedIssues: [] };
-    results['pmax_reviewed'] = { passed: true, relatedIssues: [] };
-    
-    // Landing Pages checks
-    results['landing_page_relevance'] = { 
-      passed: !(issues?.broken_urls?.length > 0) && !hasDecliningCampaigns,
-      relatedIssues: findRelatedIssues(['landing page', 'url'])
-    };
-    results['page_speed'] = { passed: highSeverityCount < 5, relatedIssues: [] };
-    results['tracking_pixels'] = { 
-      passed: !hasHighSpendNoConversions,
-      relatedIssues: []
-    };
-    results['clear_cta_fold'] = { 
-      passed: !hasDecliningCampaigns,
-      relatedIssues: []
-    };
-    results['frictionless_forms'] = { 
-      passed: !hasDecliningCampaigns,
-      relatedIssues: []
-    };
-    results['thankyou_tracked'] = { passed: highSeverityCount < 6, relatedIssues: [] };
-    results['ab_tests'] = { passed: highSeverityCount < 7, relatedIssues: [] };
-    
-    // Budget & Spend checks - critical with wasted spend
-    results['budgets_aligned'] = { 
-      passed: !hasBudgetIssues && highSeverityCount < 3,
-      relatedIssues: findRelatedIssues(['budget'])
-    };
-    results['spend_pacing'] = { 
-      passed: !hasBudgetIssues,
-      relatedIssues: findRelatedIssues(['pacing', 'budget'])
-    };
-    results['spend_distribution'] = { passed: highSeverityCount < 4, relatedIssues: [] };
-    results['wasted_spend'] = { 
-      passed: !hasHighSpendNoConversions,
-      relatedIssues: findRelatedIssues(['wasted', 'high spend', 'no conversions'])
-    };
-    results['high_value_priority'] = { 
-      passed: !hasDecliningCampaigns && !hasHighSpendNoConversions,
-      relatedIssues: findRelatedIssues(['declining', 'high spend'])
-    };
-    
     return results;
   };
   
@@ -1776,10 +1678,7 @@ const IssuesTab = ({ issues, toast, selectedAccount, onUpdateAfterFix, onRefresh
     "Campaign Settings": ['campaign_objective', 'ad_schedule', 'bid_strategies', 'device_adjustments', 'audience_targeting'],
     "Ad Groups & Keywords": ['tight_ad_groups', 'match_types', 'negative_keywords', 'search_terms_reviewed', 'keyword_intent', 'no_duplicate_keywords', 'long_tail_keywords'],
     "Ad Copy & Creative": ['rsa_count', 'rsa_filled', 'ad_copy_tailored', 'clear_ctas', 'ad_customizers', 'extensions_setup', 'ad_strength'],
-    "Tracking & Conversions": ['conversion_actions', 'conversion_tracking', 'no_duplicate_conversions', 'offline_conversions', 'ga4_linked', 'call_tracking'],
-    "Performance & Optimization": ['ctr_benchmarks', 'quality_score', 'impression_share', 'search_term_analysis', 'bidding_strategy_tested', 'ad_rotation', 'pmax_reviewed'],
-    "Landing Pages": ['landing_page_relevance', 'page_speed', 'tracking_pixels', 'clear_cta_fold', 'frictionless_forms', 'thankyou_tracked', 'ab_tests'],
-    "Budget & Spend": ['budgets_aligned', 'spend_pacing', 'spend_distribution', 'wasted_spend', 'high_value_priority']
+    "Tracking & Conversions": ['conversion_actions', 'conversion_tracking', 'no_duplicate_conversions', 'offline_conversions', 'ga4_linked', 'call_tracking']
   };
   
   // Calculate totals
