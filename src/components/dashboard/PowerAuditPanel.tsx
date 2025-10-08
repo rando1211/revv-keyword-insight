@@ -1404,7 +1404,6 @@ const IssuesTab = ({ issues, toast, selectedAccount, onUpdateAfterFix, onRefresh
       items: [
         "Correct campaign objective chosen (Leads, Sales, Traffic, etc.)",
         "Ad schedule configured",
-        "Bid strategies (Max Conversions, tCPA, tROAS, Manual CPC) match stage of maturity",
         "Device adjustments checked (mobile vs desktop)",
         "Audience targeting layered (remarketing, in-market, custom intent, exclusions)"
       ]
