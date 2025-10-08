@@ -170,6 +170,7 @@ serve(async (req) => {
       campaignFilter = `AND campaign.id IN (${campaignIdList})`;
     }
 
+    // Enhanced query with paths, ad strength, policy data
     const adQuery = `
       SELECT 
         campaign.id, campaign.name,
@@ -177,8 +178,13 @@ serve(async (req) => {
         ad_group_ad.ad.id, ad_group_ad.ad.type,
         ad_group_ad.ad.responsive_search_ad.headlines,
         ad_group_ad.ad.responsive_search_ad.descriptions,
+        ad_group_ad.ad.responsive_search_ad.path1,
+        ad_group_ad.ad.responsive_search_ad.path2,
+        ad_group_ad.ad_strength,
+        ad_group_ad.policy_summary.approval_status,
+        ad_group_ad.policy_summary.policy_topic_entries,
         metrics.impressions, metrics.clicks, metrics.cost_micros,
-        metrics.conversions, metrics.ctr,
+        metrics.conversions, metrics.ctr, metrics.conversions_from_interactions_rate,
         segments.date
       FROM ad_group_ad
       WHERE campaign.advertising_channel_type = SEARCH
@@ -190,6 +196,36 @@ serve(async (req) => {
         ${campaignFilter}
       ORDER BY metrics.impressions DESC
       LIMIT 20
+    `;
+
+    // Also fetch ad group keywords for context
+    const keywordQuery = `
+      SELECT
+        ad_group.id,
+        ad_group_criterion.keyword.text,
+        ad_group_criterion.keyword.match_type,
+        metrics.impressions, metrics.clicks
+      FROM ad_group_criterion
+      WHERE ad_group_criterion.type = KEYWORD
+        AND ad_group_criterion.status = 'ENABLED'
+        AND metrics.impressions > 0
+        ${dateFilter}
+        ${campaignFilter}
+      ORDER BY metrics.impressions DESC
+      LIMIT 50
+    `;
+
+    // Fetch search terms for query echo
+    const searchTermsQuery = `
+      SELECT
+        search_term_view.search_term,
+        metrics.impressions, metrics.clicks
+      FROM search_term_view
+      WHERE metrics.impressions > 0
+        ${dateFilter}
+        ${campaignFilter}
+      ORDER BY metrics.impressions DESC
+      LIMIT 30
     `;
 
     console.log('🚀 Making API request to:', `https://googleads.googleapis.com/v20/customers/${cleanCustomerId}/googleAds:search`);
@@ -216,11 +252,66 @@ serve(async (req) => {
     const apiData = await response.json();
     console.log(`✅ Processed ${apiData.results?.length || 0} ads`);
 
-    // Process the results - extract individual headlines/descriptions
+    // Fetch keywords
+    console.log('📊 Fetching keywords for context...');
+    const keywordsResponse = await fetch(`https://googleads.googleapis.com/v20/customers/${cleanCustomerId}/googleAds:search`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${access_token}`,
+        'developer-token': DEVELOPER_TOKEN || '',
+        'login-customer-id': correctManagerId,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ query: keywordQuery }),
+    });
+    const keywordsData = await keywordsResponse.json();
+
+    // Fetch search terms
+    console.log('🔍 Fetching search terms for query echo...');
+    const searchTermsResponse = await fetch(`https://googleads.googleapis.com/v20/customers/${cleanCustomerId}/googleAds:search`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${access_token}`,
+        'developer-token': DEVELOPER_TOKEN || '',
+        'login-customer-id': correctManagerId,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ query: searchTermsQuery }),
+    });
+    const searchTermsData = await searchTermsResponse.json();
+
+    // Process enhanced results with complete ad structures
     const adCreatives: any[] = [];
+    const adsStructured: any[] = [];
     const campaignSet = new Set();
+    const adGroupStats: any = {};
 
     if (apiData.results) {
+      // Calculate ad group level statistics
+      const adGroupMetrics: any = {};
+      for (const result of apiData.results) {
+        const agId = result.adGroup?.id;
+        if (!agId) continue;
+        if (!adGroupMetrics[agId]) {
+          adGroupMetrics[agId] = { ctrs: [], convRates: [] };
+        }
+        adGroupMetrics[agId].ctrs.push(parseFloat(result.metrics?.ctr || '0'));
+        const convRate = parseFloat(result.metrics?.conversionsFromInteractionsRate || '0');
+        adGroupMetrics[agId].convRates.push(convRate);
+      }
+
+      // Calculate mean and std dev for each ad group
+      for (const agId in adGroupMetrics) {
+        const ctrs = adGroupMetrics[agId].ctrs;
+        const convRates = adGroupMetrics[agId].convRates;
+        const ctrMean = ctrs.reduce((a: number, b: number) => a + b, 0) / ctrs.length;
+        const crMean = convRates.reduce((a: number, b: number) => a + b, 0) / convRates.length;
+        const ctrStd = Math.sqrt(ctrs.reduce((sum: number, val: number) => sum + Math.pow(val - ctrMean, 2), 0) / ctrs.length);
+        const crStd = Math.sqrt(convRates.reduce((sum: number, val: number) => sum + Math.pow(val - crMean, 2), 0) / convRates.length);
+        adGroupStats[agId] = { ctrMean, ctrStd, crMean, crStd };
+      }
+
+      // Process results into structured ads
       for (const result of apiData.results) {
         const ad = result.adGroupAd?.ad;
         const metrics = result.metrics;
@@ -229,11 +320,27 @@ serve(async (req) => {
           const rsa = ad.responsiveSearchAd;
           campaignSet.add(result.campaign.name);
 
-          // Process headlines
+          const assets: any[] = [];
+
+          // Process headlines with full data
           if (rsa.headlines) {
             rsa.headlines.forEach((headline: any, index: number) => {
-              adCreatives.push({
+              const asset = {
                 id: `${ad.id}_headline_${index}`,
+                type: 'HEADLINE' as const,
+                text: headline.text,
+                pinnedField: headline.pinnedField || 'UNSPECIFIED',
+                metrics: {
+                  impr: parseInt(metrics?.impressions || '0'),
+                  ctr: parseFloat(metrics?.ctr || '0'),
+                  convRate: parseFloat(metrics?.conversionsFromInteractionsRate || '0')
+                }
+              };
+              assets.push(asset);
+
+              // Keep flat structure for backward compatibility
+              adCreatives.push({
+                id: asset.id,
                 adId: ad.id,
                 campaignId: result.campaign.id,
                 adGroupId: result.adGroup.id,
@@ -254,8 +361,21 @@ serve(async (req) => {
           // Process descriptions
           if (rsa.descriptions) {
             rsa.descriptions.forEach((description: any, index: number) => {
-              adCreatives.push({
+              const asset = {
                 id: `${ad.id}_description_${index}`,
+                type: 'DESCRIPTION' as const,
+                text: description.text,
+                pinnedField: description.pinnedField || 'UNSPECIFIED',
+                metrics: {
+                  impr: parseInt(metrics?.impressions || '0'),
+                  ctr: parseFloat(metrics?.ctr || '0'),
+                  convRate: parseFloat(metrics?.conversionsFromInteractionsRate || '0')
+                }
+              };
+              assets.push(asset);
+
+              adCreatives.push({
+                id: asset.id,
                 adId: ad.id,
                 campaignId: result.campaign.id,
                 adGroupId: result.adGroup.id,
@@ -272,9 +392,35 @@ serve(async (req) => {
               });
             });
           }
+
+          // Build structured ad object
+          adsStructured.push({
+            adId: ad.id,
+            campaignId: result.campaign.id,
+            adGroupId: result.adGroup.id,
+            campaign: result.campaign.name,
+            adGroup: result.adGroup.name,
+            assets,
+            paths: [rsa.path1, rsa.path2].filter(Boolean),
+            adStrength: result.adGroupAd?.adStrength || 'UNKNOWN',
+            policyIssues: result.adGroupAd?.policySummary?.policyTopicEntries?.map((e: any) => e.topic) || [],
+            metrics: {
+              impressions: parseInt(metrics?.impressions || '0'),
+              clicks: parseInt(metrics?.clicks || '0'),
+              ctr: parseFloat(metrics?.ctr || '0'),
+              conversions: parseFloat(metrics?.conversions || '0'),
+              cost: (parseInt(metrics?.costMicros || '0')) / 1000000
+            }
+          });
         }
       }
     }
+
+    // Extract keywords
+    const keywords = keywordsData.results?.map((r: any) => r.adGroupCriterion?.keyword?.text).filter(Boolean) || [];
+
+    // Extract search terms
+    const searchTerms = searchTermsData.results?.map((r: any) => r.searchTermView?.searchTerm).filter(Boolean) || [];
 
     // Calculate analysis
     const totalClicks = adCreatives.reduce((sum, creative) => sum + creative.clicks, 0);
@@ -300,6 +446,10 @@ serve(async (req) => {
     return new Response(JSON.stringify({
       success: true,
       creatives: adCreatives,
+      adsStructured, // Complete ad objects for rule engine
+      adGroupStats, // Statistical baselines
+      keywords, // Top keywords for context
+      searchTerms, // Top search terms for query echo
       analysis,
       timeframe: selectedTimeframe,
       timestamp: new Date().toISOString()

@@ -41,3 +41,13 @@ verify_jwt = false
 
 [functions.fix-network-settings]
 verify_jwt = false
+
+[functions.fetch-ad-creatives]
+verify_jwt = false
+
+[functions.audit-ad-creatives]
+verify_jwt = false
+
+[functions.execute-creative-changes]
+verify_jwt = false
+

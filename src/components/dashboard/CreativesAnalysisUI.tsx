@@ -50,6 +50,11 @@ export const CreativesAnalysisUI = ({ customerId, campaignIds, onBack }: Creativ
   const [performanceData, setPerformanceData] = useState<any>(null);
   const [isTrackingPerformance, setIsTrackingPerformance] = useState(false);
 
+  // RSA Audit state
+  const [auditResults, setAuditResults] = useState<any>(null);
+  const [isAuditing, setIsAuditing] = useState(false);
+  const [selectedAd, setSelectedAd] = useState<any>(null);
+
   const timeframeOptions = [
     { value: 'LAST_7_DAYS', label: 'Last 7 days' },
     { value: 'LAST_14_DAYS', label: 'Last 14 days' },
@@ -82,8 +87,20 @@ export const CreativesAnalysisUI = ({ customerId, campaignIds, onBack }: Creativ
       if (creativesError) throw creativesError;
       if (!creativesResponse.success) throw new Error(creativesResponse.error);
 
-      const { creatives, analysis } = creativesResponse;
-      setCreativesData({ creatives, analysis });
+      const { creatives, analysis, adsStructured, adGroupStats, keywords, searchTerms } = creativesResponse;
+      setCreativesData({ 
+        creatives, 
+        analysis, 
+        adsStructured, 
+        adGroupStats, 
+        keywords, 
+        searchTerms 
+      });
+
+      // Run RSA audit
+      if (adsStructured && adsStructured.length > 0) {
+        runRSAAudit(adsStructured, adGroupStats, searchTerms, keywords);
+      }
 
       // Generate professional executive summary
       const professionalSummary = generateProfessionalSummary(creatives, analysis, selectedTimeframe);
@@ -94,8 +111,8 @@ export const CreativesAnalysisUI = ({ customerId, campaignIds, onBack }: Creativ
       generateOptimizationRecommendations(creatives, analysis);
 
       toast({
-        title: "✅ Creative Analysis Complete v2.0",
-        description: `Analyzed ${creatives.length} creative assets from ${analysis.totalAssets || 'focused'} active ads across ${analysis.campaigns} campaigns`,
+        title: "✅ RSA Audit Complete",
+        description: `Analyzed ${adsStructured?.length || 0} ads with ${creatives.length} assets across ${analysis.campaigns} campaigns`,
       });
 
     } catch (error) {
@@ -107,6 +124,45 @@ export const CreativesAnalysisUI = ({ customerId, campaignIds, onBack }: Creativ
       });
     } finally {
       setIsAnalyzing(false);
+    }
+  };
+
+  // Run RSA Audit with 10-rule engine
+  const runRSAAudit = async (adsStructured: any[], adGroupStats: any, searchTerms: string[], keywords: string[]) => {
+    setIsAuditing(true);
+    try {
+      console.log('🔍 Running RSA Audit Engine...');
+      
+      const { data: auditResponse, error: auditError } = await supabase.functions.invoke('audit-ad-creatives', {
+        body: {
+          ads: adsStructured,
+          adGroupStats,
+          topQueries: searchTerms?.slice(0, 10) || [],
+          keywords: keywords?.slice(0, 10) || []
+        }
+      });
+
+      if (auditError) {
+        console.error('Audit error:', auditError);
+        throw auditError;
+      }
+
+      if (!auditResponse.success) {
+        throw new Error(auditResponse.error);
+      }
+
+      console.log('✅ RSA Audit Complete:', auditResponse);
+      setAuditResults(auditResponse);
+
+    } catch (error) {
+      console.error('RSA Audit failed:', error);
+      toast({
+        title: "Audit Failed",
+        description: error.message || 'Failed to run RSA audit',
+        variant: "destructive",
+      });
+    } finally {
+      setIsAuditing(false);
     }
   };
 
@@ -848,6 +904,166 @@ ${riskFactors.map(risk => `• ${risk}`).join('\n')}
           </div>
         </CardContent>
       </Card>
+
+      {/* RSA Audit Dashboard */}
+      {auditResults && !isAuditing && (
+        <Card className="bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
+          <CardHeader>
+            <div className="flex items-start justify-between">
+              <div>
+                <CardTitle className="text-2xl flex items-center gap-2">
+                  🎯 RSA Audit Results
+                  <Badge variant={auditResults.summary.avgScore >= 70 ? 'default' : 'destructive'}>
+                    {auditResults.summary.avgScore.toFixed(0)}/100
+                  </Badge>
+                </CardTitle>
+                <CardDescription>
+                  {auditResults.summary.totalAds} ads analyzed • {auditResults.summary.totalFindings} findings • {auditResults.summary.totalChanges} recommended changes
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-4 gap-4 mb-6">
+              <div className="text-center p-4 bg-card rounded-lg border">
+                <div className="text-3xl font-bold text-primary">
+                  {auditResults.scores.filter((s: any) => s.grade === 'Excellent').length}
+                </div>
+                <div className="text-sm text-muted-foreground">Excellent</div>
+              </div>
+              <div className="text-center p-4 bg-card rounded-lg border">
+                <div className="text-3xl font-bold text-green-600">
+                  {auditResults.scores.filter((s: any) => s.grade === 'Good').length}
+                </div>
+                <div className="text-sm text-muted-foreground">Good</div>
+              </div>
+              <div className="text-center p-4 bg-card rounded-lg border">
+                <div className="text-3xl font-bold text-yellow-600">
+                  {auditResults.scores.filter((s: any) => s.grade === 'Fair').length}
+                </div>
+                <div className="text-sm text-muted-foreground">Fair</div>
+              </div>
+              <div className="text-center p-4 bg-card rounded-lg border">
+                <div className="text-3xl font-bold text-destructive">
+                  {auditResults.scores.filter((s: any) => s.grade === 'Poor').length}
+                </div>
+                <div className="text-sm text-muted-foreground">Poor</div>
+              </div>
+            </div>
+
+            {/* Ad-Level Audit Cards */}
+            <div className="space-y-4">
+              {auditResults.findings.slice(0, 5).map((finding: any, idx: number) => {
+                const score = auditResults.scores.find((s: any) => s.adId === finding.adId);
+                const ad = creativesData?.adsStructured?.find((a: any) => a.adId === finding.adId);
+                
+                return (
+                  <Card key={idx} className="border-l-4" style={{
+                    borderLeftColor: score?.grade === 'Excellent' ? '#10b981' :
+                                     score?.grade === 'Good' ? '#3b82f6' :
+                                     score?.grade === 'Fair' ? '#f59e0b' : '#ef4444'
+                  }}>
+                    <CardHeader className="pb-3">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <CardTitle className="text-lg flex items-center gap-2">
+                            Ad #{finding.adId.slice(-8)}
+                            <Badge variant={score?.grade === 'Excellent' || score?.grade === 'Good' ? 'default' : 'destructive'}>
+                              {score?.score}/100 • {score?.grade}
+                            </Badge>
+                            {finding.findings.length > 0 && (
+                              <Badge variant="outline">{finding.findings.length} issues</Badge>
+                            )}
+                          </CardTitle>
+                          <CardDescription>
+                            {ad?.campaign} • {ad?.adGroup}
+                          </CardDescription>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setSelectedAd(finding)}
+                        >
+                          View Details
+                        </Button>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-4 gap-3 mb-3">
+                        <div className="text-sm">
+                          <div className="font-medium">Coverage</div>
+                          <div className="text-muted-foreground">{score?.breakdown.coverageScore}/25</div>
+                        </div>
+                        <div className="text-sm">
+                          <div className="font-medium">Diversity</div>
+                          <div className="text-muted-foreground">{score?.breakdown.diversityScore}/25</div>
+                        </div>
+                        <div className="text-sm">
+                          <div className="font-medium">Compliance</div>
+                          <div className="text-muted-foreground">{score?.breakdown.complianceScore}/25</div>
+                        </div>
+                        <div className="text-sm">
+                          <div className="font-medium">Performance</div>
+                          <div className="text-muted-foreground">{score?.breakdown.performanceScore}/25</div>
+                        </div>
+                      </div>
+
+                      {/* Rule Violations */}
+                      {finding.findings.length > 0 && (
+                        <div className="flex flex-wrap gap-2 mt-3">
+                          {finding.findings.slice(0, 3).map((f: any, i: number) => (
+                            <Badge key={i} variant={f.severity === 'error' ? 'destructive' : f.severity === 'warn' ? 'secondary' : 'outline'}>
+                              {f.rule}: {f.message.substring(0, 40)}...
+                            </Badge>
+                          ))}
+                          {finding.findings.length > 3 && (
+                            <Badge variant="outline">+{finding.findings.length - 3} more</Badge>
+                          )}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+
+            {/* Change Preview */}
+            {auditResults.changeSet && auditResults.changeSet.length > 0 && (
+              <Card className="mt-6 border-primary/30">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    🔧 Recommended Changes ({auditResults.changeSet.length})
+                  </CardTitle>
+                  <CardDescription>
+                    Auto-generated optimizations based on rule violations
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2 max-h-60 overflow-y-auto">
+                    {auditResults.changeSet.slice(0, 10).map((change: any, idx: number) => (
+                      <div key={idx} className="p-3 bg-muted/50 rounded-lg text-sm">
+                        <div className="font-medium">{change.op.replace(/_/g, ' ')}</div>
+                        <div className="text-muted-foreground">
+                          {change.text && `"${change.text.substring(0, 60)}${change.text.length > 60 ? '...' : ''}"`}
+                          {change.paths && `Paths: ${change.paths.join(', ')}`}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <Button className="w-full mt-4" onClick={() => {
+                    toast({
+                      title: "Coming Soon",
+                      description: "One-click change execution will be available soon",
+                    });
+                  }}>
+                    Apply All Changes
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Results */}
       {creativesData && (
