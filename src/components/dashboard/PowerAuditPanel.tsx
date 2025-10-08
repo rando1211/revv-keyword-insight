@@ -1766,7 +1766,7 @@ const IssuesTab = ({ issues, toast, selectedAccount, onUpdateAfterFix, onRefresh
   // Map checklist items to audit result keys
   const itemKeys: Record<string, string[]> = {
     "Account Structure": ['account_hierarchy', 'naming_conventions', 'campaign_segmentation', 'geographic_targeting', 'language_settings', 'network_separation'],
-    "Campaign Settings": ['campaign_objective', 'location_targeting', 'ad_schedule', 'budget_allocation', 'bid_strategies', 'device_adjustments', 'audience_targeting'],
+    "Campaign Settings": ['campaign_objective', 'ad_schedule', 'bid_strategies', 'device_adjustments', 'audience_targeting'],
     "Ad Groups & Keywords": ['tight_ad_groups', 'match_types', 'negative_keywords', 'search_terms_reviewed', 'keyword_intent', 'no_duplicate_keywords', 'long_tail_keywords'],
     "Ad Copy & Creative": ['rsa_count', 'rsa_filled', 'ad_copy_tailored', 'clear_ctas', 'ad_customizers', 'extensions_setup', 'ad_strength'],
     "Tracking & Conversions": ['conversion_actions', 'conversion_tracking', 'no_duplicate_conversions', 'offline_conversions', 'ga4_linked', 'call_tracking', 'value_based_bidding'],
