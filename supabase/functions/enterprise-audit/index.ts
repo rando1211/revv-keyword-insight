@@ -729,7 +729,8 @@ async function processEnterpriseAnalysis(
       budget_constraints: budgetAnalysis.constrained_campaigns,
       creative_issues: creativeAnalysis.issues,
       broken_urls: urlHealth.broken_urls,
-      asset_completeness: assetAnalysis.issues
+      asset_completeness: assetAnalysis.issues,
+      bid_strategy_mismatches: bidStrategyAnalysis.maturity_mismatches
     },
     checklist: (() => {
       // Calculate summary stats

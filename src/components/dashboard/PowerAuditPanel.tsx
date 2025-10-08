@@ -1986,7 +1986,7 @@ const IssuesTab = ({ issues, toast, selectedAccount, onUpdateAfterFix, onRefresh
 
       
       {/* Legacy Issues (if no AI issues but have basic issues) */}
-      {issuesList.length === 0 && (issues?.broken_urls?.length > 0 || issues?.asset_completeness?.length > 0 || issues?.budget_constraints?.length > 0) && (
+      {issuesList.length === 0 && (issues?.broken_urls?.length > 0 || issues?.asset_completeness?.length > 0 || issues?.budget_constraints?.length > 0 || issues?.bid_strategy_mismatches?.length > 0) && (
         <>
           {/* Broken URLs */}
           <Card>
@@ -2063,6 +2063,49 @@ const IssuesTab = ({ issues, toast, selectedAccount, onUpdateAfterFix, onRefresh
                 </div>
               ) : (
                 <p className="text-sm text-muted-foreground">No significant budget constraints detected</p>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Bid Strategy Mismatches */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <Settings className="h-5 w-5 text-amber-500" />
+                <span>Bid Strategy Maturity Mismatches</span>
+              </CardTitle>
+              <CardDescription>
+                Campaigns using bid strategies that don't match their maturity stage
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {issues?.bid_strategy_mismatches?.length > 0 ? (
+                <div className="space-y-3">
+                  {issues.bid_strategy_mismatches.map((mismatch: any, index: number) => (
+                    <div key={index} className="p-3 bg-amber-50 border border-amber-200 rounded">
+                      <div className="flex justify-between items-start mb-2">
+                        <span className="font-medium">{mismatch.campaign_name}</span>
+                        <Badge variant="outline">{mismatch.conversions_30d} conversions</Badge>
+                      </div>
+                      <div className="text-sm space-y-1">
+                        <div className="text-muted-foreground">
+                          <span className="font-medium">Stage:</span> {mismatch.maturity_stage}
+                        </div>
+                        <div className="text-red-600">
+                          <span className="font-medium">Current:</span> {mismatch.current_strategy}
+                        </div>
+                        <div className="text-green-600">
+                          <span className="font-medium">Recommended:</span> {mismatch.recommended_strategy}
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-2">
+                          {mismatch.issue}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">All campaigns using appropriate bid strategies for their maturity stage</p>
               )}
             </CardContent>
           </Card>
