@@ -97,14 +97,51 @@ export const CreativesAnalysisUI = ({ customerId, campaignIds, onBack }: Creativ
       });
 
       if (!adsStructured || adsStructured.length === 0) {
-        const suggestion = campaignIds && campaignIds.length > 0 
-          ? "The selected campaign(s) have no RSA ads. Try selecting Search campaigns or clear the filter to audit all campaigns."
-          : "No RSA ads found in any campaigns. RSA ads only exist in Search campaigns.";
-        
+        console.log('⚠️ No RSA results for selected campaigns. Retrying with ALL campaigns and extended timeframe...');
+        try {
+          const { data: fallbackResponse, error: fallbackError } = await supabase.functions.invoke('fetch-ad-creatives', {
+            body: {
+              customerId,
+              campaignIds: [], // audit ALL campaigns
+              timeframe: 'LAST_90_DAYS', // broaden window
+              includeConversions,
+              includeQualityScore: true
+            }
+          });
+
+          if (!fallbackError && fallbackResponse?.success && fallbackResponse.adsStructured?.length > 0) {
+            const { creatives: fCreatives, analysis: fAnalysis, adsStructured: fAdsStructured, adGroupStats: fAdGroupStats, keywords: fKeywords, searchTerms: fSearchTerms } = fallbackResponse;
+
+            setCreativesData({ 
+              creatives: fCreatives, 
+              analysis: fAnalysis, 
+              adsStructured: fAdsStructured, 
+              adGroupStats: fAdGroupStats, 
+              keywords: fKeywords, 
+              searchTerms: fSearchTerms 
+            });
+
+            runRSAAudit(fAdsStructured, fAdGroupStats, fSearchTerms, fKeywords);
+            
+            toast({
+              title: '✅ RSA Audit Complete',
+              description: `Analyzed ${fAdsStructured.length} ads with ${fCreatives.length} assets.`,
+            });
+
+            return; // stop here, we already handled success path
+          }
+        } catch (e) {
+          console.warn('Fallback fetch failed:', e);
+        }
+
+        const suggestion = (campaignIds && campaignIds.length > 0)
+          ? 'The selected campaign(s) have no RSA ads. Try selecting Search campaigns or clear the filter to audit all campaigns.'
+          : 'No RSA ads found in any campaigns. RSA ads only exist in Search campaigns.';
+
         toast({
-          title: "⚠️ No RSA Ads Found",
+          title: '⚠️ No RSA Ads Found',
           description: suggestion,
-          variant: "destructive",
+          variant: 'destructive',
         });
         setCreativesData(null);
         setIsAnalyzing(false);
