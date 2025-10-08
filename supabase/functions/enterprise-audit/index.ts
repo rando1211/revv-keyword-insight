@@ -647,6 +647,9 @@ async function processEnterpriseAnalysis(
   // Bid strategy performance comparison with tROAS readiness
   const bidStrategyAnalysis = analyzeBidStrategyImpact(campaignMetrics.campaigns, conversionActions);
   
+  // Conversion tracking analysis
+  const conversionAnalysis = analyzeConversionTracking(campaignMetrics.campaigns, conversionActions);
+  
   // Budget efficiency and scaling opportunities
   const budgetAnalysis = analyzeBudgetPacing(campaignMetrics.campaigns);
   const scalingOpportunities = identifyScalingOpportunities(campaignMetrics.campaigns, budgetAnalysis);
@@ -726,7 +729,8 @@ async function processEnterpriseAnalysis(
     assets: assetAnalysis,
     urlHealth,
     adSchedule: adSchedule || [],
-    recentNegatives: recentNegatives || []
+    recentNegatives: recentNegatives || [],
+    conversions: conversionAnalysis
   });
 
   return {
@@ -2406,6 +2410,74 @@ function extractNumericValue(text: string): number {
   return match ? parseInt(match[0].replace(/,/g, '')) : 0;
 }
 
+// Analyze conversion tracking setup and health
+function analyzeConversionTracking(campaigns: any[], conversionActions: any[]) {
+  // Check if conversion actions are defined and enabled
+  const enabledConversionActions = conversionActions.filter((conv: any) => 
+    (conv.conversionAction?.status === 'ENABLED' || conv.conversion_action?.status === 'ENABLED')
+  );
+  
+  const primaryConversionActions = conversionActions.filter((conv: any) => 
+    (conv.conversionAction?.includeInConversionsMetric === true || 
+     conv.conversion_action?.include_in_conversions_metric === true) &&
+    (conv.conversionAction?.status === 'ENABLED' || conv.conversion_action?.status === 'ENABLED')
+  );
+  
+  // Check for call conversion actions
+  const callConversionActions = conversionActions.filter((conv: any) => {
+    const name = (conv.conversionAction?.name || conv.conversion_action?.name || '').toLowerCase();
+    return name.includes('call') || name.includes('phone');
+  });
+  
+  // Check for offline conversion imports
+  const offlineConversionActions = conversionActions.filter((conv: any) => {
+    const valueSettings = conv.conversionAction?.valueSettings || conv.conversion_action?.value_settings;
+    return valueSettings?.valueSourceType === 'OFFLINE' || valueSettings?.value_source_type === 'OFFLINE';
+  });
+  
+  // Check if campaigns have conversions (tracking is working)
+  const campaignsWithConversions = campaigns.filter(c => (c.metrics?.conversions || 0) > 0);
+  const totalConversions = campaigns.reduce((sum, c) => sum + (c.metrics?.conversions || 0), 0);
+  
+  // Check for abnormally high conversion rates (possible duplicate tracking)
+  const suspiciousCampaigns = campaigns.filter(c => {
+    const cvr = c.metrics?.cvr || 0;
+    const conversions = c.metrics?.conversions || 0;
+    // Flag if CVR > 50% AND has significant traffic
+    return cvr > 50 && conversions > 10;
+  });
+  
+  // Check value-based bidding campaigns have conversion value
+  const troasCampaigns = campaigns.filter(c => 
+    c.bidding_strategy === 'TARGET_ROAS' || c.bidding_strategy === 'MAXIMIZE_CONVERSION_VALUE'
+  );
+  
+  const troasCampaignsWithValue = troasCampaigns.filter(c => 
+    (c.metrics?.conversion_value || 0) > 0
+  );
+  
+  const troasReadiness = getTROASReadiness(conversionActions);
+  
+  return {
+    conversion_actions_count: enabledConversionActions.length,
+    primary_conversion_actions_count: primaryConversionActions.length,
+    call_tracking_enabled: callConversionActions.length > 0,
+    call_conversion_actions: callConversionActions.length,
+    offline_conversions_enabled: offlineConversionActions.length > 0,
+    offline_conversion_actions: offlineConversionActions.length,
+    campaigns_with_conversions: campaignsWithConversions.length,
+    total_campaigns: campaigns.length,
+    total_conversions: totalConversions,
+    tracking_appears_active: totalConversions > 0,
+    suspicious_campaigns: suspiciousCampaigns,
+    has_duplicate_tracking_risk: suspiciousCampaigns.length > 0,
+    troas_campaigns_count: troasCampaigns.length,
+    troas_campaigns_with_value: troasCampaignsWithValue.length,
+    troas_readiness: troasReadiness,
+    value_based_bidding_ready: troasReadiness.ready && troasCampaignsWithValue.length > 0
+  };
+}
+
 // Generate fallback issues when AI analysis fails
 function generateFallbackIssues(analysisData: any) {
   const issues: any[] = [];
@@ -2472,6 +2544,7 @@ function generateAuditChecklist(data: any) {
   const urlHealth = data.urlHealth || {};
   const adScheduleData = data.adSchedule || [];
   const recentNegativesData = data.recentNegatives || [];
+  const conversions = data.conversions || {};
 
   // Detect likely local campaigns by name patterns
   const localIndicators = ['local', 'near me', 'nearby', 'city', 'area', 'region', 'geo', 'location'];
@@ -2580,12 +2653,53 @@ function generateAuditChecklist(data: any) {
       { item: 'Ad strength checked ("Excellent" when possible)', status: ads.ad_strength_distribution?.excellent >= 50 ? 'pass' : 'warning', details: `${ads.ad_strength_distribution?.excellent?.toFixed(0) || 0}% excellent` }
     ],
     tracking_conversions: [
-      { item: 'Conversion actions defined', status: campaigns.some((c: any) => c.metrics?.conversions > 0) ? 'pass' : 'warning', details: 'Conversions detected' },
-      { item: 'Conversion tracking tested', status: 'unknown', details: 'Verify GTM or native tags' },
-      { item: 'No duplicate or inflated conversions', status: 'unknown', details: 'Manual verification needed' },
-      { item: 'GA4 linked properly', status: 'unknown', details: 'Check GA4 connection' },
-      { item: 'Call tracking enabled (if relevant)', status: 'unknown', details: 'Review call extensions' },
-      { item: 'Value-based bidding in place', status: campaigns.some((c: any) => c.bidding_strategy?.includes('ROAS')) ? 'pass' : 'warning', details: 'Check tROAS campaigns' }
+      { 
+        item: 'Conversion actions defined (forms, calls, purchases, sign-ups)', 
+        status: conversions.primary_conversion_actions_count > 0 ? 'pass' : 'fail', 
+        details: `${conversions.primary_conversion_actions_count || 0} primary conversion actions enabled` 
+      },
+      { 
+        item: 'Conversion tracking tested (Google Tag Manager or native tags)', 
+        status: conversions.tracking_appears_active ? 'pass' : 'warning', 
+        details: conversions.tracking_appears_active 
+          ? `${conversions.total_conversions?.toFixed(0) || 0} conversions recorded across ${conversions.campaigns_with_conversions || 0} campaigns` 
+          : 'No conversions detected - verify tracking setup' 
+      },
+      { 
+        item: 'No duplicate or inflated conversions', 
+        status: conversions.has_duplicate_tracking_risk ? 'fail' : 'pass', 
+        details: conversions.has_duplicate_tracking_risk 
+          ? `${conversions.suspicious_campaigns?.length || 0} campaigns with abnormally high CVR (>50%) - check for duplicate tracking` 
+          : 'Conversion rates appear normal' 
+      },
+      { 
+        item: 'Offline conversions imported (if sales close offline)', 
+        status: conversions.offline_conversions_enabled ? 'pass' : 'unknown', 
+        details: conversions.offline_conversions_enabled 
+          ? `${conversions.offline_conversion_actions || 0} offline conversion actions configured` 
+          : 'No offline conversion imports detected (may not be needed)' 
+      },
+      { 
+        item: 'GA4 linked properly', 
+        status: 'unknown', 
+        details: 'GA4 linking requires manual verification in Google Ads settings' 
+      },
+      { 
+        item: 'Call tracking enabled (if relevant)', 
+        status: conversions.call_tracking_enabled ? 'pass' : 'unknown', 
+        details: conversions.call_tracking_enabled 
+          ? `${conversions.call_conversion_actions || 0} call conversion actions configured` 
+          : 'No call tracking detected (may not be needed)' 
+      },
+      { 
+        item: 'Value-based bidding in place (if LTV data available)', 
+        status: conversions.troas_readiness?.ready 
+          ? (conversions.troas_campaigns_with_value > 0 ? 'pass' : 'warning')
+          : 'fail', 
+        details: conversions.troas_readiness?.ready 
+          ? `${conversions.troas_campaigns_with_value || 0}/${conversions.troas_campaigns_count || 0} tROAS campaigns have conversion value`
+          : conversions.troas_readiness?.reason || 'Value tracking not configured for tROAS' 
+      }
     ],
     performance_optimization: [
       { item: 'CTR benchmarks met (Search > 3-5%+)', status: campaigns.some((c: any) => c.metrics?.ctr > 3) ? 'pass' : 'warning', details: 'Review campaign CTRs' },
