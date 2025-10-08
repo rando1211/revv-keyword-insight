@@ -146,14 +146,19 @@ function auditAd(ad: Ad, adGroupStats: any, topQueries: string[], keywords: stri
     });
   }
 
-  // Rule 4: Case & formatting (ADS-CASE-004)
+  // Rule 4: Case & formatting (ADS-CASE-004) - IMPROVED TEXT HYGIENE
   ad.assets.forEach(asset => {
-    if (/[A-Z]{5,}/.test(asset.text) || /!!+|[^\w\s\-®™,.!?']/u.test(asset.text)) {
+    // Preserve OEM terms (®, ™) but flag excessive caps/emojis
+    const hasExcessiveCaps = /[A-Z]{5,}/.test(asset.text.replace(/[®™]/g, ''));
+    const hasEmojis = /[\u{1F300}-\u{1F9FF}]/u.test(asset.text);
+    const hasExcessivePunct = /!!+|[\?\!]{3,}/.test(asset.text);
+    
+    if (hasExcessiveCaps || hasEmojis || hasExcessivePunct) {
       findings.push({
         rule: 'ADS-CASE-004',
         assetId: asset.id,
         severity: 'warn',
-        message: `${asset.type} has formatting issues: excessive caps or special characters`
+        message: `${asset.type} has formatting issues: ${hasExcessiveCaps ? 'excessive caps ' : ''}${hasEmojis ? 'emojis ' : ''}${hasExcessivePunct ? 'excessive punctuation' : ''}`
       });
     }
   });
@@ -230,40 +235,55 @@ function auditAd(ad: Ad, adGroupStats: any, topQueries: string[], keywords: stri
 
   // === PERFORMANCE-BASED RULES ===
   
-  // Rule 11: Low CTR Performance (PERF-CTR-001)
+  // Rule 11: Low CTR Performance (PERF-CTR-001) - WITH STATISTICAL SIGNIFICANCE
   const agStats = adGroupStats[ad.adGroupId];
-  if (agStats && ad.metrics.impressions > 100) {
+  if (agStats && ad.metrics.impressions >= 2000 && ad.metrics.clicks >= 150) {
     const adCtr = ad.metrics.ctr;
-    const threshold = agStats.ctrMean - agStats.ctrStd;
     
-    if (adCtr < threshold && agStats.ctrStd > 0) {
+    // Use Wilson score for 95% confidence interval
+    const n = ad.metrics.impressions;
+    const p = adCtr;
+    const z = 1.96; // 95% CI
+    const denominator = 1 + z * z / n;
+    const center = p + z * z / (2 * n);
+    const margin = z * Math.sqrt(p * (1 - p) / n + z * z / (4 * n * n));
+    const wilsonLower = (center - margin) / denominator;
+    
+    // Compare to 50% of ad group median (using mean as proxy)
+    const threshold = agStats.ctrMean * 0.5;
+    
+    if (wilsonLower < threshold && agStats.ctrStd > 0) {
       findings.push({
         rule: 'PERF-CTR-001',
         severity: 'error',
-        message: `CTR ${(adCtr * 100).toFixed(2)}% is significantly below ad group average ${(agStats.ctrMean * 100).toFixed(2)}%. Ad is underperforming.`
+        message: `CTR ${(adCtr * 100).toFixed(2)}% is significantly below 50% of ad group average ${(agStats.ctrMean * 100).toFixed(2)}% (95% CI, n=${n}, 30d window). Ad is underperforming.`
       });
     }
   }
   
-  // Rule 12: High Spend No Conversions (PERF-WASTE-001)
+  // Rule 12: High Spend No Conversions (PERF-WASTE-001) - WITH COOL-OFF & SPARSE-CONV LOGIC
   if (ad.metrics.cost > 50 && ad.metrics.conversions === 0 && ad.metrics.clicks > 20) {
+    // Use warn for sparse data (clicks <200), error for sufficient data
+    const severity = ad.metrics.clicks < 200 ? 'warn' : 'error';
+    const action = ad.metrics.clicks < 200 ? 'Consider pausing or rewriting' : 'Pause ad';
+    
     findings.push({
       rule: 'PERF-WASTE-001',
-      severity: 'error',
-      message: `Spent $${ad.metrics.cost.toFixed(2)} with ${ad.metrics.clicks} clicks but 0 conversions. Consider pausing.`
+      severity,
+      message: `Spent $${ad.metrics.cost.toFixed(2)} with ${ad.metrics.clicks} clicks but 0 conversions (30d window). ${action}.`
     });
   }
   
-  // Rule 13: Poor Conversion Rate (PERF-CVR-001)
-  if (agStats && ad.metrics.clicks > 20 && agStats.crStd > 0) {
+  // Rule 13: Poor Conversion Rate (PERF-CVR-001) - WITH SIGNIFICANCE THRESHOLD
+  if (agStats && ad.metrics.clicks >= 150 && agStats.crStd > 0) {
     const adCr = ad.metrics.conversions / ad.metrics.clicks;
-    const crThreshold = agStats.crMean - agStats.crStd;
+    const crThreshold = agStats.crMean * 0.5; // 50% of group average
     
     if (adCr < crThreshold && ad.metrics.conversions > 0) {
       findings.push({
         rule: 'PERF-CVR-001',
         severity: 'warn',
-        message: `Conversion rate ${(adCr * 100).toFixed(2)}% is below ad group average ${(agStats.crMean * 100).toFixed(2)}%. Review messaging alignment.`
+        message: `Conversion rate ${(adCr * 100).toFixed(2)}% is below 50% of ad group average ${(agStats.crMean * 100).toFixed(2)}% (n=${ad.metrics.clicks} clicks, 30d). Review messaging alignment.`
       });
     }
   }
@@ -273,7 +293,7 @@ function auditAd(ad: Ad, adGroupStats: any, topQueries: string[], keywords: stri
     findings.push({
       rule: 'PERF-IMPR-001',
       severity: 'warn',
-      message: `Only ${ad.metrics.impressions} impressions. Ad may be throttled by low Ad Strength or poor relevance.`
+      message: `Only ${ad.metrics.impressions} impressions (30d). Ad may be throttled by low Ad Strength or poor relevance.`
     });
   }
 
@@ -421,20 +441,43 @@ function smartTruncate(text: string, type: 'HEADLINE' | 'DESCRIPTION'): string {
 }
 
 function normalizeCase(text: string, type: 'HEADLINE' | 'DESCRIPTION'): string {
-  // Remove excessive caps and special characters
-  text = text.replace(/[A-Z]{4,}/g, match => match.charAt(0) + match.slice(1).toLowerCase());
-  text = text.replace(/!!+/g, '!').replace(/\?\?+/g, '?');
+  // Preserve OEM terms (®, ™) but normalize excessive caps
+  const oemTerms: string[] = [];
+  text = text.replace(/\b[A-Z]{2,}[®™]/g, (match) => {
+    oemTerms.push(match);
+    return `__OEM${oemTerms.length - 1}__`;
+  });
+  
+  // Remove emojis
+  text = text.replace(/[\u{1F300}-\u{1F9FF}]/gu, '');
+  
+  // Normalize excessive punctuation
+  text = text.replace(/!!+/g, '!').replace(/\?\?+/g, '?').replace(/\.\.+/g, '...');
+  
+  // Remove special chars except allowed ones
   text = text.replace(/[^\w\s\-®™,.!?']/gu, '');
+  
+  // Normalize caps (preserve acronyms like "SEO", "PPC")
+  text = text.replace(/\b[A-Z]{4,}\b/g, match => 
+    match.charAt(0) + match.slice(1).toLowerCase()
+  );
   
   if (type === 'HEADLINE') {
     // Title case for headlines
-    return text.split(' ').map(word => 
+    text = text.split(' ').map(word => 
       word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
     ).join(' ');
   } else {
     // Sentence case for descriptions
-    return text.charAt(0).toUpperCase() + text.slice(1).toLowerCase();
+    text = text.charAt(0).toUpperCase() + text.slice(1).toLowerCase();
   }
+  
+  // Restore OEM terms
+  oemTerms.forEach((term, i) => {
+    text = text.replace(`__OEM${i}__`, term);
+  });
+  
+  return text;
 }
 
 function variantFromTopNgrams(context: any, type: 'HEADLINE' | 'DESCRIPTION'): string {
