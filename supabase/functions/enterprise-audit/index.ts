@@ -548,6 +548,7 @@ serve(async (req) => {
       assetsData.results || [],
       searchTermsData.results || [],
       keywordsResults || [],
+      adScheduleData.results || [],
       windows,
       openaiApiKey
     );
@@ -579,6 +580,7 @@ async function processEnterpriseAnalysis(
   assets: any[],
   searchTerms: any[],
   keywords: any[],
+  adSchedule: any[],
   windows: any,
   openaiApiKey?: string
 ) {
@@ -672,7 +674,7 @@ async function processEnterpriseAnalysis(
     bidStrategy: bidStrategyAnalysis,
     assets: assetAnalysis,
     urlHealth,
-    adSchedule: adScheduleData.results || []
+    adSchedule: adSchedule || []
   });
 
   return {
