@@ -434,6 +434,161 @@ export const SearchTermsAnalysisUI = ({ analysisData, onUpdateAnalysisData, sele
 
   return (
     <div className="space-y-6">
+      {/* Header Metrics - Total Waste & Key Stats */}
+      <div className="grid gap-4 md:grid-cols-4">
+        <Card className="border-red-200 bg-red-50/50">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-red-600" />
+              Total Waste Identified
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-red-600">
+              ${performanceMetrics.totalWastedSpend.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </div>
+            <p className="text-xs text-red-500 mt-1">
+              Monthly projection: ${performanceMetrics.monthlySavings.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+            </p>
+          </CardContent>
+        </Card>
+        
+        <Card className="border-orange-200 bg-orange-50/50">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <XCircle className="w-4 h-4 text-orange-600" />
+              Wasteful Terms
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-orange-600">
+              {(analysisData.irrelevantTerms?.length || 0) + (analysisData.highClicksNoConv?.length || 0)}
+            </div>
+            <p className="text-xs text-orange-500 mt-1">
+              Need immediate attention
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-green-200 bg-green-50/50">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <TrendingUp className="w-4 h-4 text-green-600" />
+              High Performing Terms
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-green-600">
+              {analysisData.convertingClusters?.reduce((sum: number, cluster: any) => 
+                sum + (cluster.exampleTerms?.length || 0), 0) || 0}
+            </div>
+            <p className="text-xs text-green-500 mt-1">
+              Expand these for growth
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-blue-200 bg-blue-50/50">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Target className="w-4 h-4 text-blue-600" />
+              Opportunity Terms
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-blue-600">
+              {analysisData.convertingClusters?.length || 0}
+            </div>
+            <p className="text-xs text-blue-500 mt-1">
+              Untapped potential
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Done For You - One-Click Optimization */}
+      {((analysisData.irrelevantTerms?.length > 0) || (analysisData.highClicksNoConv?.length > 0) || (analysisData.convertingClusters?.length > 0)) && (
+        <Card className="border-purple-500 bg-gradient-to-r from-purple-50 to-blue-50 shadow-lg">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-purple-700">
+              <Activity className="w-6 h-6" />
+              ⚡ Done For You - One-Click Optimization
+            </CardTitle>
+            <CardDescription>
+              Automatically execute optimizations based on AI analysis. No manual work required.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4 md:grid-cols-2">
+              {((analysisData.irrelevantTerms?.length > 0) || (analysisData.highClicksNoConv?.length > 0)) && (
+                <div className="p-6 bg-red-50 border-2 border-red-200 rounded-lg">
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <h4 className="font-semibold text-red-900 text-lg">🚨 Stop Wasting Money</h4>
+                      <p className="text-sm text-red-700">
+                        Add {(analysisData.irrelevantTerms?.length || 0) + (analysisData.highClicksNoConv?.length || 0)} negative keywords
+                      </p>
+                    </div>
+                    <Button 
+                      variant="destructive" 
+                      size="lg"
+                      disabled={!selectedAccount || pendingActions.length === 0}
+                      onClick={() => {
+                        const wastefulTerms = [
+                          ...(analysisData.irrelevantTerms || []),
+                          ...(analysisData.highClicksNoConv || [])
+                        ];
+                        wastefulTerms.slice(0, 20).forEach(term => {
+                          addPendingAction(term, 'negative_keyword', term.reason || 'Wasteful search term');
+                        });
+                        toast({
+                          title: "Actions Queued",
+                          description: `${Math.min(20, wastefulTerms.length)} negative keyword actions added to queue. Click "Execute All" to apply.`,
+                        });
+                      }}
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Review & Add Negatives
+                    </Button>
+                  </div>
+                  <p className="text-sm text-red-800 font-semibold">
+                    Save ~${performanceMetrics.monthlySavings.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}/month
+                  </p>
+                </div>
+              )}
+              
+              {(analysisData.convertingClusters?.length > 0) && (
+                <div className="p-6 bg-green-50 border-2 border-green-200 rounded-lg">
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <h4 className="font-semibold text-green-900 text-lg">🚀 Scale Winners</h4>
+                      <p className="text-sm text-green-700">
+                        Add {analysisData.convertingClusters.reduce((sum: number, cluster: any) => 
+                          sum + (cluster.exampleTerms?.length || 0), 0)} positive keywords
+                      </p>
+                    </div>
+                    <Button 
+                      variant="default" 
+                      size="lg"
+                      disabled={!selectedAccount}
+                      onClick={prepareScalingKeywords}
+                      className="bg-green-600 hover:bg-green-700"
+                    >
+                      <TrendingUp className="h-4 w-4 mr-2" />
+                      Scale Now
+                    </Button>
+                  </div>
+                  <p className="text-sm text-green-800 font-semibold">
+                    Potential +{(analysisData.convertingClusters.reduce((sum: number, cluster: any) => 
+                      sum + (cluster.exampleTerms?.length || 0), 0) * 15)}% more conversions
+                  </p>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Auto-Execution Settings */}
       <Card>
         <CardHeader>

@@ -163,10 +163,9 @@ export const PowerAuditPanel = ({ selectedAccount }: PowerAuditPanelProps) => {
 
         {auditResults && (
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-7">
+            <TabsList className="grid w-full grid-cols-6">
               <TabsTrigger value="health">Health Score</TabsTrigger>
               <TabsTrigger value="campaigns">Campaigns</TabsTrigger>
-              <TabsTrigger value="search-terms">Search Terms</TabsTrigger>
               <TabsTrigger value="keywords">Keywords</TabsTrigger>
               <TabsTrigger value="budget">Budget & Pacing</TabsTrigger>
               <TabsTrigger value="issues">Issues</TabsTrigger>
@@ -179,15 +178,6 @@ export const PowerAuditPanel = ({ selectedAccount }: PowerAuditPanelProps) => {
 
             <TabsContent value="campaigns" className="space-y-4">
               <CampaignsTab campaigns={auditResults.campaigns} />
-            </TabsContent>
-
-            <TabsContent value="search-terms" className="space-y-4">
-              <SearchTermsTab 
-                searchTermsAnalysis={auditResults.search_terms_analysis} 
-                selectedAccount={selectedAccount}
-                supabase={supabase}
-                onRefreshAudit={runAudit}
-              />
             </TabsContent>
 
             <TabsContent value="keywords" className="space-y-4">
