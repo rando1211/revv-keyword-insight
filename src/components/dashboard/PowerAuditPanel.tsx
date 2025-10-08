@@ -1670,14 +1670,25 @@ const IssuesTab = ({ issues, toast, selectedAccount, onUpdateAfterFix, onRefresh
       relatedIssues: []
     };
     
-    // Tracking & Conversions checks - fail if high spend with no conversions
+    // Tracking & Conversions checks - should NOT include keyword waste issues
+    // Exclude issues about keywords/search terms from conversion tracking checks
+    const findConversionTrackingIssues = (keywords: string[]) => {
+      return issuesList.filter((issue: any) => {
+        const text = `${issue.summary || ''} ${issue.why?.[0] || ''} ${issue.recommended_action || ''}`.toLowerCase();
+        const matchesKeywords = keywords.some(kw => text.includes(kw));
+        // Exclude if it's actually a keyword/search term issue
+        const isKeywordIssue = text.includes('keyword') || text.includes('search term') || text.includes('wasteful');
+        return matchesKeywords && !isKeywordIssue;
+      });
+    };
+    
     results['conversion_actions'] = { 
       passed: !hasHighSpendNoConversions,
-      relatedIssues: findRelatedIssues(['no conversions', 'conversion'])
+      relatedIssues: findConversionTrackingIssues(['conversion action', 'tracking setup', 'conversion tracking'])
     };
     results['conversion_tracking'] = { 
       passed: !hasHighSpendNoConversions,
-      relatedIssues: findRelatedIssues(['tracking', 'conversion'])
+      relatedIssues: findConversionTrackingIssues(['tag manager', 'tracking tag', 'pixel', 'tracking setup'])
     };
     results['no_duplicate_conversions'] = { 
       passed: !hasHighSpendNoConversions,
