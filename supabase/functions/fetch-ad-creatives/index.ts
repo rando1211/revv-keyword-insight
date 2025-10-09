@@ -185,7 +185,8 @@ serve(async (req) => {
         ad_group_ad.policy_summary.approval_status,
         metrics.impressions, metrics.clicks, metrics.cost_micros,
         metrics.conversions, metrics.ctr, metrics.conversions_from_interactions_rate,
-        segments.date
+        segments.date,
+        segments.week
       FROM ad_group_ad
       WHERE campaign.advertising_channel_type = SEARCH
         AND ad_group_ad.ad.type = RESPONSIVE_SEARCH_AD
@@ -193,7 +194,7 @@ serve(async (req) => {
         ${dateFilter}
         ${campaignFilter}
       ORDER BY metrics.impressions DESC
-      LIMIT 50
+      LIMIT 200
     `;
 
     console.log('📋 Ad Query:', adQuery);
@@ -253,13 +254,15 @@ serve(async (req) => {
     const results = apiData.results || [];
     console.log(`✅ API returned ${results.length} results`);
     
-    // Deduplicate and aggregate ads by adId (since segments.date creates one row per day)
+    // Deduplicate and aggregate ads by adId + week
     const adMap = new Map();
+    const adWeeklyData = new Map(); // Track weekly trends
     
     for (const row of results) {
       const adId = row.adGroupAd?.ad?.id?.toString();
       if (!adId) continue;
       
+      // Aggregate total metrics
       if (!adMap.has(adId)) {
         adMap.set(adId, {
           ...row,
@@ -270,26 +273,62 @@ serve(async (req) => {
             conversions: 0,
             ctr: 0,
             conversionsFromInteractionsRate: 0,
-          }
+          },
+          firstSeen: row.segments?.date || null
         });
       }
       
-      // Aggregate metrics
       const ad = adMap.get(adId);
       ad.metrics.impressions += row.metrics?.impressions || 0;
       ad.metrics.clicks += row.metrics?.clicks || 0;
       ad.metrics.costMicros += row.metrics?.costMicros || 0;
       ad.metrics.conversions += row.metrics?.conversions || 0;
+      
+      // Track first appearance date (earliest date segment)
+      if (row.segments?.date && (!ad.firstSeen || row.segments.date < ad.firstSeen)) {
+        ad.firstSeen = row.segments.date;
+      }
+      
+      // Track weekly trends
+      const week = row.segments?.week;
+      if (week) {
+        const weekKey = `${adId}_${week}`;
+        if (!adWeeklyData.has(weekKey)) {
+          adWeeklyData.set(weekKey, {
+            adId,
+            week,
+            impr: 0,
+            clicks: 0,
+            ctr: 0
+          });
+        }
+        const weekData = adWeeklyData.get(weekKey);
+        weekData.impr += row.metrics?.impressions || 0;
+        weekData.clicks += row.metrics?.clicks || 0;
+      }
     }
     
-    // Recalculate derived metrics
-    for (const ad of adMap.values()) {
+    // Calculate CTR for weekly data
+    for (const weekData of adWeeklyData.values()) {
+      if (weekData.impr > 0) {
+        weekData.ctr = weekData.clicks / weekData.impr;
+      }
+    }
+    
+    // Recalculate derived metrics and attach weekly trends
+    for (const [adId, ad] of adMap.entries()) {
       if (ad.metrics.impressions > 0) {
         ad.metrics.ctr = ad.metrics.clicks / ad.metrics.impressions;
       }
       if (ad.metrics.clicks > 0) {
         ad.metrics.conversionsFromInteractionsRate = ad.metrics.conversions / ad.metrics.clicks;
       }
+      
+      // Attach weekly trends sorted by week
+      const weeks = Array.from(adWeeklyData.values())
+        .filter(w => w.adId === adId)
+        .sort((a, b) => a.week.localeCompare(b.week));
+      ad.weeklyTrends = weeks;
     }
     
     const deduplicatedResults = Array.from(adMap.values());
@@ -440,6 +479,16 @@ serve(async (req) => {
             });
           }
 
+          // Calculate lastEditDate (approximate: first seen date as proxy)
+          const firstSeen = result.firstSeen;
+          const daysSinceFirstSeen = firstSeen 
+            ? Math.floor((Date.now() - new Date(firstSeen).getTime()) / (1000 * 60 * 60 * 24))
+            : 0;
+          
+          // For daysSinceLastVariant, we'd need change_event data or asset history
+          // Approximation: if ad has been live >60 days, assume no recent variants
+          const daysSinceLastVariant = daysSinceFirstSeen;
+
           // Build structured ad object
           adsStructured.push({
             adId: ad.id,
@@ -457,7 +506,11 @@ serve(async (req) => {
               ctr: parseFloat(metrics?.ctr || '0'),
               conversions: parseFloat(metrics?.conversions || '0'),
               cost: (parseInt(metrics?.costMicros || '0')) / 1000000
-            }
+            },
+            // NEW: Advanced audit fields
+            lastEditDate: firstSeen, // Approximate
+            daysSinceLastVariant, // Approximate
+            weeklyTrends: result.weeklyTrends || []
           });
         }
       }
