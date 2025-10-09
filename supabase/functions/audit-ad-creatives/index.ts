@@ -585,17 +585,25 @@ function buildChangeSet(ad: Ad, findings: Finding[], context: any): Change[] {
         break;
 
       case 'PERF-CTR-001':
-        // Propose minor rewrite: add 2 fresh headline variants
-        changes.push({
-          op: 'ADD_ASSET',
-          type: 'HEADLINE',
-          text: variantFromTopNgrams(context, 'HEADLINE')
-        });
-        changes.push({
-          op: 'ADD_ASSET',
-          type: 'HEADLINE',
-          text: variantFromTopNgrams(context, 'HEADLINE')
-        });
+        // Propose minor rewrite: add 2 fresh headline variants (under 30 chars)
+        const variant1 = variantFromTopNgrams(context, 'HEADLINE');
+        const variant2 = variantFromTopNgrams(context, 'HEADLINE');
+        
+        // Only add if they're actually under the limit and unique
+        if (variant1.length <= 30) {
+          changes.push({
+            op: 'ADD_ASSET',
+            type: 'HEADLINE',
+            text: variant1
+          });
+        }
+        if (variant2.length <= 30 && variant2 !== variant1) {
+          changes.push({
+            op: 'ADD_ASSET',
+            type: 'HEADLINE',
+            text: variant2
+          });
+        }
         break;
 
       case 'PERF-WASTE-001':
@@ -744,11 +752,17 @@ function normalizeCase(text: string, type: 'HEADLINE' | 'DESCRIPTION'): string {
 }
 
 function variantFromTopNgrams(context: any, type: 'HEADLINE' | 'DESCRIPTION'): string {
+  const maxLen = type === 'HEADLINE' ? 30 : 90;
+  
   const templates = type === 'HEADLINE' ? [
     'Shop {keyword} Today',
     'Get Your {keyword} Now',
     '{keyword} - Best Prices',
-    'Quality {keyword} Available'
+    'Quality {keyword}',
+    'Buy {keyword} Now',
+    '{keyword} Available',
+    '{keyword} - Shop Now',
+    'Get {keyword} Today'
   ] : [
     'Discover our {keyword} selection. Shop now and save.',
     'Get the best {keyword} deals. Free shipping available.',
@@ -756,8 +770,18 @@ function variantFromTopNgrams(context: any, type: 'HEADLINE' | 'DESCRIPTION'): s
   ];
   
   const keyword = context.keywords?.[0] || context.topQueries?.[0] || 'Product';
-  const template = templates[Math.floor(Math.random() * templates.length)];
-  return template.replace('{keyword}', keyword);
+  
+  // Try each template in random order until one fits
+  const shuffled = templates.sort(() => Math.random() - 0.5);
+  for (const template of shuffled) {
+    const result = template.replace('{keyword}', keyword);
+    if (result.length <= maxLen) {
+      return result;
+    }
+  }
+  
+  // If keyword is too long, create a fallback that definitely fits
+  return type === 'HEADLINE' ? 'Shop Now' : 'Contact us for more information.';
 }
 
 function suggestPaths(context: any): string[] {
@@ -831,16 +855,26 @@ function injectQueryBenefitCTA(ad: Ad, context: any): Change[] {
   
   if (context.topQueries?.length > 0 && headlines.length < 12) {
     const query = context.topQueries[0];
-    changes.push({
-      op: 'ADD_ASSET',
-      type: 'HEADLINE',
-      text: `${query} - Shop Now`
-    });
-    changes.push({
-      op: 'ADD_ASSET',
-      type: 'HEADLINE',
-      text: `Get Your ${query} Today`
-    });
+    
+    // Build templates and check they fit
+    const template1 = `${query} - Shop Now`;
+    const template2 = `Get Your ${query} Today`;
+    const template3 = `${query} Available`;
+    const template4 = `Buy ${query} Now`;
+    
+    // Add first valid headline
+    if (template1.length <= 30) {
+      changes.push({ op: 'ADD_ASSET', type: 'HEADLINE', text: template1 });
+    } else if (template3.length <= 30) {
+      changes.push({ op: 'ADD_ASSET', type: 'HEADLINE', text: template3 });
+    }
+    
+    // Add second valid headline
+    if (template2.length <= 30 && template2 !== template1) {
+      changes.push({ op: 'ADD_ASSET', type: 'HEADLINE', text: template2 });
+    } else if (template4.length <= 30) {
+      changes.push({ op: 'ADD_ASSET', type: 'HEADLINE', text: template4 });
+    }
   }
   
   return changes;
