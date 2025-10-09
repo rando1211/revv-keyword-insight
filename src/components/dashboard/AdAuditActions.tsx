@@ -110,6 +110,7 @@ export const AdAuditActions = ({ ad, finding, changeSet, customerId, onExecute }
       onExecute?.();
 
     } catch (error) {
+      // Don't call onExecute on error to prevent refresh loop
       console.error('Execute error:', error);
       toast({
         title: "Execution failed",
