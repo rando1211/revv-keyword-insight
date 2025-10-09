@@ -250,12 +250,46 @@ serve(async (req) => {
       .select('customer_id, manager_customer_id, is_manager')
       .eq('user_id', userId);
 
-    let loginCustomerId = cleanCustomerId;
+    // Determine correct login-customer-id (manager) for managed accounts
+    let loginCustomerId: string | undefined = undefined;
+
     if (hierarchy && hierarchy.length > 0) {
-      const account = hierarchy.find(h => h.customer_id === cleanCustomerId);
+      const account = hierarchy.find((h: any) => h.customer_id === cleanCustomerId);
       if (account?.manager_customer_id) {
         loginCustomerId = account.manager_customer_id;
+        console.log(`✅ Using hierarchy manager ${loginCustomerId} for ${cleanCustomerId}`);
       }
+    }
+
+    // Known MCC mappings from runtime discovery (see get-login-customer-id function)
+    if (!loginCustomerId) {
+      const knownMCCMappings: Record<string, string> = {
+        '9918849848': '9301596383',
+      };
+      if (knownMCCMappings[cleanCustomerId]) {
+        loginCustomerId = knownMCCMappings[cleanCustomerId];
+        console.log(`🔍 Using known MCC mapping: ${cleanCustomerId} -> ${loginCustomerId}`);
+      }
+    }
+
+    // Try user's primary customer as manager if available
+    if (!loginCustomerId) {
+      const { data: userCreds } = await supabaseClient
+        .from('user_google_ads_credentials')
+        .select('customer_id')
+        .eq('user_id', userId)
+        .maybeSingle();
+      const primaryId = userCreds?.customer_id?.replace(/-/g, '');
+      if (primaryId && primaryId !== cleanCustomerId) {
+        loginCustomerId = primaryId;
+        console.log(`🔍 Falling back to primary customer as manager: ${loginCustomerId}`);
+      }
+    }
+
+    // Final hardcoded fallback MCC that we know manages many sub-accounts
+    if (!loginCustomerId && cleanCustomerId !== '9301596383') {
+      loginCustomerId = '9301596383';
+      console.log('🔍 Using fallback MCC 9301596383');
     }
 
     // Execute changes
