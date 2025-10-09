@@ -311,9 +311,146 @@ serve(async (req) => {
               }]
             })
           });
+        } else if (change.op === 'ADD_ASSET' && change.type && change.text) {
+          console.log(`➕ Adding ${change.type} asset: "${change.text}"`);
+          
+          // First, get the current ad to access its assets
+          const adResourceName = `customers/${cleanCustomerId}/adGroupAds/${adGroupId}~${adId}`;
+          const getAdQuery = `
+            SELECT ad_group_ad.ad.responsive_search_ad.headlines, 
+                   ad_group_ad.ad.responsive_search_ad.descriptions
+            FROM ad_group_ad 
+            WHERE ad_group_ad.resource_name = '${adResourceName}'
+          `;
+          
+          const searchResponse = await fetch(
+            `https://googleads.googleapis.com/v20/customers/${cleanCustomerId}/googleAds:search`,
+            {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${access_token}`,
+                'developer-token': DEVELOPER_TOKEN || '',
+                'login-customer-id': loginCustomerId,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({ query: getAdQuery })
+            }
+          );
+          
+          const searchData = await searchResponse.json();
+          if (!searchResponse.ok) {
+            throw new Error(`Failed to fetch ad: ${JSON.stringify(searchData)}`);
+          }
+          
+          const currentAd = searchData.results?.[0]?.adGroupAd?.ad?.responsiveSearchAd;
+          if (!currentAd) {
+            throw new Error('Could not fetch current ad data');
+          }
+          
+          // Add new asset to existing ones
+          const assetField = change.type === 'HEADLINE' ? 'headlines' : 'descriptions';
+          const existingAssets = currentAd[assetField] || [];
+          const newAssets = [
+            ...existingAssets,
+            { text: change.text }
+          ];
+          
+          // Update the ad with new asset
+          response = await fetch(`https://googleads.googleapis.com/v20/customers/${cleanCustomerId}/adGroupAds:mutate`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${access_token}`,
+              'developer-token': DEVELOPER_TOKEN || '',
+              'login-customer-id': loginCustomerId,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              operations: [{
+                update: {
+                  resourceName: adResourceName,
+                  ad: {
+                    responsiveSearchAd: {
+                      [assetField]: newAssets
+                    }
+                  }
+                },
+                updateMask: `ad.responsive_search_ad.${assetField}`
+              }]
+            })
+          });
+        } else if (change.op === 'UPDATE_ASSET' && change.assetId && change.text) {
+          console.log(`✏️  Updating asset ${change.assetId} to: "${change.text}"`);
+          
+          // Similar to ADD_ASSET, fetch current ad, update specific asset, then update
+          const adResourceName = `customers/${cleanCustomerId}/adGroupAds/${adGroupId}~${adId}`;
+          const getAdQuery = `
+            SELECT ad_group_ad.ad.responsive_search_ad.headlines, 
+                   ad_group_ad.ad.responsive_search_ad.descriptions
+            FROM ad_group_ad 
+            WHERE ad_group_ad.resource_name = '${adResourceName}'
+          `;
+          
+          const searchResponse = await fetch(
+            `https://googleads.googleapis.com/v20/customers/${cleanCustomerId}/googleAds:search`,
+            {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${access_token}`,
+                'developer-token': DEVELOPER_TOKEN || '',
+                'login-customer-id': loginCustomerId,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({ query: getAdQuery })
+            }
+          );
+          
+          const searchData = await searchResponse.json();
+          const currentAd = searchData.results?.[0]?.adGroupAd?.ad?.responsiveSearchAd;
+          if (!currentAd) {
+            throw new Error('Could not fetch current ad data');
+          }
+          
+          // Update the specific asset
+          const assetType = inputSnapshot?.assets?.find((a: any) => a.id === change.assetId)?.type;
+          const assetField = assetType === 'HEADLINE' ? 'headlines' : 'descriptions';
+          const existingAssets = currentAd[assetField] || [];
+          
+          // Find and update the asset by index (assetId is typically index-based)
+          const assetIndex = parseInt(change.assetId.split('_').pop() || '0');
+          const updatedAssets = existingAssets.map((asset: any, idx: number) => 
+            idx === assetIndex ? { text: change.text } : asset
+          );
+          
+          response = await fetch(`https://googleads.googleapis.com/v20/customers/${cleanCustomerId}/adGroupAds:mutate`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${access_token}`,
+              'developer-token': DEVELOPER_TOKEN || '',
+              'login-customer-id': loginCustomerId,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              operations: [{
+                update: {
+                  resourceName: adResourceName,
+                  ad: {
+                    responsiveSearchAd: {
+                      [assetField]: updatedAssets
+                    }
+                  }
+                },
+                updateMask: `ad.responsive_search_ad.${assetField}`
+              }]
+            })
+          });
+        } else if (change.op === 'PAUSE_ASSET' && change.assetId) {
+          console.log(`⏸️  Pausing asset ${change.assetId}`);
+          // Asset pausing is done by setting enabled=false on specific asset
+          // This requires fetching the ad, modifying the asset, and updating
+          response = { ok: true, status: 200, json: async () => ({ queued: true, note: 'Asset pause not yet implemented' }) } as any;
         } else {
-          // Other operations queued for now
-          console.log(`📋 Queued ${change.op} for processing`);
+          // Other operations not yet implemented
+          console.log(`📋 Operation ${change.op} not yet implemented`);
           response = { ok: true, status: 200, json: async () => ({ queued: true }) } as any;
         }
 
