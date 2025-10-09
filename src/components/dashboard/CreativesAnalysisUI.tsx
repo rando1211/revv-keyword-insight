@@ -1137,8 +1137,8 @@ const findingChanges = auditResults.changeSet.filter(
                       <div key={idx} className="p-3 bg-muted/50 rounded-lg text-sm">
                         <div className="font-medium">{change.op.replace(/_/g, ' ')}</div>
                         <div className="text-muted-foreground">
-                          {change.text && `"${change.text.substring(0, 60)}${change.text.length > 60 ? '...' : ''}"`}
-                          {change.paths && `Paths: ${change.paths.join(', ')}`}
+                          {typeof change.text === 'string' && `"${change.text.substring(0, 60)}${change.text.length > 60 ? '...' : ''}"`}
+                          {Array.isArray(change.paths) && `Paths: ${change.paths.join(', ')}`}
                         </div>
                       </div>
                     ))}

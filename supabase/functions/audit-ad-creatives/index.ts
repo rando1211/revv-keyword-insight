@@ -846,7 +846,8 @@ for (const finding of findings) {
               changes.push({
                 op: 'ADD_ASSET',
                 type: asset.type,
-                text: v
+                text: v.text,
+                explanation: v.explanation
               });
             }
           }
@@ -875,14 +876,16 @@ for (const finding of findings) {
           changes.push({
             op: 'ADD_ASSET',
             type: 'HEADLINE',
-            text: variant1
+            text: variant1.text,
+            explanation: variant1.explanation
           });
         }
-        if (variant2 && variant2 !== variant1) {
+        if (variant2 && (!variant1 || variant2.text !== variant1.text)) {
           changes.push({
             op: 'ADD_ASSET',
             type: 'HEADLINE',
-            text: variant2
+            text: variant2.text,
+            explanation: variant2.explanation
           });
         }
         break;
