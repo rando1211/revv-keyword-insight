@@ -585,19 +585,19 @@ function buildChangeSet(ad: Ad, findings: Finding[], context: any): Change[] {
         break;
 
       case 'PERF-CTR-001':
-        // Propose minor rewrite: add 2 fresh headline variants (under 30 chars)
-        const variant1 = variantFromTopNgrams(context, 'HEADLINE');
-        const variant2 = variantFromTopNgrams(context, 'HEADLINE');
+        // Propose minor rewrite: add 2 fresh headline variants (under 30 chars, non-duplicate)
+        const variant1 = variantFromTopNgrams(context, ad, 'HEADLINE');
+        const variant2 = variantFromTopNgrams(context, ad, 'HEADLINE');
         
-        // Only add if they're actually under the limit and unique
-        if (variant1.length <= 30) {
+        // Only add if they were successfully generated (unique + valid length)
+        if (variant1) {
           changes.push({
             op: 'ADD_ASSET',
             type: 'HEADLINE',
             text: variant1
           });
         }
-        if (variant2.length <= 30 && variant2 !== variant1) {
+        if (variant2 && variant2 !== variant1) {
           changes.push({
             op: 'ADD_ASSET',
             type: 'HEADLINE',
@@ -751,7 +751,15 @@ function normalizeCase(text: string, type: 'HEADLINE' | 'DESCRIPTION'): string {
   return text;
 }
 
-function variantFromTopNgrams(context: any, type: 'HEADLINE' | 'DESCRIPTION'): string {
+// Helper: Check if headline/description already exists in ad
+function isDuplicate(text: string, ad: Ad, type: 'HEADLINE' | 'DESCRIPTION'): boolean {
+  const existingTexts = ad.assets
+    .filter(a => a.type === type)
+    .map(a => a.text.toLowerCase().trim());
+  return existingTexts.includes(text.toLowerCase().trim());
+}
+
+function variantFromTopNgrams(context: any, ad: Ad, type: 'HEADLINE' | 'DESCRIPTION'): string | null {
   const maxLen = type === 'HEADLINE' ? 30 : 90;
   
   const templates = type === 'HEADLINE' ? [
@@ -762,26 +770,34 @@ function variantFromTopNgrams(context: any, type: 'HEADLINE' | 'DESCRIPTION'): s
     'Buy {keyword} Now',
     '{keyword} Available',
     '{keyword} - Shop Now',
-    'Get {keyword} Today'
+    'Get {keyword} Today',
+    'Premium {keyword}',
+    '{keyword} Sale',
+    'Top {keyword} Deals',
+    'Save on {keyword}',
+    'Affordable {keyword}',
+    'Best {keyword} Prices'
   ] : [
     'Discover our {keyword} selection. Shop now and save.',
     'Get the best {keyword} deals. Free shipping available.',
-    'Quality {keyword} with expert service. Order today.'
+    'Quality {keyword} with expert service. Order today.',
+    'Find your perfect {keyword}. Browse our collection.',
+    'Shop trusted {keyword} brands. Fast delivery available.'
   ];
   
   const keyword = context.keywords?.[0] || context.topQueries?.[0] || 'Product';
   
-  // Try each template in random order until one fits
+  // Try each template in random order until one fits and is unique
   const shuffled = templates.sort(() => Math.random() - 0.5);
   for (const template of shuffled) {
     const result = template.replace('{keyword}', keyword);
-    if (result.length <= maxLen) {
+    if (result.length <= maxLen && !isDuplicate(result, ad, type)) {
       return result;
     }
   }
   
-  // If keyword is too long, create a fallback that definitely fits
-  return type === 'HEADLINE' ? 'Shop Now' : 'Contact us for more information.';
+  // No unique template found within length constraints
+  return null;
 }
 
 function suggestPaths(context: any): string[] {
@@ -827,22 +843,28 @@ function addMissingAssets(ad: Ad, context: any): Change[] {
   if (headlines.length < 8) {
     const needed = Math.min(3, 10 - headlines.length);
     for (let i = 0; i < needed; i++) {
-      changes.push({
-        op: 'ADD_ASSET',
-        type: 'HEADLINE',
-        text: variantFromTopNgrams(context, 'HEADLINE')
-      });
+      const headline = variantFromTopNgrams(context, ad, 'HEADLINE');
+      if (headline) {
+        changes.push({
+          op: 'ADD_ASSET',
+          type: 'HEADLINE',
+          text: headline
+        });
+      }
     }
   }
   
   if (descriptions.length < 3) {
     const needed = Math.min(2, 4 - descriptions.length);
     for (let i = 0; i < needed; i++) {
-      changes.push({
-        op: 'ADD_ASSET',
-        type: 'DESCRIPTION',
-        text: variantFromTopNgrams(context, 'DESCRIPTION')
-      });
+      const description = variantFromTopNgrams(context, ad, 'DESCRIPTION');
+      if (description) {
+        changes.push({
+          op: 'ADD_ASSET',
+          type: 'DESCRIPTION',
+          text: description
+        });
+      }
     }
   }
   
@@ -856,23 +878,23 @@ function injectQueryBenefitCTA(ad: Ad, context: any): Change[] {
   if (context.topQueries?.length > 0 && headlines.length < 12) {
     const query = context.topQueries[0];
     
-    // Build templates and check they fit
+    // Build templates and check they fit + are unique
     const template1 = `${query} - Shop Now`;
     const template2 = `Get Your ${query} Today`;
     const template3 = `${query} Available`;
     const template4 = `Buy ${query} Now`;
     
-    // Add first valid headline
-    if (template1.length <= 30) {
+    // Add first valid, unique headline
+    if (template1.length <= 30 && !isDuplicate(template1, ad, 'HEADLINE')) {
       changes.push({ op: 'ADD_ASSET', type: 'HEADLINE', text: template1 });
-    } else if (template3.length <= 30) {
+    } else if (template3.length <= 30 && !isDuplicate(template3, ad, 'HEADLINE')) {
       changes.push({ op: 'ADD_ASSET', type: 'HEADLINE', text: template3 });
     }
     
-    // Add second valid headline
-    if (template2.length <= 30 && template2 !== template1) {
+    // Add second valid, unique headline
+    if (template2.length <= 30 && template2 !== template1 && !isDuplicate(template2, ad, 'HEADLINE')) {
       changes.push({ op: 'ADD_ASSET', type: 'HEADLINE', text: template2 });
-    } else if (template4.length <= 30) {
+    } else if (template4.length <= 30 && !isDuplicate(template4, ad, 'HEADLINE')) {
       changes.push({ op: 'ADD_ASSET', type: 'HEADLINE', text: template4 });
     }
   }
