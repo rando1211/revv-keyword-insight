@@ -85,18 +85,6 @@ export const AdAuditActions = ({ ad, finding, changeSet, customerId, onExecute }
 
       if (error) throw error;
 
-      // Handle cooldown (live execution)
-      if (data && !data.success && data.cooldownActive) {
-        toast({
-          title: "⏰ Cooldown active",
-          description: data.message || "Please wait before applying another structural edit.",
-          variant: "destructive",
-        });
-        setValidationErrors(data.validationErrors || []);
-        setPreviewData(data);
-        return;
-      }
-
       // Handle validation blockers gracefully
       if (data.blockers && data.blockers.length > 0) {
         toast({
