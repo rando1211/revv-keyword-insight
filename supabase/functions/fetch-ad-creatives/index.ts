@@ -192,7 +192,9 @@ serve(async (req) => {
       FROM ad_group_ad
       WHERE campaign.advertising_channel_type = SEARCH
         AND ad_group_ad.ad.type = RESPONSIVE_SEARCH_AD
-        AND ad_group_ad.status != REMOVED
+        AND campaign.status = 'ENABLED'
+        AND ad_group.status = 'ENABLED'
+        AND ad_group_ad.status = 'ENABLED'
         ${dateFilter}
         ${campaignFilter}
       ORDER BY metrics.impressions DESC
