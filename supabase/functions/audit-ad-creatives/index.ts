@@ -47,7 +47,101 @@ interface Change {
   paths?: string[];
   slot?: string;
   rule?: string; // originating rule code
+  explanation?: string; // plain English explanation of why this change is needed
 }
+
+// Query classification and canonicalization
+type QueryType = 'PRODUCT' | 'SERVICE' | 'PROBLEM/CONDITION' | 'BRAND/MODEL' | 'LOCATION' | 'INFO';
+
+interface QueryClassification {
+  type: QueryType;
+  originalObject: string;
+  canonicalObject: string;
+  canonicalizationReason?: string;
+}
+
+interface VerticalRules {
+  vertical: string;
+  allowedVerbs: string[];
+  forbiddenPairs: Array<{ verb: string; objectPattern: RegExp; reason: string }>;
+  problemToSolutionMap: Record<string, string>;
+  bannedPhrases: Array<{ pattern: RegExp; reason: string }>;
+}
+
+// Vertical-specific rules configuration
+const VERTICAL_RULES: VerticalRules[] = [
+  {
+    vertical: 'healthcare',
+    allowedVerbs: ['Book', 'Schedule', 'Get', 'Find', 'Learn About', 'Discover', 'Consult'],
+    forbiddenPairs: [
+      { verb: 'Buy', objectPattern: /ED|erectile|dysfunction|treatment|medication/i, reason: 'Cannot sell prescription medication directly' },
+      { verb: 'Order', objectPattern: /prescription|medication|drug/i, reason: 'Prescription drugs require medical consultation' },
+      { verb: 'Purchase', objectPattern: /diagnosis|treatment/i, reason: 'Medical services cannot be purchased like products' }
+    ],
+    problemToSolutionMap: {
+      'erectile dysfunction': 'ED Treatment Consultation',
+      'ed': 'ED Treatment Consultation',
+      'hair loss': 'Hair Restoration Services',
+      'balding': 'Hair Restoration Services',
+      'weight issues': 'Weight Management Program',
+      'obesity': 'Weight Management Program',
+      'anxiety': 'Mental Health Support',
+      'depression': 'Mental Health Support'
+    },
+    bannedPhrases: [
+      { pattern: /guarantee|guaranteed|100%/i, reason: 'Medical outcome guarantees not allowed' },
+      { pattern: /cure|cures/i, reason: 'Cannot claim to cure medical conditions' },
+      { pattern: /best\s+(?:doctor|treatment|medication)/i, reason: 'Superlative medical claims restricted' }
+    ]
+  },
+  {
+    vertical: 'legal',
+    allowedVerbs: ['Consult', 'Contact', 'Get Help', 'Free Consultation', 'Speak With', 'Find'],
+    forbiddenPairs: [
+      { verb: 'Buy', objectPattern: /lawyer|attorney|legal/i, reason: 'Legal services are consultations, not purchases' },
+      { verb: 'Win', objectPattern: /case|lawsuit/i, reason: 'Cannot guarantee legal outcomes' }
+    ],
+    problemToSolutionMap: {
+      'accident': 'Accident Injury Legal Help',
+      'injury': 'Personal Injury Consultation',
+      'divorce': 'Family Law Consultation',
+      'dui': 'DUI Defense Representation',
+      'bankruptcy': 'Bankruptcy Legal Services'
+    },
+    bannedPhrases: [
+      { pattern: /win\s+your\s+case|guaranteed\s+win/i, reason: 'Cannot guarantee legal outcomes' },
+      { pattern: /best\s+lawyer|top\s+attorney/i, reason: 'Superlative claims restricted without proof' }
+    ]
+  },
+  {
+    vertical: 'home-services',
+    allowedVerbs: ['Schedule', 'Book', 'Get', 'Request', 'Fix', 'Repair', 'Install', 'Replace'],
+    forbiddenPairs: [],
+    problemToSolutionMap: {
+      'roof leak': 'Roof Repair',
+      'leaking roof': 'Roof Repair',
+      'clogged drain': 'Drain Cleaning',
+      'broken ac': 'AC Repair',
+      'ac not working': 'AC Repair',
+      'no heat': 'Heating Repair',
+      'furnace broken': 'Heating Repair'
+    },
+    bannedPhrases: [
+      { pattern: /cheapest|lowest\s+price/i, reason: 'Price superlatives may violate policy' },
+      { pattern: /guaranteed\s+lowest/i, reason: 'Unverifiable guarantee claims' }
+    ]
+  },
+  {
+    vertical: 'ecommerce',
+    allowedVerbs: ['Shop', 'Buy', 'Order', 'Get', 'Browse', 'Discover', 'Save On', 'Find'],
+    forbiddenPairs: [],
+    problemToSolutionMap: {},
+    bannedPhrases: [
+      { pattern: /free\s+money|get\s+rich/i, reason: 'Misleading financial claims' },
+      { pattern: /miracle|miraculous/i, reason: 'Unverifiable product claims' }
+    ]
+  }
+];
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -55,7 +149,7 @@ serve(async (req) => {
   }
 
   try {
-    const { ads, adGroupStats, topQueries, keywords } = await req.json();
+    const { ads, adGroupStats, topQueries, keywords, vertical } = await req.json();
     
     if (!ads || ads.length === 0) {
       return new Response(JSON.stringify({
@@ -73,10 +167,16 @@ serve(async (req) => {
     const allScores: any[] = [];
     const allChanges: any[] = [];
 
+    // Detect vertical from first keyword or default to ecommerce
+    const detectedVertical = vertical || detectVertical(keywords || [], topQueries || []);
+    const verticalRules = VERTICAL_RULES.find(v => v.vertical === detectedVertical) || VERTICAL_RULES[3];
+    
+    console.log(`📊 Using vertical rules: ${verticalRules.vertical}`);
+
     for (const ad of ads) {
-      const findings = auditAd(ad, adGroupStats, topQueries || [], keywords || []);
+      const findings = auditAd(ad, adGroupStats, topQueries || [], keywords || [], verticalRules);
       const score = calculateAdScore(ad, findings);
-      const changes = buildChangeSet(ad, findings, { topQueries, keywords, adGroupStats });
+      const changes = buildChangeSet(ad, findings, { topQueries, keywords, adGroupStats, verticalRules });
 
       allFindings.push({ adId: ad.adId, findings });
       allScores.push({ adId: ad.adId, ...score });
@@ -113,6 +213,88 @@ serve(async (req) => {
   }
 });
 
+// === QUERY CLASSIFICATION & CANONICALIZATION ===
+
+function classifyQuery(query: string, verticalRules: VerticalRules): QueryClassification {
+  const lowerQuery = query.toLowerCase();
+  
+  // Check if it's a problem/condition that needs canonicalization
+  for (const [problem, solution] of Object.entries(verticalRules.problemToSolutionMap)) {
+    if (lowerQuery.includes(problem.toLowerCase())) {
+      return {
+        type: 'PROBLEM/CONDITION',
+        originalObject: problem,
+        canonicalObject: solution,
+        canonicalizationReason: `Converted problem "${problem}" to service "${solution}" for policy compliance`
+      };
+    }
+  }
+  
+  // Classify by patterns
+  if (/\b(near me|in [a-z\s]+|[a-z\s]+ area)\b/i.test(query)) {
+    return { type: 'LOCATION', originalObject: query, canonicalObject: query };
+  }
+  
+  if (/\bhow|what|when|where|why|guide|tips\b/i.test(query)) {
+    return { type: 'INFO', originalObject: query, canonicalObject: query };
+  }
+  
+  if (/\b(consultation|service|repair|treatment|help)\b/i.test(query)) {
+    return { type: 'SERVICE', originalObject: query, canonicalObject: query };
+  }
+  
+  if (/\b(brand|model|\w+\s+\d{3,})\b/i.test(query)) {
+    return { type: 'BRAND/MODEL', originalObject: query, canonicalObject: query };
+  }
+  
+  // Default to PRODUCT
+  return { type: 'PRODUCT', originalObject: query, canonicalObject: query };
+}
+
+function detectVertical(keywords: string[], topQueries: string[]): string {
+  const allText = [...keywords, ...topQueries].join(' ').toLowerCase();
+  
+  if (/\b(ed|erectile|hair loss|weight loss|treatment|medication|doctor|health)\b/.test(allText)) {
+    return 'healthcare';
+  }
+  if (/\b(lawyer|attorney|legal|lawsuit|injury|accident|divorce|dui)\b/.test(allText)) {
+    return 'legal';
+  }
+  if (/\b(roof|plumbing|hvac|repair|ac|heating|drain|install)\b/.test(allText)) {
+    return 'home-services';
+  }
+  
+  return 'ecommerce';
+}
+
+function validateVerbObjectPair(verb: string, object: string, verticalRules: VerticalRules): { valid: boolean; reason?: string } {
+  // Check if verb is allowed
+  if (!verticalRules.allowedVerbs.some(v => v.toLowerCase() === verb.toLowerCase())) {
+    return { valid: false, reason: `Verb "${verb}" not in allowed list for ${verticalRules.vertical}` };
+  }
+  
+  // Check forbidden pairs
+  for (const pair of verticalRules.forbiddenPairs) {
+    if (pair.verb.toLowerCase() === verb.toLowerCase() && pair.objectPattern.test(object)) {
+      return { valid: false, reason: pair.reason };
+    }
+  }
+  
+  return { valid: true };
+}
+
+function checkBannedPhrases(text: string, verticalRules: VerticalRules): { violations: string[] } {
+  const violations: string[] = [];
+  
+  for (const banned of verticalRules.bannedPhrases) {
+    if (banned.pattern.test(text)) {
+      violations.push(banned.reason);
+    }
+  }
+  
+  return { violations };
+}
+
 // === AUDIT RULES ENGINE ===
 
 // Helper: Extract displayed text length from keyword insertion syntax
@@ -132,10 +314,41 @@ function getDisplayedTextLength(text: string): number {
   return text.length;
 }
 
-function auditAd(ad: Ad, adGroupStats: any, topQueries: string[], keywords: string[]): Finding[] {
+function auditAd(ad: Ad, adGroupStats: any, topQueries: string[], keywords: string[], verticalRules: VerticalRules): Finding[] {
   const findings: Finding[] = [];
   const headlines = ad.assets.filter(a => a.type === 'HEADLINE');
   const descriptions = ad.assets.filter(a => a.type === 'DESCRIPTION');
+  
+  // === NEW: POLICY-AWARE VERB-OBJECT VALIDATION ===
+  ad.assets.forEach(asset => {
+    // Extract verb-object pairs from asset text
+    const match = asset.text.match(/^(\w+)\s+(.+?)(?:\s*[-|]|$)/);
+    if (match) {
+      const verb = match[1];
+      const object = match[2];
+      
+      const validation = validateVerbObjectPair(verb, object, verticalRules);
+      if (!validation.valid) {
+        findings.push({
+          rule: 'ADS-VERB-024',
+          assetId: asset.id,
+          severity: 'error',
+          message: `Policy violation: "${verb} ${object}" - ${validation.reason}`
+        });
+      }
+    }
+    
+    // Check for banned phrases
+    const phraseCheck = checkBannedPhrases(asset.text, verticalRules);
+    if (phraseCheck.violations.length > 0) {
+      findings.push({
+        rule: 'ADS-PHRASE-025',
+        assetId: asset.id,
+        severity: 'error',
+        message: `Banned phrases detected: ${phraseCheck.violations.join('; ')}`
+      });
+    }
+  });
 
   // Rule 1: Character limits (ADS-CHAR-001)
   ad.assets.forEach(asset => {
@@ -769,44 +982,122 @@ function isDuplicate(text: string, ad: Ad, type: 'HEADLINE' | 'DESCRIPTION'): bo
   return existingTexts.includes(text.toLowerCase().trim());
 }
 
-function variantFromTopNgrams(context: any, ad: Ad, type: 'HEADLINE' | 'DESCRIPTION'): string | null {
+function variantFromTopNgrams(context: any, ad: Ad, type: 'HEADLINE' | 'DESCRIPTION'): { text: string; explanation: string } | null {
   const maxLen = type === 'HEADLINE' ? 30 : 90;
+  const verticalRules: VerticalRules = context.verticalRules || VERTICAL_RULES[3];
   
-  const templates = type === 'HEADLINE' ? [
-    'Shop {keyword} Today',
-    'Get Your {keyword} Now',
-    '{keyword} - Best Prices',
-    'Quality {keyword}',
-    'Buy {keyword} Now',
-    '{keyword} Available',
-    '{keyword} - Shop Now',
-    'Get {keyword} Today',
-    'Premium {keyword}',
-    '{keyword} Sale',
-    'Top {keyword} Deals',
-    'Save on {keyword}',
-    'Affordable {keyword}',
-    'Best {keyword} Prices'
-  ] : [
-    'Discover our {keyword} selection. Shop now and save.',
-    'Get the best {keyword} deals. Free shipping available.',
-    'Quality {keyword} with expert service. Order today.',
-    'Find your perfect {keyword}. Browse our collection.',
-    'Shop trusted {keyword} brands. Fast delivery available.'
-  ];
+  // Get top query and classify it
+  const topQuery = context.topQueries?.[0] || context.keywords?.[0] || 'Product';
+  const classification = classifyQuery(topQuery, verticalRules);
   
-  const keyword = context.keywords?.[0] || context.topQueries?.[0] || 'Product';
+  // Use canonical object if it was transformed
+  const useObject = classification.canonicalObject;
   
-  // Try each template in random order until one fits and is unique
-  const shuffled = templates.sort(() => Math.random() - 0.5);
-  for (const template of shuffled) {
-    const result = template.replace('{keyword}', keyword);
-    if (result.length <= maxLen && !isDuplicate(result, ad, type)) {
-      return result;
-    }
+  // Select templates based on vertical and query type
+  let templates: string[] = [];
+  let explanation = '';
+  
+  if (verticalRules.vertical === 'healthcare') {
+    templates = type === 'HEADLINE' ? [
+      'Book {keyword} Consultation',
+      'Schedule {keyword} Appointment',
+      'Get {keyword} - Expert Care',
+      '{keyword} - Consult Now',
+      'Professional {keyword}',
+      'Learn About {keyword}',
+      'Find {keyword} Specialists'
+    ] : [
+      'Schedule your {keyword} consultation with licensed professionals.',
+      'Get expert {keyword} from certified specialists. Book today.',
+      'Find trusted {keyword} providers. Free consultation available.',
+      'Professional {keyword} with personalized care plans.'
+    ];
+    explanation = classification.canonicalizationReason || 'Generated healthcare-compliant copy';
+  } else if (verticalRules.vertical === 'legal') {
+    templates = type === 'HEADLINE' ? [
+      'Free {keyword} Consultation',
+      'Contact {keyword} Attorney',
+      'Get Help With {keyword}',
+      '{keyword} - Speak With Expert',
+      'Experienced {keyword} Lawyers'
+    ] : [
+      'Get a free {keyword} consultation from experienced attorneys.',
+      'Contact our {keyword} legal team. No fee unless we win.',
+      'Speak with {keyword} experts. Free case evaluation.'
+    ];
+    explanation = classification.canonicalizationReason || 'Generated legal-compliant copy';
+  } else if (verticalRules.vertical === 'home-services') {
+    templates = type === 'HEADLINE' ? [
+      'Schedule {keyword} Service',
+      'Book {keyword} Today',
+      'Professional {keyword}',
+      '{keyword} - Same Day Service',
+      'Expert {keyword} Available',
+      'Request {keyword} Quote'
+    ] : [
+      'Get professional {keyword} from licensed experts. Fast service.',
+      'Schedule your {keyword} today. Same-day appointments available.',
+      'Trusted {keyword} with upfront pricing. Book now.'
+    ];
+    explanation = classification.canonicalizationReason || 'Generated service-focused copy';
+  } else {
+    // Ecommerce default
+    templates = type === 'HEADLINE' ? [
+      'Shop {keyword} Today',
+      'Get Your {keyword} Now',
+      'Quality {keyword}',
+      '{keyword} Available',
+      '{keyword} - Shop Now',
+      'Get {keyword} Today',
+      'Premium {keyword}',
+      '{keyword} Sale',
+      'Save on {keyword}',
+      'Affordable {keyword}'
+    ] : [
+      'Discover our {keyword} selection. Shop now and save.',
+      'Get the best {keyword} deals. Free shipping available.',
+      'Quality {keyword} with expert service. Order today.',
+      'Find your perfect {keyword}. Browse our collection.',
+      'Shop trusted {keyword} brands. Fast delivery available.'
+    ];
+    explanation = 'Generated product-focused copy';
   }
   
-  // No unique template found within length constraints
+  // Try each template in random order until one fits, is unique, and passes validation
+  const shuffled = templates.sort(() => Math.random() - 0.5);
+  for (const template of shuffled) {
+    const result = template.replace('{keyword}', useObject);
+    
+    // Check length and uniqueness
+    if (result.length > maxLen || isDuplicate(result, ad, type)) {
+      continue;
+    }
+    
+    // Validate verb-object pair
+    const match = result.match(/^(\w+)\s+(.+?)(?:\s*[-|]|$)/);
+    if (match) {
+      const verb = match[1];
+      const object = match[2];
+      const validation = validateVerbObjectPair(verb, object, verticalRules);
+      if (!validation.valid) {
+        continue; // Skip this template, forbidden pair
+      }
+    }
+    
+    // Check banned phrases
+    const phraseCheck = checkBannedPhrases(result, verticalRules);
+    if (phraseCheck.violations.length > 0) {
+      continue; // Skip this template, has banned phrases
+    }
+    
+    // Passed all checks
+    return { 
+      text: result, 
+      explanation: explanation + (classification.canonicalizationReason ? ` (${classification.canonicalizationReason})` : '')
+    };
+  }
+  
+  // No valid template found
   return null;
 }
 
@@ -834,12 +1125,13 @@ function generateUniqueVariants(ad: Ad, context: any): Change[] {
   if (uniqCount < 5) {
     const needed = Math.min(3, 8 - headlines.length);
     for (let i = 0; i < needed; i++) {
-      const v = variantFromTopNgrams(context, ad, 'HEADLINE');
-      if (v) {
+      const variant = variantFromTopNgrams(context, ad, 'HEADLINE');
+      if (variant) {
         changes.push({
           op: 'ADD_ASSET',
           type: 'HEADLINE',
-          text: v
+          text: variant.text,
+          explanation: variant.explanation
         });
       }
     }
@@ -856,12 +1148,13 @@ function addMissingAssets(ad: Ad, context: any): Change[] {
   if (headlines.length < 8) {
     const needed = Math.min(3, 10 - headlines.length);
     for (let i = 0; i < needed; i++) {
-      const headline = variantFromTopNgrams(context, ad, 'HEADLINE');
-      if (headline) {
+      const variant = variantFromTopNgrams(context, ad, 'HEADLINE');
+      if (variant) {
         changes.push({
           op: 'ADD_ASSET',
           type: 'HEADLINE',
-          text: headline
+          text: variant.text,
+          explanation: variant.explanation
         });
       }
     }
@@ -870,12 +1163,13 @@ function addMissingAssets(ad: Ad, context: any): Change[] {
   if (descriptions.length < 3) {
     const needed = Math.min(2, 4 - descriptions.length);
     for (let i = 0; i < needed; i++) {
-      const description = variantFromTopNgrams(context, ad, 'DESCRIPTION');
-      if (description) {
+      const variant = variantFromTopNgrams(context, ad, 'DESCRIPTION');
+      if (variant) {
         changes.push({
           op: 'ADD_ASSET',
           type: 'DESCRIPTION',
-          text: description
+          text: variant.text,
+          explanation: variant.explanation
         });
       }
     }
@@ -889,26 +1183,48 @@ function injectQueryBenefitCTA(ad: Ad, context: any): Change[] {
   const headlines = ad.assets.filter(a => a.type === 'HEADLINE');
   
   if (context.topQueries?.length > 0 && headlines.length < 12) {
+    const verticalRules: VerticalRules = context.verticalRules || VERTICAL_RULES[3];
     const query = context.topQueries[0];
+    const classification = classifyQuery(query, verticalRules);
+    const useObject = classification.canonicalObject;
     
-    // Build templates and check they fit + are unique
-    const template1 = `${query} - Shop Now`;
-    const template2 = `Get Your ${query} Today`;
-    const template3 = `${query} Available`;
-    const template4 = `Buy ${query} Now`;
+    // Generate policy-compliant templates using allowed verbs
+    const allowedTemplates: Array<{ text: string; verb: string }> = [];
     
-    // Add first valid, unique headline
-    if (template1.length <= 30 && !isDuplicate(template1, ad, 'HEADLINE')) {
-      changes.push({ op: 'ADD_ASSET', type: 'HEADLINE', text: template1 });
-    } else if (template3.length <= 30 && !isDuplicate(template3, ad, 'HEADLINE')) {
-      changes.push({ op: 'ADD_ASSET', type: 'HEADLINE', text: template3 });
+    for (const verb of verticalRules.allowedVerbs.slice(0, 4)) {
+      const text = `${verb} ${useObject}`;
+      if (text.length <= 30) {
+        allowedTemplates.push({ text, verb });
+      }
     }
     
-    // Add second valid, unique headline
-    if (template2.length <= 30 && template2 !== template1 && !isDuplicate(template2, ad, 'HEADLINE')) {
-      changes.push({ op: 'ADD_ASSET', type: 'HEADLINE', text: template2 });
-    } else if (template4.length <= 30 && !isDuplicate(template4, ad, 'HEADLINE')) {
-      changes.push({ op: 'ADD_ASSET', type: 'HEADLINE', text: template4 });
+    // Try to add up to 2 valid headlines
+    let added = 0;
+    for (const template of allowedTemplates) {
+      if (added >= 2) break;
+      
+      // Check uniqueness
+      if (isDuplicate(template.text, ad, 'HEADLINE')) continue;
+      
+      // Validate verb-object pair
+      const validation = validateVerbObjectPair(template.verb, useObject, verticalRules);
+      if (!validation.valid) continue;
+      
+      // Check banned phrases
+      const phraseCheck = checkBannedPhrases(template.text, verticalRules);
+      if (phraseCheck.violations.length > 0) continue;
+      
+      // Passed all checks
+      const explanation = classification.canonicalizationReason || 
+        `Generated ${verticalRules.vertical}-compliant CTA using allowed verb "${template.verb}"`;
+      
+      changes.push({ 
+        op: 'ADD_ASSET', 
+        type: 'HEADLINE', 
+        text: template.text,
+        explanation 
+      });
+      added++;
     }
   }
   
