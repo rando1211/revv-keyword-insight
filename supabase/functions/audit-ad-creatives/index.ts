@@ -584,6 +584,20 @@ function buildChangeSet(ad: Ad, findings: Finding[], context: any): Change[] {
         });
         break;
 
+      case 'PERF-CTR-001':
+        // Propose minor rewrite: add 2 fresh headline variants
+        changes.push({
+          op: 'ADD_ASSET',
+          type: 'HEADLINE',
+          text: variantFromTopNgrams(context, 'HEADLINE')
+        });
+        changes.push({
+          op: 'ADD_ASSET',
+          type: 'HEADLINE',
+          text: variantFromTopNgrams(context, 'HEADLINE')
+        });
+        break;
+
       case 'PERF-WASTE-001':
         // Recommend pausing the entire ad for high spend/no conversions
         changes.push({
@@ -670,7 +684,9 @@ function buildChangeSet(ad: Ad, findings: Finding[], context: any): Change[] {
     }
   }
 
-  return dedupeChanges(changes);
+  // Attach adId to all changes for downstream mapping
+  const withAdId = changes.map(c => ({ ...c, adId: c.adId || ad.adId }));
+  return dedupeChanges(withAdId);
 }
 
 // === GENERATION HELPERS ===

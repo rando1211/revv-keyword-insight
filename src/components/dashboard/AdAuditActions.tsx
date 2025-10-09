@@ -119,11 +119,33 @@ export const AdAuditActions = ({ ad, finding, changeSet, customerId, onExecute }
   };
 
   const handleCloneAndRewrite = async () => {
-    toast({
-      title: "🔄 Cloning ad",
-      description: "Creating variant with AI-rewritten assets...",
-    });
-    // Implement clone + AI rewrite logic
+    try {
+      const { data, error } = await supabase.functions.invoke('execute-creative-changes', {
+        body: {
+          customerId,
+          adId: ad.adId,
+          campaignId: ad.campaignId,
+          adGroupId: ad.adGroupId,
+          ruleCode: finding.rule,
+          severity: finding.severity,
+          findingMessage: finding.message,
+          changes: changeSet,
+          inputSnapshot: ad,
+          dryRun: true
+        }
+      });
+      if (error) throw error;
+      setPreviewData(data);
+      setValidationErrors(data.validationErrors || []);
+      setShowPreview(true);
+    } catch (error) {
+      console.error('Clone & rewrite preview error:', error);
+      toast({
+        title: 'Clone & rewrite failed',
+        description: error instanceof Error ? error.message : 'Failed to prepare clone',
+        variant: 'destructive'
+      });
+    }
   };
 
   // Render action buttons based on rule

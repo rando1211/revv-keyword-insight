@@ -1079,7 +1079,7 @@ ${riskFactors.map(risk => `• ${risk}`).join('\n')}
                           {finding.findings.slice(0, 3).map((f: any, i: number) => {
                             // Get changes for this finding
                             const findingChanges = auditResults.changeSet.filter(
-                              (c: any) => c.adId === finding.adId || c.assetId === f.assetId
+                              (c: any) => c.adId === ad.adId || c.assetId === f.assetId
                             );
                             
                             return (
