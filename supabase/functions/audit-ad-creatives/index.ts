@@ -627,8 +627,8 @@ function buildChangeSet(ad: Ad, findings: Finding[], context: any): Change[] {
       case 'ASSET-SHARE-014':
       case 'PIN-BLOCK-016':
         // Unpin assets to rebalance
-        const pinned = ad.assets.filter(a => a.pinnedField && a.pinnedField !== 'UNSPECIFIED');
-        if (finding.assetId && pinned.some(p => p.id === finding.assetId)) {
+        const pinnedAssets = ad.assets.filter(a => a.pinnedField && a.pinnedField !== 'UNSPECIFIED');
+        if (finding.assetId && pinnedAssets.some(p => p.id === finding.assetId)) {
           changes.push({ op: 'UNPIN', assetId: finding.assetId });
         }
         break;
