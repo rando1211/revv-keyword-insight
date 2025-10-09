@@ -17,6 +17,7 @@ import { SearchTermsAnalysisUI } from "./SearchTermsAnalysisUI";
 import { PowerAuditPanel } from "./PowerAuditPanel";
 import { PerformanceTracker } from "./PerformanceTracker";
 import { CreativesAnalysisUI } from "./CreativesAnalysisUI";
+import { ROITracker } from "./ROITracker";
 
 export const AIInsightsPanel = () => {
   const { toast } = useToast();
@@ -618,10 +619,13 @@ export const AIInsightsPanel = () => {
                 </CardContent>
               </Card>
             ) : (
-              <CreativesAnalysisUI
-                customerId={selectedAccountForAnalysis.customerId}
-                campaignIds={selectedCampaignIds}
-              />
+              <div className="space-y-6">
+                <ROITracker />
+                <CreativesAnalysisUI
+                  customerId={selectedAccountForAnalysis.customerId}
+                  campaignIds={selectedCampaignIds}
+                />
+              </div>
             )}
           </TabsContent>
           

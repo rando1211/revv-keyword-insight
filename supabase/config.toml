@@ -48,6 +48,9 @@ verify_jwt = false
 [functions.audit-ad-creatives]
 verify_jwt = false
 
+[functions.measure-optimization-impact]
+verify_jwt = false
+
 [functions.execute-creative-changes]
 verify_jwt = true
 

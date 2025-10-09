@@ -353,6 +353,47 @@ serve(async (req) => {
       console.error('❌ Failed to log activity:', logError);
     }
 
+    // === CREATE ROI TRACKING RECORD (only for successful structural edits) ===
+    if (isStructuralEdit && googleAdsResponses.every(r => r.status < 400)) {
+      console.log('📊 Creating ROI tracking record...');
+      
+      const beforeMetrics = {
+        cost: inputSnapshot?.metrics?.cost || 0,
+        ctr: inputSnapshot?.metrics?.ctr || 0,
+        conversions: inputSnapshot?.metrics?.conversions || 0,
+        impressions: inputSnapshot?.metrics?.impressions || 0,
+        clicks: inputSnapshot?.metrics?.clicks || 0
+      };
+
+      const changeSummary = changes.map((c: Change) => {
+        if (c.op === 'PAUSE_ASSET') return 'Paused low performer';
+        if (c.op === 'ADD_ASSET') return `Added: ${c.text?.substring(0, 30)}...`;
+        if (c.op === 'UPDATE_ASSET') return `Updated asset`;
+        return c.op;
+      }).join(', ');
+
+      const { error: trackingError } = await supabaseClient
+        .from('optimization_impact_tracking')
+        .insert({
+          user_id: userId,
+          customer_id: customerId,
+          ad_id: adId,
+          campaign_id: campaignId,
+          ad_group_id: adGroupId,
+          executed_changes: changes,
+          rule_codes: [ruleCode],
+          change_summary: changeSummary,
+          before_metrics: beforeMetrics,
+          status: 'pending'
+        });
+
+      if (trackingError) {
+        console.error('⚠️ Failed to create ROI tracking:', trackingError);
+      } else {
+        console.log('✅ ROI tracking record created - will measure in 30 days');
+      }
+    }
+
     console.log('✅ Execution complete');
 
     return new Response(JSON.stringify({
