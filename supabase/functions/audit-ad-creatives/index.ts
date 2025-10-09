@@ -1247,11 +1247,14 @@ function injectQueryBenefitCTA(ad: Ad, context: any): Change[] {
     const classification = classifyQuery(query, verticalRules);
     const useObject = classification.canonicalObject;
     
-    // Generate policy-compliant templates using allowed verbs
+    // Generate policy-compliant templates using imperative verbs
     const allowedTemplates: Array<{ text: string; verb: string }> = [];
     
-    for (const verb of verticalRules.allowedVerbs.slice(0, 4)) {
-      const text = `${verb} ${useObject}`;
+    // Convert Set to Array and take first 4
+    const verbsArray = Array.from(verticalRules.imperativeVerbs).slice(0, 4);
+    
+    for (const verb of verbsArray) {
+      const text = `${verb.charAt(0).toUpperCase() + verb.slice(1)} ${useObject}`;
       if (text.length <= 30) {
         allowedTemplates.push({ text, verb });
       }
@@ -1265,23 +1268,25 @@ function injectQueryBenefitCTA(ad: Ad, context: any): Change[] {
       // Check uniqueness
       if (isDuplicate(template.text, ad, 'HEADLINE')) continue;
       
-      // Validate verb-object pair
-      const validation = validateVerbObjectPair(template.verb, useObject, verticalRules);
-      if (!validation.valid) continue;
-      
-      // Check banned phrases
-      const phraseCheck = checkBannedPhrases(template.text, verticalRules);
-      if (phraseCheck.violations.length > 0) continue;
+      // Run claims-based linting instead of old validation
+      const lintIssues = lintHeadline(template.text, verticalRules);
+      const hasErrors = lintIssues.some(issue => issue.severity === 'error');
+      if (hasErrors) continue;
       
       // Passed all checks
-      const explanation = classification.canonicalizationReason || 
-        `Generated ${verticalRules.vertical}-compliant CTA using allowed verb "${template.verb}"`;
+      const warningNote = lintIssues.length > 0 
+        ? ` Note: ${lintIssues.map(i => i.message).join('; ')}` 
+        : '';
+      
+      const explanation = (classification.canonicalizationReason || 
+        `Generated ${verticalRules.vertical}-compliant CTA using verb "${template.verb}"`) + warningNote;
       
       changes.push({ 
         op: 'ADD_ASSET', 
         type: 'HEADLINE', 
         text: template.text,
-        explanation 
+        explanation,
+        rule: 'ADS-MISS-008' // Missing query-benefit CTA
       });
       added++;
     }
