@@ -176,6 +176,78 @@ export type Database = {
         }
         Relationships: []
       }
+      optimization_impact_tracking: {
+        Row: {
+          ad_group_id: string | null
+          ad_id: string
+          after_metrics: Json | null
+          before_metrics: Json
+          campaign_id: string | null
+          change_summary: string | null
+          clicks_change: number | null
+          conversion_improvement: number | null
+          cost_saved: number | null
+          created_at: string
+          ctr_improvement: number | null
+          customer_id: string
+          executed_at: string
+          executed_changes: Json
+          id: string
+          impressions_change: number | null
+          measurement_date: string | null
+          rule_codes: string[] | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          ad_group_id?: string | null
+          ad_id: string
+          after_metrics?: Json | null
+          before_metrics: Json
+          campaign_id?: string | null
+          change_summary?: string | null
+          clicks_change?: number | null
+          conversion_improvement?: number | null
+          cost_saved?: number | null
+          created_at?: string
+          ctr_improvement?: number | null
+          customer_id: string
+          executed_at?: string
+          executed_changes: Json
+          id?: string
+          impressions_change?: number | null
+          measurement_date?: string | null
+          rule_codes?: string[] | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          ad_group_id?: string | null
+          ad_id?: string
+          after_metrics?: Json | null
+          before_metrics?: Json
+          campaign_id?: string | null
+          change_summary?: string | null
+          clicks_change?: number | null
+          conversion_improvement?: number | null
+          cost_saved?: number | null
+          created_at?: string
+          ctr_improvement?: number | null
+          customer_id?: string
+          executed_at?: string
+          executed_changes?: Json
+          id?: string
+          impressions_change?: number | null
+          measurement_date?: string | null
+          rule_codes?: string[] | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       shared_google_ads_access: {
         Row: {
           created_at: string
