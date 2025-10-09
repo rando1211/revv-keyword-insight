@@ -73,6 +73,36 @@ serve(async (req) => {
 
     console.log(`✅ Authenticated user: ${userId}`);
 
+    // === COOLDOWN CHECK (7-day limit for structural edits) ===
+    const isStructuralEdit = ['PAUSE_AD', 'ADD_ASSET', 'PAUSE_ASSET'].includes(changes[0]?.op);
+    if (isStructuralEdit && !dryRun) {
+      const { data: recentEdits } = await supabaseClient
+        .from('ad_creative_activity_log')
+        .select('executed_at')
+        .eq('ad_id', adId)
+        .eq('is_structural_edit', true)
+        .eq('status', 'success')
+        .gte('executed_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
+        .order('executed_at', { ascending: false })
+        .limit(1);
+
+      if (recentEdits && recentEdits.length > 0) {
+        const lastEditDate = new Date(recentEdits[0].executed_at);
+        const hoursSince = (Date.now() - lastEditDate.getTime()) / (1000 * 60 * 60);
+        const daysRemaining = Math.ceil((7 * 24 - hoursSince) / 24);
+        
+        return new Response(JSON.stringify({
+          success: false,
+          cooldownActive: true,
+          message: `Cooldown active: Last structural edit was ${Math.floor(hoursSince)}h ago. Wait ${daysRemaining}d before next edit.`,
+          lastEditDate: lastEditDate.toISOString()
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 429
+        });
+      }
+    }
+
     // === VALIDATION PHASE ===
     console.log(`✅ Validating ${changes.length} changes...`);
     const validationErrors: ValidationError[] = [];
@@ -308,9 +338,11 @@ serve(async (req) => {
         campaign_id: campaignId,
         ad_group_id: adGroupId,
         rule_code: ruleCode,
+        rule_category: ruleCode.split('-')[0], // PERF, ADS, ASSET, etc.
         severity,
         finding_message: findingMessage,
         operation: changes[0]?.op || 'UNKNOWN',
+        is_structural_edit: isStructuralEdit,
         input_snapshot: inputSnapshot,
         proposed_changes: changes,
         status: googleAdsResponses.some(r => r.status >= 400) ? 'failed' : 'success',

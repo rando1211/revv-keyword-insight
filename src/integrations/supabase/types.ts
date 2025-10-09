@@ -27,9 +27,11 @@ export type Database = {
           google_ads_response: Json | null
           id: string
           input_snapshot: Json
+          is_structural_edit: boolean | null
           operation: string
           post_change_checks: Json | null
           proposed_changes: Json
+          rule_category: string | null
           rule_code: string
           severity: string
           status: string
@@ -47,9 +49,11 @@ export type Database = {
           google_ads_response?: Json | null
           id?: string
           input_snapshot: Json
+          is_structural_edit?: boolean | null
           operation: string
           post_change_checks?: Json | null
           proposed_changes: Json
+          rule_category?: string | null
           rule_code: string
           severity: string
           status: string
@@ -67,9 +71,11 @@ export type Database = {
           google_ads_response?: Json | null
           id?: string
           input_snapshot?: Json
+          is_structural_edit?: boolean | null
           operation?: string
           post_change_checks?: Json | null
           proposed_changes?: Json
+          rule_category?: string | null
           rule_code?: string
           severity?: string
           status?: string

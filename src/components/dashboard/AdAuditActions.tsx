@@ -42,6 +42,16 @@ export const AdAuditActions = ({ ad, finding, changeSet, customerId, onExecute }
 
       if (error) throw error;
       
+      // Handle cooldown
+      if (data && !data.success && data.cooldownActive) {
+        toast({
+          title: "⏰ Cooldown active",
+          description: data.message,
+          variant: "destructive"
+        });
+        return;
+      }
+      
       setPreviewData(data);
       setValidationErrors(data.validationErrors || []);
       setShowPreview(true);
@@ -124,7 +134,7 @@ export const AdAuditActions = ({ ad, finding, changeSet, customerId, onExecute }
           <div className="flex gap-2">
             <Button onClick={handlePreview} variant="outline" size="sm">
               <Eye className="w-4 h-4 mr-1" />
-              Preview Normalize
+              Normalize
             </Button>
           </div>
         );
@@ -138,7 +148,7 @@ export const AdAuditActions = ({ ad, finding, changeSet, customerId, onExecute }
             </Button>
             <Button onClick={handleCloneAndRewrite} variant="outline" size="sm">
               <Copy className="w-4 h-4 mr-1" />
-              Clone as Variant
+              Clone Variant
             </Button>
           </div>
         );
@@ -157,12 +167,63 @@ export const AdAuditActions = ({ ad, finding, changeSet, customerId, onExecute }
           </div>
         );
 
+      case 'AGE-STALE-001':
+      case 'FATIGUE-CTR-003':
+        return (
+          <Button onClick={handleCloneAndRewrite} variant="outline" size="sm">
+            <Copy className="w-4 h-4 mr-1" />
+            Clone & Refresh
+          </Button>
+        );
+
+      case 'FRESH-GAP-002':
+        return (
+          <Button onClick={handlePreview} variant="outline" size="sm">
+            <RefreshCw className="w-4 h-4 mr-1" />
+            Create Variant
+          </Button>
+        );
+
+      case 'DATE-EXPIRED-004':
+        return (
+          <Button onClick={handlePreview} variant="destructive" size="sm">
+            <Eye className="w-4 h-4 mr-1" />
+            Update/Expire
+          </Button>
+        );
+
+      case 'ASSET-SHARE-014':
+      case 'PIN-BLOCK-016':
+        return (
+          <Button onClick={handlePreview} variant="outline" size="sm">
+            <RefreshCw className="w-4 h-4 mr-1" />
+            Rotate/Unpin
+          </Button>
+        );
+
+      case 'LOW-UTIL-015':
+        return (
+          <Button onClick={handlePreview} variant="outline" size="sm">
+            <Eye className="w-4 h-4 mr-1" />
+            Rewrite/Remove
+          </Button>
+        );
+
+      case 'SEASON-018':
+      case 'LOCAL-019':
+        return (
+          <Button onClick={handlePreview} variant="outline" size="sm">
+            <Eye className="w-4 h-4 mr-1" />
+            Fix
+          </Button>
+        );
+
       default:
         if (changeSet.length > 0) {
           return (
             <Button onClick={handlePreview} variant="outline" size="sm">
               <Eye className="w-4 h-4 mr-1" />
-              Preview Fix
+              Preview
             </Button>
           );
         }

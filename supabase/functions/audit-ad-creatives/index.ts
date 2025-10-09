@@ -282,10 +282,8 @@ function auditAd(ad: Ad, adGroupStats: any, topQueries: string[], keywords: stri
   
   // Rule 12: High Spend No Conversions (PERF-WASTE-001) - WITH COOL-OFF & SPARSE-CONV LOGIC
   if (ad.metrics.cost > 50 && ad.metrics.conversions === 0 && ad.metrics.clicks > 20) {
-    // Use warn for sparse data (clicks <200), error for sufficient data
     const severity = ad.metrics.clicks < 200 ? 'warn' : 'error';
     const action = ad.metrics.clicks < 200 ? 'Consider pausing or rewriting' : 'Pause ad';
-    
     findings.push({
       rule: 'PERF-WASTE-001',
       severity,
@@ -293,11 +291,10 @@ function auditAd(ad: Ad, adGroupStats: any, topQueries: string[], keywords: stri
     });
   }
   
-  // Rule 13: Poor Conversion Rate (PERF-CVR-001) - WITH SIGNIFICANCE THRESHOLD
+  // Rule 13: Poor Conversion Rate (PERF-CVR-001)
   if (agStats && ad.metrics.clicks >= 150 && agStats.crStd > 0) {
     const adCr = ad.metrics.conversions / ad.metrics.clicks;
-    const crThreshold = agStats.crMean * 0.5; // 50% of group average
-    
+    const crThreshold = agStats.crMean * 0.5;
     if (adCr < crThreshold && ad.metrics.conversions > 0) {
       findings.push({
         rule: 'PERF-CVR-001',
@@ -316,7 +313,156 @@ function auditAd(ad: Ad, adGroupStats: any, topQueries: string[], keywords: stri
     });
   }
 
+  // === ADVANCED FRESHNESS & FATIGUE RULES (with ≥3k impr or ≥150 clicks guardrails) ===
+
+  // Rule 15: Stale ad with declining CTR (AGE-STALE-001)
+  if (ad.lastEditDate && ad.weeklyTrends && ad.metrics.impressions >= 3000) {
+    const daysSinceEdit = Math.floor((Date.now() - new Date(ad.lastEditDate).getTime()) / (1000 * 60 * 60 * 24));
+    const recent4wkCtr = ad.weeklyTrends.slice(-4).reduce((sum: number, w: any) => sum + w.ctr, 0) / 4;
+    const ctrDrop = agStats?.ctrMean ? ((agStats.ctrMean - recent4wkCtr) / agStats.ctrMean) * 100 : 0;
+    
+    if (daysSinceEdit > 90 && ctrDrop >= 25) {
+      findings.push({
+        rule: 'AGE-STALE-001',
+        severity: 'warn',
+        message: `Last edited ${daysSinceEdit}d ago, CTR down ${ctrDrop.toFixed(0)}% vs 4-wk median (≥3k impr). Clone & refresh with updated year/season/offer.`
+      });
+    }
+  }
+
+  // Rule 16: No fresh variant gap (FRESH-GAP-002)
+  if (ad.daysSinceLastVariant && ad.daysSinceLastVariant >= 60 && ad.metrics.impressions >= 3000) {
+    findings.push({
+      rule: 'FRESH-GAP-002',
+      severity: 'suggest',
+      message: `No new variant in ${ad.daysSinceLastVariant}d (≥3k impr). Create variant with top query n-grams + new CTA.`
+    });
+  }
+
+  // Rule 17: CTR fatigue - 3+ consecutive weekly declines (FATIGUE-CTR-003)
+  if (ad.weeklyTrends && ad.weeklyTrends.length >= 3 && ad.metrics.impressions >= 3000 && ad.metrics.clicks >= 150) {
+    const weeks = ad.weeklyTrends.slice(-3);
+    let declines = 0;
+    for (let i = 1; i < weeks.length; i++) {
+      if (weeks[i].ctr < weeks[i - 1].ctr && weeks[i].impr >= 500) declines++;
+    }
+    if (declines >= 2) {
+      findings.push({
+        rule: 'FATIGUE-CTR-003',
+        severity: 'warn',
+        message: `3 consecutive weekly CTR declines (≥3k impr, ≥150 clicks, ≥500 impr/wk). Replace 20-30% of headlines (keep top performers).`
+      });
+    }
+  }
+
+  // Rule 18: Expired date references (DATE-EXPIRED-004)
+  const currentYear = new Date().getFullYear();
+  ad.assets.forEach(asset => {
+    const pastYear = asset.text.match(/20[0-2][0-9]/);
+    if (pastYear && parseInt(pastYear[0]) < currentYear) {
+      findings.push({
+        rule: 'DATE-EXPIRED-004',
+        assetId: asset.id,
+        severity: 'error',
+        message: `Contains past year "${pastYear[0]}" (current: ${currentYear}). Update or schedule auto-expire.`
+      });
+    }
+    const monthPromo = asset.text.match(/(January|February|March|April|May|June|July|August|September|October|November|December)\s+(Sale|Deal|Offer)/i);
+    if (monthPromo) {
+      findings.push({
+        rule: 'DATE-EXPIRED-004',
+        assetId: asset.id,
+        severity: 'warn',
+        message: `Month-specific promo "${monthPromo[0]}". Schedule expiration or update seasonally.`
+      });
+    }
+  });
+
+  // Rule 19: Low serve share assets (ASSET-SHARE-014)
+  if (ad.assetServeShares && ad.metrics.impressions >= 2000) {
+    ad.assets.forEach(asset => {
+      const share = ad.assetServeShares[asset.id] || 0;
+      if (share < 5 && share > 0) {
+        findings.push({
+          rule: 'ASSET-SHARE-014',
+          assetId: asset.id,
+          severity: 'warn',
+          message: `Asset <5% serve share (${share.toFixed(1)}%, ≥2k impr). Unpin/rebalance or rewrite.`
+        });
+      }
+    });
+  }
+
+  // Rule 20: Zero-impression headlines (LOW-UTIL-015)
+  if (ad.metrics.impressions >= 1000) {
+    headlines.forEach(h => {
+      if (h.metrics.impr === 0) {
+        findings.push({
+          rule: 'LOW-UTIL-015',
+          assetId: h.id,
+          severity: 'suggest',
+          message: `Headline never served (0 impr, ad has ${ad.metrics.impressions} total). Redundant or blocked by pinning.`
+        });
+      }
+    });
+  }
+
+  // Rule 21: Pin blocking combos (PIN-BLOCK-016)
+  const pinnedHeadlines = headlines.filter(h => h.pinnedField && h.pinnedField !== 'UNSPECIFIED');
+  if (pinnedHeadlines.length > 0) {
+    const unpinned = headlines.length - pinnedHeadlines.length;
+    if (unpinned < 4) {
+      findings.push({
+        rule: 'PIN-BLOCK-016',
+        severity: 'warn',
+        message: `Pinning yields only ${unpinned} unpinned headlines (<4 valid combos). Unpin or add more headlines to reach ≥4 combos.`
+      });
+    }
+  }
+
+  // Rule 22: Out-of-season copy (SEASON-018)
+  const currentSeason = getSeason();
+  const oppositeSeasons: Record<string, string[]> = { 
+    'winter': ['summer', 'spring'], 
+    'summer': ['winter', 'fall'], 
+    'spring': ['fall', 'winter'], 
+    'fall': ['spring', 'summer'] 
+  };
+  ad.assets.forEach(asset => {
+    for (const season of oppositeSeasons[currentSeason] || []) {
+      if (new RegExp(`${season}\\s+(deal|sale|offer|clearance)`, 'i').test(asset.text)) {
+        findings.push({
+          rule: 'SEASON-018',
+          assetId: asset.id,
+          severity: 'warn',
+          message: `Out-of-season "${season}" during ${currentSeason}. Swap to evergreen copy.`
+        });
+      }
+    }
+  });
+
+  // Rule 23: Multi-city missing location token (LOCAL-019)
+  if (ad.adGroup && /city|cities|location|area|near/i.test(ad.adGroup)) {
+    const hasLocationToken = headlines.some(h => /\{location:/i.test(h.text) || /\{city/i.test(h.text));
+    if (!hasLocationToken) {
+      findings.push({
+        rule: 'LOCAL-019',
+        severity: 'suggest',
+        message: `Multi-city ad group lacks {LOCATION:} token in headlines. Add city/area dynamic insertion.`
+      });
+    }
+  }
+
   return findings;
+}
+
+// Helper: Get current season (Northern Hemisphere)
+function getSeason(): string {
+  const month = new Date().getMonth() + 1;
+  if (month >= 3 && month <= 5) return 'spring';
+  if (month >= 6 && month <= 8) return 'summer';
+  if (month >= 9 && month <= 11) return 'fall';
+  return 'winter';
 }
 
 // === SCORING SYSTEM ===
@@ -435,8 +581,84 @@ function buildChangeSet(ad: Ad, findings: Finding[], context: any): Change[] {
       case 'PERF-WASTE-001':
         // Recommend pausing the entire ad for high spend/no conversions
         changes.push({
-          op: 'PAUSE_ASSET',
+          op: 'PAUSE_AD',
           adId: ad.adId
+        });
+        break;
+
+      case 'AGE-STALE-001':
+      case 'FATIGUE-CTR-003':
+        // Clone & refresh: keep top 3 headlines, add 3 new ones
+        // Note: Actual cloning would happen via separate API endpoint
+        changes.push({
+          op: 'ADD_ASSET',
+          type: 'HEADLINE',
+          text: 'Clone & Refresh Operation' // Placeholder
+        });
+        break;
+
+      case 'FRESH-GAP-002':
+        // Generate new variant with query echo
+        if (context.topQueries && context.topQueries.length > 0) {
+          changes.push({
+            op: 'ADD_ASSET',
+            type: 'HEADLINE',
+            text: `${context.topQueries[0]} - Get Started Today`
+          });
+        }
+        break;
+
+      case 'DATE-EXPIRED-004':
+        if (finding.assetId) {
+          const asset = ad.assets.find(a => a.id === finding.assetId);
+          if (asset) {
+            // Remove year/month references
+            const updated = asset.text.replace(/20[0-2][0-9]/, new Date().getFullYear().toString())
+              .replace(/(January|February|March|April|May|June|July|August|September|October|November|December)\s+/gi, '');
+            changes.push({
+              op: 'UPDATE_ASSET',
+              assetId: finding.assetId,
+              text: updated.trim()
+            });
+          }
+        }
+        break;
+
+      case 'ASSET-SHARE-014':
+      case 'PIN-BLOCK-016':
+        // Unpin assets to rebalance
+        const pinned = ad.assets.filter(a => a.pinnedField && a.pinnedField !== 'UNSPECIFIED');
+        if (finding.assetId && pinned.some(p => p.id === finding.assetId)) {
+          changes.push({ op: 'UNPIN', assetId: finding.assetId });
+        }
+        break;
+
+      case 'LOW-UTIL-015':
+        if (finding.assetId) {
+          changes.push({ op: 'PAUSE_ASSET', assetId: finding.assetId });
+        }
+        break;
+
+      case 'SEASON-018':
+        if (finding.assetId) {
+          const asset = ad.assets.find(a => a.id === finding.assetId);
+          if (asset) {
+            const evergreen = asset.text.replace(/(winter|summer|spring|fall)\s+(deal|sale|offer|clearance)/gi, 'Special Offer');
+            changes.push({
+              op: 'UPDATE_ASSET',
+              assetId: finding.assetId,
+              text: evergreen
+            });
+          }
+        }
+        break;
+
+      case 'LOCAL-019':
+        // Add location token headline
+        changes.push({
+          op: 'ADD_ASSET',
+          type: 'HEADLINE',
+          text: '{LOCATION:City} - Visit Us Today'
         });
         break;
     }
