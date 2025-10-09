@@ -240,18 +240,34 @@ serve(async (req) => {
     // === EXECUTION PHASE ===
     console.log(`🚀 Executing ${changes.length} changes to Google Ads API...`);
 
-    // Get credentials
-    const { data: credentials } = await supabaseClient
-      .from('user_google_ads_credentials')
-      .select('access_token, refresh_token, developer_token')
-      .eq('user_id', userId)
-      .single();
+    // Get shared credentials from environment
+    const DEVELOPER_TOKEN = Deno.env.get("Developer Token");
+    const CLIENT_ID = Deno.env.get("Client ID");
+    const CLIENT_SECRET = Deno.env.get("Secret");
+    const REFRESH_TOKEN = Deno.env.get("Refresh token");
 
-    if (!credentials?.access_token) {
-      throw new Error('Google Ads credentials not found');
+    if (!DEVELOPER_TOKEN || !CLIENT_ID || !CLIENT_SECRET || !REFRESH_TOKEN) {
+      throw new Error('Missing Google Ads API credentials');
     }
 
-    const DEVELOPER_TOKEN = credentials.developer_token || Deno.env.get('GOOGLE_DEVELOPER_TOKEN');
+    // Get fresh access token
+    const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        client_id: CLIENT_ID,
+        client_secret: CLIENT_SECRET,
+        refresh_token: REFRESH_TOKEN,
+        grant_type: "refresh_token",
+      }),
+    });
+
+    const tokenData = await tokenResponse.json();
+    if (!tokenResponse.ok) {
+      throw new Error(`OAuth token error: ${JSON.stringify(tokenData)}`);
+    }
+
+    const access_token = tokenData.access_token;
     const cleanCustomerId = customerId.replace(/[^0-9]/g, '');
 
     // Get MCC hierarchy to determine correct login-customer-id
@@ -270,7 +286,6 @@ serve(async (req) => {
 
     // Execute changes
     const googleAdsResponses: any[] = [];
-    const access_token = credentials.access_token;
 
     for (const change of changes) {
       try {
