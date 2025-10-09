@@ -46,6 +46,7 @@ interface Change {
   text?: string;
   paths?: string[];
   slot?: string;
+  rule?: string; // originating rule code
 }
 
 serve(async (req) => {
@@ -514,7 +515,8 @@ function buildChangeSet(ad: Ad, findings: Finding[], context: any): Change[] {
   const headlines = ad.assets.filter(a => a.type === 'HEADLINE');
   const descriptions = ad.assets.filter(a => a.type === 'DESCRIPTION');
 
-  for (const finding of findings) {
+for (const finding of findings) {
+  const __startIndex = changes.length;
     switch (finding.rule) {
       case 'ADS-CHAR-001':
         if (finding.assetId) {
@@ -563,11 +565,14 @@ function buildChangeSet(ad: Ad, findings: Finding[], context: any): Change[] {
           changes.push({ op: 'PAUSE_ASSET', assetId: finding.assetId });
           const asset = ad.assets.find(a => a.id === finding.assetId);
           if (asset) {
-            changes.push({
-              op: 'ADD_ASSET',
-              type: asset.type,
-              text: variantFromTopNgrams(context, asset.type)
-            });
+            const v = variantFromTopNgrams(context, ad, asset.type as 'HEADLINE' | 'DESCRIPTION');
+            if (v) {
+              changes.push({
+                op: 'ADD_ASSET',
+                type: asset.type,
+                text: v
+              });
+            }
           }
         }
         break;
@@ -689,6 +694,11 @@ function buildChangeSet(ad: Ad, findings: Finding[], context: any): Change[] {
           text: '{LOCATION:City} - Visit Us Today'
         });
         break;
+    }
+
+    // Tag newly added changes with the originating rule
+    for (let i = __startIndex; i < changes.length; i++) {
+      (changes[i] as any).rule = finding.rule;
     }
   }
 
@@ -824,11 +834,14 @@ function generateUniqueVariants(ad: Ad, context: any): Change[] {
   if (uniqCount < 5) {
     const needed = Math.min(3, 8 - headlines.length);
     for (let i = 0; i < needed; i++) {
-      changes.push({
-        op: 'ADD_ASSET',
-        type: 'HEADLINE',
-        text: variantFromTopNgrams(context, 'HEADLINE')
-      });
+      const v = variantFromTopNgrams(context, ad, 'HEADLINE');
+      if (v) {
+        changes.push({
+          op: 'ADD_ASSET',
+          type: 'HEADLINE',
+          text: v
+        });
+      }
     }
   }
   

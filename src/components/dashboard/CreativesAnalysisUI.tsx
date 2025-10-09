@@ -1078,9 +1078,9 @@ ${riskFactors.map(risk => `• ${risk}`).join('\n')}
                         <div className="space-y-3 mt-3">
                           {finding.findings.slice(0, 3).map((f: any, i: number) => {
                             // Get changes for this finding
-                            const findingChanges = auditResults.changeSet.filter(
-                              (c: any) => c.adId === ad.adId || c.assetId === f.assetId
-                            );
+const findingChanges = auditResults.changeSet.filter(
+  (c: any) => c.adId === ad.adId && c.rule === f.rule
+);
                             
                             return (
                               <div key={i} className="p-3 bg-muted/30 rounded-lg">
