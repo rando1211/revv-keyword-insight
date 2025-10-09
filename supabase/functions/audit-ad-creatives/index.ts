@@ -62,60 +62,83 @@ interface QueryClassification {
 
 interface VerticalRules {
   vertical: string;
-  allowedVerbs: string[];
+  imperativeVerbs: Set<string>;
   forbiddenPairs: Array<{ verb: string; objectPattern: RegExp; reason: string }>;
   problemToSolutionMap: Record<string, string>;
-  bannedPhrases: Array<{ pattern: RegExp; reason: string }>;
+  errorClaims: Array<{ pattern: RegExp; reason: string; suggestion?: string }>;
+  warnClaims: Array<{ pattern: RegExp; reason: string; suggestion?: string }>;
 }
+
+// Universal imperative verbs that trigger verb validation
+const IMPERATIVE_VERBS = new Set([
+  'book', 'schedule', 'call', 'get', 'see', 'learn', 'start', 'begin', 
+  'find', 'request', 'check', 'view', 'visit', 'apply', 'shop', 
+  'reserve', 'download', 'consult', 'contact', 'fix', 'repair', 
+  'install', 'replace', 'buy', 'order', 'browse', 'discover', 'save'
+]);
 
 // Vertical-specific rules configuration
 const VERTICAL_RULES: VerticalRules[] = [
   {
     vertical: 'healthcare',
-    allowedVerbs: ['Book', 'Schedule', 'Get', 'Find', 'Learn About', 'Discover', 'Consult'],
+    imperativeVerbs: new Set(['book', 'schedule', 'learn', 'consult', 'start', 'get', 'find', 'see', 'request', 'call', 'begin']),
     forbiddenPairs: [
-      { verb: 'Buy', objectPattern: /ED|erectile|dysfunction|treatment|medication/i, reason: 'Cannot sell prescription medication directly' },
-      { verb: 'Order', objectPattern: /prescription|medication|drug/i, reason: 'Prescription drugs require medical consultation' },
-      { verb: 'Purchase', objectPattern: /diagnosis|treatment/i, reason: 'Medical services cannot be purchased like products' }
+      { verb: 'Buy', objectPattern: /ED|erectile|dysfunction|treatment|medication|pills?|meds?/i, reason: 'Cannot sell prescription medication directly' },
+      { verb: 'Order', objectPattern: /prescription|medication|drug|pills?|meds?/i, reason: 'Prescription drugs require medical consultation' },
+      { verb: 'Purchase', objectPattern: /diagnosis|treatment|ED|erectile/i, reason: 'Medical services cannot be purchased like products' }
     ],
     problemToSolutionMap: {
-      'erectile dysfunction': 'ED Treatment Consultation',
-      'ed': 'ED Treatment Consultation',
-      'hair loss': 'Hair Restoration Services',
-      'balding': 'Hair Restoration Services',
-      'weight issues': 'Weight Management Program',
-      'obesity': 'Weight Management Program',
+      'erectile dysfunction': 'ED Treatment',
+      'ed': 'ED Treatment',
+      'hair loss': 'Hair Restoration',
+      'balding': 'Hair Restoration',
+      'weight issues': 'Weight Management',
+      'obesity': 'Weight Management',
       'anxiety': 'Mental Health Support',
       'depression': 'Mental Health Support'
     },
-    bannedPhrases: [
-      { pattern: /guarantee|guaranteed|100%/i, reason: 'Medical outcome guarantees not allowed' },
-      { pattern: /cure|cures/i, reason: 'Cannot claim to cure medical conditions' },
-      { pattern: /best\s+(?:doctor|treatment|medication)/i, reason: 'Superlative medical claims restricted' }
+    errorClaims: [
+      { pattern: /\b(cure|cures?d?|curing)\b/i, reason: 'Health policy prohibits cure claims', suggestion: 'Use "manage", "treat", or "support" instead' },
+      { pattern: /\b(guarantee|guaranteed|100%\s*(?:effective|success))\b/i, reason: 'Medical outcome guarantees not allowed', suggestion: 'Remove guarantee language' },
+      { pattern: /\binstant\s+results?\b/i, reason: 'Cannot promise instant medical results', suggestion: 'Use "fast-acting" or remove timing claims' },
+      { pattern: /\bno\s+prescription\b/i, reason: 'Prescription medication requires proper authorization', suggestion: 'Remove or use "doctor-prescribed"' },
+      { pattern: /\bbuy\s+(ed|erectile|dysfunction|treatment|meds?|pills?|prescription)/i, reason: 'Cannot sell prescription treatments directly', suggestion: 'Use "Start ED Treatment" or "Book Consultation"' }
+    ],
+    warnClaims: [
+      { pattern: /\b(safe|safest)\b/i, reason: 'Safety claims imply medical outcomes', suggestion: 'Use "doctor-led care" or "evidence-based options"' },
+      { pattern: /\b(advanced|cutting-edge)\b/i, reason: 'Technology claims need evidence', suggestion: 'Use "modern" or "personalized"' },
+      { pattern: /\b(best|#1|top-rated)\b/i, reason: 'Superlatives need verification', suggestion: 'Use "trusted" or "experienced"' },
+      { pattern: /\b(proven|clinically\s+proven)\b/i, reason: 'Efficacy claims need clinical evidence', suggestion: 'Use "evidence-based" or remove claim' },
+      { pattern: /\b(permanent|forever|lifetime)\b/i, reason: 'Duration claims may be misleading', suggestion: 'Use "long-lasting" or remove' },
+      { pattern: /\b(risk-free|no\s+risk)\b/i, reason: 'All medical treatments have risks', suggestion: 'Remove risk claims' }
     ]
   },
   {
     vertical: 'legal',
-    allowedVerbs: ['Consult', 'Contact', 'Get Help', 'Free Consultation', 'Speak With', 'Find'],
+    imperativeVerbs: new Set(['consult', 'contact', 'get', 'find', 'call', 'speak', 'schedule', 'request']),
     forbiddenPairs: [
       { verb: 'Buy', objectPattern: /lawyer|attorney|legal/i, reason: 'Legal services are consultations, not purchases' },
       { verb: 'Win', objectPattern: /case|lawsuit/i, reason: 'Cannot guarantee legal outcomes' }
     ],
     problemToSolutionMap: {
-      'accident': 'Accident Injury Legal Help',
+      'accident': 'Accident Legal Help',
       'injury': 'Personal Injury Consultation',
       'divorce': 'Family Law Consultation',
-      'dui': 'DUI Defense Representation',
-      'bankruptcy': 'Bankruptcy Legal Services'
+      'dui': 'DUI Defense',
+      'bankruptcy': 'Bankruptcy Services'
     },
-    bannedPhrases: [
-      { pattern: /win\s+your\s+case|guaranteed\s+win/i, reason: 'Cannot guarantee legal outcomes' },
-      { pattern: /best\s+lawyer|top\s+attorney/i, reason: 'Superlative claims restricted without proof' }
+    errorClaims: [
+      { pattern: /\b(win\s+your\s+case|guaranteed\s+win|100%\s+win\s+rate)\b/i, reason: 'Cannot guarantee legal outcomes', suggestion: 'Use "experienced representation"' },
+      { pattern: /\b(guarantee|guaranteed)\s+(settlement|verdict|outcome)/i, reason: 'Legal outcome guarantees prohibited', suggestion: 'Remove guarantee language' }
+    ],
+    warnClaims: [
+      { pattern: /\b(best|top)\s+(lawyer|attorney)/i, reason: 'Superlative claims need verification', suggestion: 'Use "experienced" or "skilled"' },
+      { pattern: /\b(never\s+lose|always\s+win)/i, reason: 'Absolute outcome claims misleading', suggestion: 'Use "strong track record"' }
     ]
   },
   {
     vertical: 'home-services',
-    allowedVerbs: ['Schedule', 'Book', 'Get', 'Request', 'Fix', 'Repair', 'Install', 'Replace'],
+    imperativeVerbs: new Set(['schedule', 'book', 'get', 'request', 'fix', 'repair', 'install', 'replace', 'call']),
     forbiddenPairs: [],
     problemToSolutionMap: {
       'roof leak': 'Roof Repair',
@@ -126,19 +149,22 @@ const VERTICAL_RULES: VerticalRules[] = [
       'no heat': 'Heating Repair',
       'furnace broken': 'Heating Repair'
     },
-    bannedPhrases: [
-      { pattern: /cheapest|lowest\s+price/i, reason: 'Price superlatives may violate policy' },
-      { pattern: /guaranteed\s+lowest/i, reason: 'Unverifiable guarantee claims' }
+    errorClaims: [],
+    warnClaims: [
+      { pattern: /\b(cheapest|lowest\s+price)\b/i, reason: 'Price superlatives may violate policy', suggestion: 'Use "competitive pricing" or "affordable"' },
+      { pattern: /\b(guaranteed\s+lowest)\b/i, reason: 'Unverifiable guarantee claims', suggestion: 'Remove guarantee or use "price match"' }
     ]
   },
   {
     vertical: 'ecommerce',
-    allowedVerbs: ['Shop', 'Buy', 'Order', 'Get', 'Browse', 'Discover', 'Save On', 'Find'],
+    imperativeVerbs: new Set(['shop', 'buy', 'order', 'get', 'browse', 'discover', 'save', 'find']),
     forbiddenPairs: [],
     problemToSolutionMap: {},
-    bannedPhrases: [
-      { pattern: /free\s+money|get\s+rich/i, reason: 'Misleading financial claims' },
-      { pattern: /miracle|miraculous/i, reason: 'Unverifiable product claims' }
+    errorClaims: [
+      { pattern: /\b(free\s+money|get\s+rich\s+quick)\b/i, reason: 'Misleading financial claims prohibited', suggestion: 'Remove financial promises' }
+    ],
+    warnClaims: [
+      { pattern: /\b(miracle|miraculous)\b/i, reason: 'Unverifiable product claims', suggestion: 'Use specific product benefits' }
     ]
   }
 ];
@@ -267,12 +293,21 @@ function detectVertical(keywords: string[], topQueries: string[]): string {
   return 'ecommerce';
 }
 
+// Check if headline is in imperative form (starts with a verb)
+function isImperativeHeadline(text: string): boolean {
+  const firstWord = text.trim().toLowerCase().split(/\s+/)[0];
+  return IMPERATIVE_VERBS.has(firstWord);
+}
+
+// Check if a word is likely a noun/adjective (heuristic)
+function isLikelyNoun(word: string): boolean {
+  // Capitalized mid-phrase = likely proper noun
+  // Ends with -al, -ile, -ton, -tion, -ness = likely adjective/noun
+  return /^[A-Z]/.test(word) || /(?:al|ile|ton|tion|ness)$/i.test(word);
+}
+
+// Validate verb-object pairs for imperative headlines only
 function validateVerbObjectPair(verb: string, object: string, verticalRules: VerticalRules): { valid: boolean; reason?: string } {
-  // Check if verb is allowed
-  if (!verticalRules.allowedVerbs.some(v => v.toLowerCase() === verb.toLowerCase())) {
-    return { valid: false, reason: `Verb "${verb}" not in allowed list for ${verticalRules.vertical}` };
-  }
-  
   // Check forbidden pairs
   for (const pair of verticalRules.forbiddenPairs) {
     if (pair.verb.toLowerCase() === verb.toLowerCase() && pair.objectPattern.test(object)) {
@@ -280,19 +315,65 @@ function validateVerbObjectPair(verb: string, object: string, verticalRules: Ver
     }
   }
   
+  // Check if verb is allowed for this vertical (only for imperative headlines)
+  if (!verticalRules.imperativeVerbs.has(verb.toLowerCase())) {
+    return { valid: false, reason: `Verb "${verb}" not recommended for ${verticalRules.vertical}` };
+  }
+  
   return { valid: true };
 }
 
-function checkBannedPhrases(text: string, verticalRules: VerticalRules): { violations: string[] } {
-  const violations: string[] = [];
+// Lint headlines for policy violations (claims-based)
+function lintHeadline(text: string, verticalRules: VerticalRules): Array<{ rule: string; severity: 'error' | 'warn'; message: string; suggestion?: string }> {
+  const issues: Array<{ rule: string; severity: 'error' | 'warn'; message: string; suggestion?: string }> = [];
   
-  for (const banned of verticalRules.bannedPhrases) {
-    if (banned.pattern.test(text)) {
-      violations.push(banned.reason);
+  // 1) Check error-level claims (hard bans)
+  verticalRules.errorClaims.forEach((claim, idx) => {
+    if (claim.pattern.test(text)) {
+      issues.push({
+        rule: `ADS-CLAIM-${verticalRules.vertical.toUpperCase()}-ERR-${String(idx + 1).padStart(3, '0')}`,
+        severity: 'error',
+        message: claim.reason,
+        suggestion: claim.suggestion
+      });
+    }
+  });
+  
+  // 2) Check warning-level claims (soft claims)
+  verticalRules.warnClaims.forEach((claim, idx) => {
+    if (claim.pattern.test(text)) {
+      issues.push({
+        rule: `ADS-CLAIM-${verticalRules.vertical.toUpperCase()}-WARN-${String(idx + 1).padStart(3, '0')}`,
+        severity: 'warn',
+        message: claim.reason,
+        suggestion: claim.suggestion
+      });
+    }
+  });
+  
+  // 3) Optional: Validate verbs ONLY if headline is imperative
+  if (isImperativeHeadline(text)) {
+    const match = text.match(/^(\w+)\s+(.+?)(?:\s*[-|]|$)/);
+    if (match) {
+      const verb = match[1];
+      const object = match[2];
+      
+      // Skip if first word is likely a noun/adjective
+      if (!isLikelyNoun(verb)) {
+        const validation = validateVerbObjectPair(verb, object, verticalRules);
+        if (!validation.valid) {
+          issues.push({
+            rule: 'ADS-VERB-PAIR',
+            severity: 'error',
+            message: `Policy violation: "${verb} ${object}" - ${validation.reason}`,
+            suggestion: `Consider using approved verbs: ${Array.from(verticalRules.imperativeVerbs).slice(0, 5).join(', ')}`
+          });
+        }
+      }
     }
   }
   
-  return { violations };
+  return issues;
 }
 
 // === AUDIT RULES ENGINE ===
@@ -319,35 +400,17 @@ function auditAd(ad: Ad, adGroupStats: any, topQueries: string[], keywords: stri
   const headlines = ad.assets.filter(a => a.type === 'HEADLINE');
   const descriptions = ad.assets.filter(a => a.type === 'DESCRIPTION');
   
-  // === NEW: POLICY-AWARE VERB-OBJECT VALIDATION ===
+  // === CLAIMS-BASED POLICY LINTING ===
   ad.assets.forEach(asset => {
-    // Extract verb-object pairs from asset text
-    const match = asset.text.match(/^(\w+)\s+(.+?)(?:\s*[-|]|$)/);
-    if (match) {
-      const verb = match[1];
-      const object = match[2];
-      
-      const validation = validateVerbObjectPair(verb, object, verticalRules);
-      if (!validation.valid) {
-        findings.push({
-          rule: 'ADS-VERB-024',
-          assetId: asset.id,
-          severity: 'error',
-          message: `Policy violation: "${verb} ${object}" - ${validation.reason}`
-        });
-      }
-    }
-    
-    // Check for banned phrases
-    const phraseCheck = checkBannedPhrases(asset.text, verticalRules);
-    if (phraseCheck.violations.length > 0) {
+    const lintIssues = lintHeadline(asset.text, verticalRules);
+    lintIssues.forEach(issue => {
       findings.push({
-        rule: 'ADS-PHRASE-025',
+        rule: issue.rule,
         assetId: asset.id,
-        severity: 'error',
-        message: `Banned phrases detected: ${phraseCheck.violations.join('; ')}`
+        severity: issue.severity,
+        message: `${issue.message}${issue.suggestion ? ` Suggestion: ${issue.suggestion}` : ''}`
       });
-    }
+    });
   });
 
   // Rule 1: Character limits (ADS-CHAR-001)
@@ -1073,27 +1136,23 @@ function variantFromTopNgrams(context: any, ad: Ad, type: 'HEADLINE' | 'DESCRIPT
       continue;
     }
     
-    // Validate verb-object pair
-    const match = result.match(/^(\w+)\s+(.+?)(?:\s*[-|]|$)/);
-    if (match) {
-      const verb = match[1];
-      const object = match[2];
-      const validation = validateVerbObjectPair(verb, object, verticalRules);
-      if (!validation.valid) {
-        continue; // Skip this template, forbidden pair
-      }
+    // Run claims-based linting
+    const lintIssues = lintHeadline(result, verticalRules);
+    
+    // Skip if there are any error-level issues
+    const hasErrors = lintIssues.some(issue => issue.severity === 'error');
+    if (hasErrors) {
+      continue; // Skip this template, has policy violations
     }
     
-    // Check banned phrases
-    const phraseCheck = checkBannedPhrases(result, verticalRules);
-    if (phraseCheck.violations.length > 0) {
-      continue; // Skip this template, has banned phrases
-    }
+    // Passed all checks (only warnings or no issues are acceptable)
+    const warningNote = lintIssues.length > 0 
+      ? ` Note: ${lintIssues.map(i => i.message).join('; ')}` 
+      : '';
     
-    // Passed all checks
     return { 
       text: result, 
-      explanation: explanation + (classification.canonicalizationReason ? ` (${classification.canonicalizationReason})` : '')
+      explanation: explanation + (classification.canonicalizationReason ? ` (${classification.canonicalizationReason})` : '') + warningNote
     };
   }
   
