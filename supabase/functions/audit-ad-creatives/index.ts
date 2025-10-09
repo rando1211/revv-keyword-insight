@@ -23,6 +23,12 @@ interface Ad {
   adStrength?: string;
   policyIssues: string[];
   metrics: any;
+  // Extended fields for advanced freshness/fatigue rules
+  adGroup?: string;
+  lastEditDate?: string;
+  daysSinceLastVariant?: number;
+  weeklyTrends?: Array<{ week: string; impr: number; clicks: number; ctr: number }>;
+  assetServeShares?: Record<string, number>;
 }
 
 interface Finding {
@@ -60,7 +66,7 @@ serve(async (req) => {
       });
     }
 
-    console.log(`🔍 Auditing ${ads.length} ads with 10-rule engine`);
+    console.log(`🔍 Auditing ${ads.length} ads with 23-rule engine`);
 
     const allFindings: any[] = [];
     const allScores: any[] = [];

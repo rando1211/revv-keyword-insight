@@ -1609,8 +1609,15 @@ ${riskFactors.map(risk => `• ${risk}`).join('\n')}
               <DialogDescription>
                 {(() => {
                   const adDetail = creativesData?.adsStructured?.find((a: any) => a.adId === selectedAd?.adId);
-                  const passedRules = 14 - (selectedAd?.findings?.length || 0);
-                  return `${adDetail?.campaign} • ${adDetail?.adGroup} • ${passedRules} rules passed, ${selectedAd?.findings?.length || 0} issues found`;
+                  const allRuleIds = [
+                    'ADS-CHAR-001','ADS-DUP-002','ADS-PIN-003','ADS-CASE-004','ADS-POL-005','ADS-COV-006','ADS-NGRAM-007','ADS-MATCH-008','ADS-PATH-009','ADS-SOC-010',
+                    'PERF-CTR-001','PERF-WASTE-001','PERF-CVR-001','PERF-IMPR-001',
+                    'AGE-STALE-001','FRESH-GAP-002','FATIGUE-CTR-003','DATE-EXPIRED-004','ASSET-SHARE-014','LOW-UTIL-015','PIN-BLOCK-016','SEASON-018','LOCAL-019'
+                  ];
+                  const failing = Array.from(new Set((selectedAd?.findings || []).map((f: any) => f.rule))).filter((r: string) => allRuleIds.includes(r));
+                  const total = allRuleIds.length;
+                  const passedRules = total - failing.length;
+                  return `${adDetail?.campaign} • ${adDetail?.adGroup} • ${passedRules} rules passed, ${failing.length} issues found`;
                 })()}
               </DialogDescription>
             </DialogHeader>
@@ -1628,22 +1635,31 @@ ${riskFactors.map(risk => `• ${risk}`).join('\n')}
               });
 
               // All possible rules
-              const allRules = [
-                { id: 'ADS-CHAR-001', name: 'Character Limits', category: 'Compliance' },
-                { id: 'ADS-DUP-002', name: 'Asset Uniqueness', category: 'Diversity' },
-                { id: 'ADS-PIN-003', name: 'Pinning Strategy', category: 'Compliance' },
-                { id: 'ADS-CASE-004', name: 'Formatting & Case', category: 'Compliance' },
-                { id: 'ADS-POL-005', name: 'Policy Compliance', category: 'Compliance' },
-                { id: 'ADS-COV-006', name: 'Asset Coverage', category: 'Coverage' },
-                { id: 'ADS-NGRAM-007', name: 'Asset Performance', category: 'Performance' },
-                { id: 'ADS-MATCH-008', name: 'Query/Benefit/CTA', category: 'Coverage' },
-                { id: 'ADS-PATH-009', name: 'Display Paths', category: 'Coverage' },
-                { id: 'ADS-SOC-010', name: 'Social Proof/Offers', category: 'Coverage' },
-                { id: 'PERF-CTR-001', name: 'CTR Performance', category: 'Performance' },
-                { id: 'PERF-WASTE-001', name: 'Wasted Spend', category: 'Performance' },
-                { id: 'PERF-CVR-001', name: 'Conversion Rate', category: 'Performance' },
-                { id: 'PERF-IMPR-001', name: 'Impression Volume', category: 'Performance' },
-              ];
+                const allRules = [
+                  { id: 'ADS-CHAR-001', name: 'Character Limits', category: 'Compliance' },
+                  { id: 'ADS-DUP-002', name: 'Asset Uniqueness', category: 'Diversity' },
+                  { id: 'ADS-PIN-003', name: 'Pinning Strategy', category: 'Compliance' },
+                  { id: 'ADS-CASE-004', name: 'Formatting & Case', category: 'Compliance' },
+                  { id: 'ADS-POL-005', name: 'Policy Compliance', category: 'Compliance' },
+                  { id: 'ADS-COV-006', name: 'Asset Coverage', category: 'Coverage' },
+                  { id: 'ADS-NGRAM-007', name: 'Asset Performance', category: 'Performance' },
+                  { id: 'ADS-MATCH-008', name: 'Query/Benefit/CTA', category: 'Coverage' },
+                  { id: 'ADS-PATH-009', name: 'Display Paths', category: 'Coverage' },
+                  { id: 'ADS-SOC-010', name: 'Social Proof/Offers', category: 'Coverage' },
+                  { id: 'PERF-CTR-001', name: 'CTR Performance', category: 'Performance' },
+                  { id: 'PERF-WASTE-001', name: 'Wasted Spend', category: 'Performance' },
+                  { id: 'PERF-CVR-001', name: 'Conversion Rate', category: 'Performance' },
+                  { id: 'PERF-IMPR-001', name: 'Impression Volume', category: 'Performance' },
+                  { id: 'AGE-STALE-001', name: 'Stale + CTR Drop', category: 'Freshness' },
+                  { id: 'FRESH-GAP-002', name: 'No New Variant', category: 'Freshness' },
+                  { id: 'FATIGUE-CTR-003', name: 'CTR Fatigue (3w decline)', category: 'Performance' },
+                  { id: 'DATE-EXPIRED-004', name: 'Expired Date/Promo', category: 'Compliance' },
+                  { id: 'ASSET-SHARE-014', name: 'Low Serve Share', category: 'Performance' },
+                  { id: 'LOW-UTIL-015', name: 'Never-Served Headlines', category: 'Coverage' },
+                  { id: 'PIN-BLOCK-016', name: 'Pin Blocking Combos', category: 'Compliance' },
+                  { id: 'SEASON-018', name: 'Out-of-Season Copy', category: 'Seasonality' },
+                  { id: 'LOCAL-019', name: 'Missing Location Token', category: 'Localization' },
+                ];
 
               const ruleStatus = allRules.map(rule => ({
                 ...rule,
