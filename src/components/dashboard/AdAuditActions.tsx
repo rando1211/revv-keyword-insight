@@ -84,19 +84,22 @@ export const AdAuditActions = ({ ad, finding, changeSet, customerId, onExecute }
       });
 
       if (error) throw error;
-      if (!data.success) throw new Error(data.error || 'Execution failed');
 
-      // Check for blockers
+      // Handle validation blockers gracefully
       if (data.blockers && data.blockers.length > 0) {
         toast({
           title: "⚠️ Validation failed",
           description: `${data.blockers.length} blocking issues found`,
           variant: "destructive"
         });
-        setValidationErrors(data.validationErrors);
+        setValidationErrors(data.validationErrors || []);
+        setPreviewData(data);
         setShowPreview(true);
         return;
       }
+
+      // If other non-success cases (e.g., generic failure)
+      if (!data.success) throw new Error(data.error || 'Execution failed');
 
       toast({
         title: "✅ Changes applied",

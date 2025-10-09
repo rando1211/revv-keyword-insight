@@ -97,8 +97,7 @@ serve(async (req) => {
           message: `Cooldown active: Last structural edit was ${Math.floor(hoursSince)}h ago. Wait ${daysRemaining}d before next edit.`,
           lastEditDate: lastEditDate.toISOString()
         }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 429
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
       }
     }
@@ -219,10 +218,10 @@ serve(async (req) => {
       return new Response(JSON.stringify({
         success: false,
         validationErrors,
-        blockers
+        blockers,
+        preview: changes
       }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 400
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
 
