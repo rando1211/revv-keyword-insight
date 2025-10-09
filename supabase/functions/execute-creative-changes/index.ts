@@ -306,7 +306,7 @@ serve(async (req) => {
             headers: {
               'Authorization': `Bearer ${access_token}`,
               'developer-token': DEVELOPER_TOKEN || '',
-              'login-customer-id': loginCustomerId,
+              'login-customer-id': (loginCustomerId || '9301596383'),
               'Content-Type': 'application/json'
             },
             body: JSON.stringify({
@@ -335,13 +335,13 @@ serve(async (req) => {
             `https://googleads.googleapis.com/v20/customers/${cleanCustomerId}/googleAds:search`,
             {
               method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${access_token}`,
-                'developer-token': DEVELOPER_TOKEN || '',
-                'login-customer-id': loginCustomerId,
-                'Content-Type': 'application/json'
-              },
-              body: JSON.stringify({ query: getAdQuery })
+            headers: {
+              'Authorization': `Bearer ${access_token}`,
+              'developer-token': DEVELOPER_TOKEN || '',
+              'login-customer-id': (loginCustomerId || '9301596383'),
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ query: getAdQuery })
             }
           );
           
@@ -402,12 +402,12 @@ serve(async (req) => {
             `https://googleads.googleapis.com/v20/customers/${cleanCustomerId}/googleAds:search`,
             {
               method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${access_token}`,
-                'developer-token': DEVELOPER_TOKEN || '',
-                'login-customer-id': loginCustomerId,
-                'Content-Type': 'application/json'
-              },
+            headers: {
+              'Authorization': `Bearer ${access_token}`,
+              'developer-token': DEVELOPER_TOKEN || '',
+              'login-customer-id': (loginCustomerId || '9301596383'),
+              'Content-Type': 'application/json'
+            },
               body: JSON.stringify({ query: getAdQuery })
             }
           );
