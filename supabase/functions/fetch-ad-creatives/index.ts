@@ -172,6 +172,8 @@ serve(async (req) => {
 
     // Enhanced query with paths, ad strength, policy data
     // Include segments.date to get daily rows, then aggregate in code
+    console.log('🔧 UPDATED QUERY WITH SEGMENTS.WEEK - Deploy timestamp:', new Date().toISOString());
+    
     const adQuery = `
       SELECT 
         campaign.id, campaign.name,
