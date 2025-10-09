@@ -56,18 +56,22 @@ serve(async (req) => {
       { global: { headers: { Authorization: authHeader } } }
     );
 
-    const jwt = authHeader.replace('Bearer', '').trim();
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser(jwt);
-    if (userError) {
-      console.error('❌ Auth error:', userError);
-      throw new Error(`Authentication failed: ${userError.message}`);
+    // Prefer decoding the verified JWT to get user id (avoids session requirement)
+    const token = (authHeader.startsWith('Bearer') ? authHeader.split(' ')[1] : authHeader).trim();
+    let userId = '';
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1] || ''));
+      userId = payload.sub || payload.user_id || '';
+    } catch (e) {
+      console.error('❌ Failed to decode JWT payload');
     }
-    if (!user) {
-      console.error('❌ No user found');
+
+    if (!userId) {
+      console.error('❌ No user id in JWT');
       throw new Error('User not authenticated');
     }
 
-    console.log(`✅ Authenticated user: ${user.id}`);
+    console.log(`✅ Authenticated user: ${userId}`);
 
     // === VALIDATION PHASE ===
     console.log(`✅ Validating ${changes.length} changes...`);
@@ -211,7 +215,7 @@ serve(async (req) => {
     const { data: credentials } = await supabaseClient
       .from('user_google_ads_credentials')
       .select('access_token, refresh_token, developer_token')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .single();
 
     if (!credentials?.access_token) {
@@ -225,7 +229,7 @@ serve(async (req) => {
     const { data: hierarchy } = await supabaseClient
       .from('google_ads_mcc_hierarchy')
       .select('customer_id, manager_customer_id, is_manager')
-      .eq('user_id', user.id);
+      .eq('user_id', userId);
 
     let loginCustomerId = cleanCustomerId;
     if (hierarchy && hierarchy.length > 0) {
@@ -298,7 +302,7 @@ serve(async (req) => {
     const { error: logError } = await supabaseClient
       .from('ad_creative_activity_log')
       .insert({
-        user_id: user.id,
+        user_id: userId,
         customer_id: customerId,
         ad_id: adId,
         campaign_id: campaignId,
