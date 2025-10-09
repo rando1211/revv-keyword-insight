@@ -841,7 +841,12 @@ for (const finding of findings) {
           changes.push({ op: 'PAUSE_ASSET', assetId: finding.assetId });
           const asset = ad.assets.find(a => a.id === finding.assetId);
           if (asset) {
-            const v = variantFromTopNgrams(context, ad, asset.type as 'HEADLINE' | 'DESCRIPTION');
+            // Pass the failing asset so we can analyze its weaknesses
+            const failingAsset = {
+              text: asset.text,
+              ctr: asset.metrics?.ctr
+            };
+            const v = variantFromTopNgrams(context, ad, asset.type as 'HEADLINE' | 'DESCRIPTION', failingAsset);
             if (v) {
               changes.push({
                 op: 'ADD_ASSET',
@@ -1048,9 +1053,69 @@ function isDuplicate(text: string, ad: Ad, type: 'HEADLINE' | 'DESCRIPTION'): bo
   return existingTexts.includes(text.toLowerCase().trim());
 }
 
-function variantFromTopNgrams(context: any, ad: Ad, type: 'HEADLINE' | 'DESCRIPTION'): { text: string; explanation: string } | null {
+function variantFromTopNgrams(context: any, ad: Ad, type: 'HEADLINE' | 'DESCRIPTION', failingAsset?: { text: string; ctr?: number }): { text: string; explanation: string } | null {
   const maxLen = type === 'HEADLINE' ? 30 : 90;
   const verticalRules: VerticalRules = context.verticalRules || VERTICAL_RULES[3];
+  
+  // === ANALYZE THE FAILING ASSET ===
+  let weaknessAnalysis = '';
+  let avoidPatterns: string[] = [];
+  
+  if (failingAsset) {
+    const failText = failingAsset.text;
+    const issues: string[] = [];
+    
+    // Detect specific weaknesses
+    if (failText.length < 15) {
+      issues.push('too short, lacks detail');
+      avoidPatterns.push('short');
+    }
+    
+    if (!/\b(get|book|schedule|call|find|start|learn|request|consult)\b/i.test(failText)) {
+      issues.push('missing clear call-to-action verb');
+      avoidPatterns.push('no-verb');
+    }
+    
+    if (/\b(buy|order|purchase)\b/i.test(failText) && verticalRules.vertical === 'healthcare') {
+      issues.push('transactional language for service vertical');
+      avoidPatterns.push('buy-language');
+    }
+    
+    if (!/\b(free|expert|professional|trusted|certified|licensed|fast|same day)\b/i.test(failText)) {
+      issues.push('no value proposition or benefit');
+      avoidPatterns.push('no-benefit');
+    }
+    
+    if (/\b(online|now|today)\b/i.test(failText) && failText.split(' ').length <= 2) {
+      issues.push('generic urgency without specificity');
+      avoidPatterns.push('generic-urgency');
+    }
+    
+    weaknessAnalysis = issues.length > 0 
+      ? ` Replacing low performer (${issues.join(', ')})` 
+      : ` Replacing underperformer`;
+  }
+  
+  // === LEARN FROM HIGH PERFORMERS ===
+  let winningPatterns: string[] = [];
+  
+  if (type === 'HEADLINE' && ad.assets) {
+    const headlines = ad.assets.filter(a => a.type === 'HEADLINE' && a.metrics?.ctr);
+    if (headlines.length >= 3) {
+      // Sort by CTR and get top performers
+      const topPerformers = headlines
+        .sort((a, b) => (b.metrics?.ctr || 0) - (a.metrics?.ctr || 0))
+        .slice(0, 3);
+      
+      // Extract patterns from winners
+      topPerformers.forEach(h => {
+        if (h.text.includes('Book') || h.text.includes('Schedule')) winningPatterns.push('action-verb');
+        if (/\d/.test(h.text)) winningPatterns.push('numbers');
+        if (h.text.includes('Free') || h.text.includes('Save')) winningPatterns.push('value');
+        if (h.text.length >= 25) winningPatterns.push('detailed');
+      });
+    }
+  }
   
   // Get top query and classify it
   const topQuery = context.topQueries?.[0] || context.keywords?.[0] || 'Product';
@@ -1059,39 +1124,54 @@ function variantFromTopNgrams(context: any, ad: Ad, type: 'HEADLINE' | 'DESCRIPT
   // Use canonical object if it was transformed
   const useObject = classification.canonicalObject;
   
-  // Select templates based on vertical and query type
+  // === SELECT TEMPLATES THAT ADDRESS WEAKNESSES ===
   let templates: string[] = [];
   let explanation = '';
   
   if (verticalRules.vertical === 'healthcare') {
-    templates = type === 'HEADLINE' ? [
+    // Prioritize templates that fix identified issues
+    const allTemplates = type === 'HEADLINE' ? [
       'Book {keyword} Consultation',
       'Schedule {keyword} Appointment',
       'Get {keyword} - Expert Care',
       '{keyword} - Consult Now',
       'Professional {keyword}',
       'Learn About {keyword}',
-      'Find {keyword} Specialists'
+      'Find {keyword} Specialists',
+      'Free {keyword} Consultation',
+      'Trusted {keyword} Providers',
+      '{keyword} - Licensed Specialists'
     ] : [
       'Schedule your {keyword} consultation with licensed professionals.',
       'Get expert {keyword} from certified specialists. Book today.',
       'Find trusted {keyword} providers. Free consultation available.',
-      'Professional {keyword} with personalized care plans.'
+      'Professional {keyword} with personalized care plans.',
+      'Speak with licensed {keyword} specialists. Fast appointments.'
     ];
-    explanation = classification.canonicalizationReason || 'Generated healthcare-compliant copy';
+    
+    // Filter templates based on what to avoid
+    templates = allTemplates.filter(t => {
+      if (avoidPatterns.includes('short') && t.replace('{keyword}', useObject).length < 20) return false;
+      if (avoidPatterns.includes('buy-language') && /buy|order|purchase/i.test(t)) return false;
+      if (avoidPatterns.includes('no-benefit') && !/free|expert|professional|trusted|certified|licensed/i.test(t)) return false;
+      return true;
+    });
+    
+    explanation = classification.canonicalizationReason || 'Healthcare-compliant copy';
   } else if (verticalRules.vertical === 'legal') {
     templates = type === 'HEADLINE' ? [
       'Free {keyword} Consultation',
       'Contact {keyword} Attorney',
       'Get Help With {keyword}',
       '{keyword} - Speak With Expert',
-      'Experienced {keyword} Lawyers'
+      'Experienced {keyword} Lawyers',
+      '{keyword} - Free Case Review'
     ] : [
       'Get a free {keyword} consultation from experienced attorneys.',
       'Contact our {keyword} legal team. No fee unless we win.',
       'Speak with {keyword} experts. Free case evaluation.'
     ];
-    explanation = classification.canonicalizationReason || 'Generated legal-compliant copy';
+    explanation = classification.canonicalizationReason || 'Legal-compliant copy';
   } else if (verticalRules.vertical === 'home-services') {
     templates = type === 'HEADLINE' ? [
       'Schedule {keyword} Service',
@@ -1099,13 +1179,14 @@ function variantFromTopNgrams(context: any, ad: Ad, type: 'HEADLINE' | 'DESCRIPT
       'Professional {keyword}',
       '{keyword} - Same Day Service',
       'Expert {keyword} Available',
-      'Request {keyword} Quote'
+      'Request {keyword} Quote',
+      'Fast {keyword} - Licensed Pros'
     ] : [
       'Get professional {keyword} from licensed experts. Fast service.',
       'Schedule your {keyword} today. Same-day appointments available.',
       'Trusted {keyword} with upfront pricing. Book now.'
     ];
-    explanation = classification.canonicalizationReason || 'Generated service-focused copy';
+    explanation = classification.canonicalizationReason || 'Service-focused copy';
   } else {
     // Ecommerce default
     templates = type === 'HEADLINE' ? [
@@ -1126,7 +1207,7 @@ function variantFromTopNgrams(context: any, ad: Ad, type: 'HEADLINE' | 'DESCRIPT
       'Find your perfect {keyword}. Browse our collection.',
       'Shop trusted {keyword} brands. Fast delivery available.'
     ];
-    explanation = 'Generated product-focused copy';
+    explanation = 'Product-focused copy';
   }
   
   // Try each template in random order until one fits, is unique, and passes validation
@@ -1153,9 +1234,13 @@ function variantFromTopNgrams(context: any, ad: Ad, type: 'HEADLINE' | 'DESCRIPT
       ? ` Note: ${lintIssues.map(i => i.message).join('; ')}` 
       : '';
     
+    const patternNote = winningPatterns.length > 0 
+      ? ` Adopts winning patterns: ${[...new Set(winningPatterns)].join(', ')}` 
+      : '';
+    
     return { 
       text: result, 
-      explanation: explanation + (classification.canonicalizationReason ? ` (${classification.canonicalizationReason})` : '') + warningNote
+      explanation: explanation + weaknessAnalysis + patternNote + (classification.canonicalizationReason ? ` (${classification.canonicalizationReason})` : '') + warningNote
     };
   }
   
