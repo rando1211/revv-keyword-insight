@@ -522,6 +522,21 @@ serve(async (req) => {
 
     console.log('✅ Execution complete');
 
+    // Check if any changes failed
+    const failedChanges = googleAdsResponses.filter(r => r.status >= 400 || r.error);
+    if (failedChanges.length > 0) {
+      console.error(`❌ ${failedChanges.length} changes failed`);
+      return new Response(JSON.stringify({
+        success: false,
+        error: `${failedChanges.length} of ${changes.length} changes failed`,
+        failedChanges,
+        googleAdsResponses
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
     return new Response(JSON.stringify({
       success: true,
       executed: changes.length,
