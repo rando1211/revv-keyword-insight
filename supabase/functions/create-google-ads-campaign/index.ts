@@ -72,61 +72,72 @@ serve(async (req) => {
     const numericCustomerId = String(customerId).replace(/^customers\//, '').replace(/-/g, '');
     const customerResourcePath = `customers/${numericCustomerId}`;
     
-    // Dynamic manager discovery - same as search terms optimization
-    console.log('🔍 Discovering login-customer-id dynamically...');
+    // Get login-customer-id from MCC hierarchy table
+    console.log('🔍 Looking up MCC relationship for customer:', numericCustomerId);
     
-    // Get list of accessible customers
-    const customersResponse = await fetch('https://googleads.googleapis.com/v20/customers:listAccessibleCustomers', {
-      headers: {
-        'Authorization': `Bearer ${ACCESS_TOKEN}`,
-        'developer-token': DEVELOPER_TOKEN,
-      },
-    });
-
-    if (!customersResponse.ok) {
-      const errorText = await customersResponse.text();
-      console.error('❌ Failed to list accessible customers:', errorText);
-      throw new Error(`Failed to list accessible customers: ${errorText}`);
-    }
-
-    const customersData = await customersResponse.json();
-    const accessibleCustomers = customersData.resourceNames || [];
-    console.log('📋 Accessible customers:', accessibleCustomers);
-
-    // Test each accessible customer as login-customer-id
+    const { data: hierarchyData, error: hierarchyError } = await supabase
+      .from('google_ads_mcc_hierarchy')
+      .select('manager_customer_id, account_name')
+      .eq('customer_id', numericCustomerId)
+      .eq('user_id', user.id)
+      .maybeSingle();
+    
     let loginCustomerId: string | null = null;
-    for (const customerResource of accessibleCustomers) {
-      const testManagerId = customerResource.split('/')[1];
-      console.log(`🧪 Testing login-customer-id: ${testManagerId}`);
+    
+    if (hierarchyData && hierarchyData.manager_customer_id) {
+      loginCustomerId = hierarchyData.manager_customer_id;
+      console.log(`✅ Found MCC from hierarchy: ${loginCustomerId} for customer ${numericCustomerId}`);
+    } else {
+      console.log(`⚠️ No MCC found in hierarchy for ${numericCustomerId}, attempting dynamic discovery...`);
+      
+      // Dynamic manager discovery fallback
+      const customersResponse = await fetch('https://googleads.googleapis.com/v20/customers:listAccessibleCustomers', {
+        headers: {
+          'Authorization': `Bearer ${ACCESS_TOKEN}`,
+          'developer-token': DEVELOPER_TOKEN,
+        },
+      });
 
-      try {
-        const testResponse = await fetch(`https://googleads.googleapis.com/v20/customers/${numericCustomerId}/googleAds:search`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${ACCESS_TOKEN}`,
-            'developer-token': DEVELOPER_TOKEN,
-            'login-customer-id': testManagerId,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            query: 'SELECT customer.id FROM customer LIMIT 1',
-          }),
-        });
+      if (customersResponse.ok) {
+        const customersData = await customersResponse.json();
+        const accessibleCustomers = customersData.resourceNames || [];
+        console.log('📋 Accessible customers:', accessibleCustomers);
 
-        if (testResponse.ok) {
-          loginCustomerId = testManagerId;
-          console.log(`✅ Found working login-customer-id: ${loginCustomerId}`);
-          break;
-        } else {
-          console.log(`❌ Manager ${testManagerId} doesn't work`);
+        // Test each accessible customer as login-customer-id
+        for (const customerResource of accessibleCustomers) {
+          const testManagerId = customerResource.split('/')[1];
+          if (testManagerId === numericCustomerId) continue; // Skip self
+          
+          console.log(`🧪 Testing login-customer-id: ${testManagerId}`);
+
+          try {
+            const testResponse = await fetch(`https://googleads.googleapis.com/v20/customers/${numericCustomerId}/googleAds:search`, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${ACCESS_TOKEN}`,
+                'developer-token': DEVELOPER_TOKEN,
+                'login-customer-id': testManagerId,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                query: 'SELECT customer.id FROM customer LIMIT 1',
+              }),
+            });
+
+            if (testResponse.ok) {
+              loginCustomerId = testManagerId;
+              console.log(`✅ Found working login-customer-id: ${loginCustomerId}`);
+              break;
+            }
+          } catch (e) {
+            console.log(`❌ Error testing manager ${testManagerId}:`, e);
+          }
         }
-      } catch (e) {
-        console.log(`❌ Error testing manager ${testManagerId}:`, e);
       }
-    }
-
-    if (!loginCustomerId) {
-      console.log('⚠️ No working login-customer-id found, will try direct access');
+      
+      if (!loginCustomerId) {
+        console.log('⚠️ No working login-customer-id found, will try direct access');
+      }
     }
 
     // Create campaign using Google Ads API

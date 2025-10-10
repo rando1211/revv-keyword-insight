@@ -83,29 +83,43 @@ serve(async (req) => {
     const primaryCustomerId = userCreds.customer_id.replace(/-/g, '');
     console.log('🔍 Primary Customer ID:', primaryCustomerId);
 
-    // Query accessible customers from the primary account
-    const accessibleResponse = await fetch(`https://googleads.googleapis.com/v20/customers/${primaryCustomerId}/googleAds:search`, {
+    // Step 2: Check if primary account is an MCC by querying its manager status
+    console.log('🔍 Step 2: Checking if primary account is an MCC');
+    
+    const checkManagerQuery = `
+      SELECT 
+        customer.id,
+        customer.descriptive_name,
+        customer.manager,
+        customer.test_account
+      FROM customer
+      WHERE customer.id = ${primaryCustomerId}
+      LIMIT 1
+    `;
+
+    const checkManagerResponse = await fetch(`https://googleads.googleapis.com/v20/customers/${primaryCustomerId}/googleAds:search`, {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${accessToken}`,
         "developer-token": DEVELOPER_TOKEN!,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ query: accessibleCustomersQuery }),
+      body: JSON.stringify({ query: checkManagerQuery }),
     });
 
-    if (!accessibleResponse.ok) {
-      console.log('❌ Failed to fetch accessible customers from primary account');
-      // If primary account query fails, it might be a client account
-      // We'll handle this case below
-    } else {
-      const accessibleData = await accessibleResponse.json();
-      console.log('✅ Found accessible customers:', accessibleData.results?.length || 0);
+    let isManager = false;
+    let accountName = `Account ${primaryCustomerId}`;
+    
+    if (checkManagerResponse.ok) {
+      const managerData = await checkManagerResponse.json();
+      if (managerData.results && managerData.results.length > 0) {
+        const result = managerData.results[0];
+        isManager = result.customer?.manager || false;
+        accountName = result.customer?.descriptiveName || accountName;
+        console.log(`✅ Account ${primaryCustomerId} - Manager: ${isManager}, Name: ${accountName}`);
+      }
     }
 
-    // Step 2: Use known MCC relationships to build hierarchy
-    console.log('🔍 Step 2: Using known MCC relationships');
-    
     // Clear existing hierarchy data for this user
     await supabase
       .from('google_ads_mcc_hierarchy')
@@ -114,50 +128,116 @@ serve(async (req) => {
 
     const hierarchyData = [];
 
-    // Known MCC relationships based on working configurations
-    const knownMCCMappings: { [key: string]: string } = {
-      '9918849848': '9301596383', // This customer is managed by this MCC
-    };
-
-    // Add the primary customer and its known MCC relationship
-    if (knownMCCMappings[primaryCustomerId]) {
-      const managerCustomerId = knownMCCMappings[primaryCustomerId];
+    if (isManager) {
+      // This is an MCC - add it as a manager and fetch all child accounts
+      console.log('🔍 Primary account is an MCC, fetching child accounts...');
       
-      console.log(`✅ Adding known MCC relationship: ${primaryCustomerId} -> ${managerCustomerId}`);
-      
-      // Add the client account (primary customer)
       hierarchyData.push({
         user_id: user.id,
         customer_id: primaryCustomerId,
-        manager_customer_id: managerCustomerId,
-        is_manager: false,
-        level: 1,
-        account_name: `Client Account ${primaryCustomerId}`,
-      });
-
-      // Add the MCC account
-      hierarchyData.push({
-        user_id: user.id,
-        customer_id: managerCustomerId,
         manager_customer_id: null,
         is_manager: true,
         level: 0,
-        account_name: `MCC Account ${managerCustomerId}`,
+        account_name: accountName,
       });
 
-      console.log(`✅ Added hierarchy: Client ${primaryCustomerId} managed by MCC ${managerCustomerId}`);
-    } else {
-      // If no known mapping, add as standalone account
-      console.log(`✅ Adding standalone account: ${primaryCustomerId}`);
-      
-      hierarchyData.push({
-        user_id: user.id,
-        customer_id: primaryCustomerId,
-        manager_customer_id: null,
-        is_manager: false,
-        level: 0,
-        account_name: `Standalone Account ${primaryCustomerId}`,
+      // Query for child accounts under this MCC
+      const childAccountsQuery = `
+        SELECT 
+          customer_client.id,
+          customer_client.descriptive_name,
+          customer_client.manager,
+          customer_client.status,
+          customer_client_link.manager_link_id
+        FROM customer_client_link
+        WHERE customer_client_link.status = 'ACTIVE'
+      `;
+
+      const childResponse = await fetch(`https://googleads.googleapis.com/v20/customers/${primaryCustomerId}/googleAds:search`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${accessToken}`,
+          "developer-token": DEVELOPER_TOKEN!,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ query: childAccountsQuery }),
       });
+
+      if (childResponse.ok) {
+        const childData = await childResponse.json();
+        console.log(`✅ Found ${childData.results?.length || 0} child accounts`);
+        
+        if (childData.results) {
+          for (const result of childData.results) {
+            const clientId = result.customerClient?.id?.toString() || '';
+            const clientName = result.customerClient?.descriptiveName || `Client ${clientId}`;
+            const clientIsManager = result.customerClient?.manager || false;
+            const clientStatus = result.customerClient?.status || 'UNKNOWN';
+            
+            if (clientId && clientStatus === 'ENABLED') {
+              hierarchyData.push({
+                user_id: user.id,
+                customer_id: clientId,
+                manager_customer_id: primaryCustomerId,
+                is_manager: clientIsManager,
+                level: 1,
+                account_name: clientName,
+              });
+              
+              console.log(`✅ Added child account: ${clientId} (${clientName})`);
+            }
+          }
+        }
+      } else {
+        const errorText = await childResponse.text();
+        console.log(`❌ Failed to fetch child accounts: ${errorText}`);
+      }
+    } else {
+      // Not an MCC - check if it has a known manager
+      console.log('🔍 Account is not an MCC, checking for manager...');
+      
+      // Hardcoded MCC mapping for known relationships
+      const knownMCCMappings: { [key: string]: string } = {
+        '9918849848': '9301596383', // This client is managed by this MCC
+      };
+      
+      const managerCustomerId = knownMCCMappings[primaryCustomerId];
+      
+      if (managerCustomerId) {
+        console.log(`✅ Found known manager ${managerCustomerId} for ${primaryCustomerId}`);
+        
+        // Add the MCC account
+        hierarchyData.push({
+          user_id: user.id,
+          customer_id: managerCustomerId,
+          manager_customer_id: null,
+          is_manager: true,
+          level: 0,
+          account_name: `MCC Account ${managerCustomerId}`,
+        });
+        
+        // Add the client account
+        hierarchyData.push({
+          user_id: user.id,
+          customer_id: primaryCustomerId,
+          manager_customer_id: managerCustomerId,
+          is_manager: false,
+          level: 1,
+          account_name: accountName,
+        });
+      } else {
+        // Standalone account
+        console.log(`✅ Adding standalone account: ${primaryCustomerId}`);
+        
+        hierarchyData.push({
+          user_id: user.id,
+          customer_id: primaryCustomerId,
+          manager_customer_id: null,
+          is_manager: false,
+          level: 0,
+          account_name: accountName,
+        });
+      }
     }
 
     // Try to verify the relationship works by testing API access

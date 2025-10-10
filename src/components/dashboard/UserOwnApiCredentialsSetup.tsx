@@ -168,6 +168,20 @@ export const UserOwnApiCredentialsSetup = () => {
           variant: "destructive",
         });
       } else {
+        // Trigger MCC hierarchy detection after saving credentials
+        console.log('🔍 Triggering MCC hierarchy detection...');
+        try {
+          const { data: mccData, error: mccError } = await supabase.functions.invoke('detect-mcc-hierarchy');
+          if (mccError) {
+            console.error('MCC detection error:', mccError);
+          } else {
+            console.log('✅ MCC hierarchy detected:', mccData);
+          }
+        } catch (mccError) {
+          console.error('Failed to detect MCC hierarchy:', mccError);
+          // Don't fail the whole process if MCC detection fails
+        }
+        
         setIsConfigured(true);
         toast({
           title: "🚀 API Credentials Configured",
