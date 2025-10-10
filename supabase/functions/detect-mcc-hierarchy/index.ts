@@ -272,15 +272,12 @@ serve(async (req) => {
           });
 
           if (testResponse.ok) {
-            console.log(`✅ Verified: MCC ${record.manager_customer_id} can access ${record.customer_id}`);
-            record.account_name = `✅ Verified Client ${record.customer_id}`;
+            console.log(`✅ Verified: MCC ${record.manager_customer_id} can access ${record.customer_id} (${record.account_name})`);
           } else {
             console.log(`❌ Failed: MCC ${record.manager_customer_id} cannot access ${record.customer_id}`);
-            record.account_name = `❌ Unverified Client ${record.customer_id}`;
           }
         } catch (error) {
           console.log(`❌ Error verifying ${record.customer_id}:`, (error as Error).message);
-          record.account_name = `❌ Error Client ${record.customer_id}`;
         }
       }
     }
