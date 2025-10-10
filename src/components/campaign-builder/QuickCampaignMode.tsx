@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Card } from '@/components/ui/card';
 import { Loader2, Sparkles } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -15,6 +16,7 @@ interface QuickCampaignModeProps {
 export const QuickCampaignMode = ({ onCampaignGenerated, onBack }: QuickCampaignModeProps) => {
   const [domain, setDomain] = useState('');
   const [budget, setBudget] = useState('50');
+  const [instructions, setInstructions] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const { toast } = useToast();
 
@@ -37,6 +39,7 @@ export const QuickCampaignMode = ({ onCampaignGenerated, onBack }: QuickCampaign
         body: {
           domain,
           budget: parseFloat(budget) || 50,
+          instructions: instructions.trim() || undefined,
         },
       });
 
@@ -105,6 +108,22 @@ export const QuickCampaignMode = ({ onCampaignGenerated, onBack }: QuickCampaign
             onChange={(e) => setBudget(e.target.value)}
             disabled={isGenerating}
           />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="instructions">Additional Instructions (Optional)</Label>
+          <Textarea
+            id="instructions"
+            placeholder="E.g., Focus on local customers, emphasize eco-friendly products, target enterprise clients..."
+            value={instructions}
+            onChange={(e) => setInstructions(e.target.value)}
+            disabled={isGenerating}
+            rows={4}
+            className="resize-none"
+          />
+          <p className="text-sm text-muted-foreground">
+            Give AI specific directions about your campaign goals, target audience, or unique selling points
+          </p>
         </div>
 
         <div className="bg-muted/50 p-4 rounded-lg space-y-2">

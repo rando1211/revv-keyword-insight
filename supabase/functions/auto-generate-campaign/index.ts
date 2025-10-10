@@ -31,7 +31,7 @@ serve(async (req) => {
       throw new Error('Authentication failed');
     }
 
-    const { domain, budget = 50 } = await req.json();
+    const { domain, budget = 50, instructions = '' } = await req.json();
     
     if (!domain) {
       throw new Error('Domain is required');
@@ -72,7 +72,7 @@ serve(async (req) => {
 Website: ${domain}
 Content: ${websiteContent}
 Budget: $${budget}/day
-
+${instructions ? `\nAdditional Instructions: ${instructions}\n` : ''}
 Generate a complete campaign structure with:
 1. Campaign name and settings
 2. 3-5 tightly themed ad groups
