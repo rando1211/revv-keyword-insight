@@ -285,17 +285,22 @@ serve(async (req) => {
     // Step 3: Save hierarchy to database
     console.log('🔍 Step 3: Saving hierarchy to database');
     
-    if (hierarchyData.length > 0) {
+    // Dedupe by customer_id to avoid unique constraint violations
+    const uniqueHierarchy = Array.from(
+      new Map(hierarchyData.map((r) => [r.customer_id, r])).values()
+    );
+
+    if (uniqueHierarchy.length > 0) {
       const { error: insertError } = await supabase
         .from('google_ads_mcc_hierarchy')
-        .insert(hierarchyData);
+        .insert(uniqueHierarchy);
 
       if (insertError) {
         console.error('❌ Error saving hierarchy:', insertError);
         throw new Error(`Failed to save hierarchy: ${insertError.message}`);
       }
 
-      console.log(`✅ Saved ${hierarchyData.length} hierarchy records`);
+      console.log(`✅ Saved ${uniqueHierarchy.length} hierarchy records (deduped from ${hierarchyData.length})`);
     }
 
     // Step 4: Return the hierarchy with login-customer-id recommendations
