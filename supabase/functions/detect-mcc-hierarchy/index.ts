@@ -68,19 +68,33 @@ serve(async (req) => {
       WHERE customer.status = 'ENABLED'
     `;
 
-    // We need to find all customers accessible to the user
-    // First, get user's primary customer ID
-    const { data: userCreds } = await supabase
-      .from('user_google_ads_credentials')
-      .select('customer_id')
-      .eq('user_id', user.id)
-      .maybeSingle();
-
-    if (!userCreds || !userCreds.customer_id) {
-      throw new Error('User has no Google Ads credentials configured');
+    // Determine primary customer ID (allow override via request body)
+    let primaryCustomerId = '';
+    try {
+      const body = await req.json();
+      if (body && body.customer_id) {
+        primaryCustomerId = String(body.customer_id).replace(/-/g, '');
+        console.log('🔧 Using provided customer_id override:', primaryCustomerId);
+      }
+    } catch (_) {
+      // no body provided - ignore
     }
 
-    const primaryCustomerId = userCreds.customer_id.replace(/-/g, '');
+    if (!primaryCustomerId) {
+      // Fallback to user's stored customer_id
+      const { data: userCreds } = await supabase
+        .from('user_google_ads_credentials')
+        .select('customer_id')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (!userCreds || !userCreds.customer_id) {
+        throw new Error('User has no Google Ads customer ID configured. Provide customer_id in request body or save it in setup.');
+      }
+
+      primaryCustomerId = userCreds.customer_id.replace(/-/g, '');
+    }
+
     console.log('🔍 Primary Customer ID:', primaryCustomerId);
 
     // Step 2: Check if primary account is an MCC by querying its manager status
