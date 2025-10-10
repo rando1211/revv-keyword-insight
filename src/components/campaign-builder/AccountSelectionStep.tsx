@@ -29,26 +29,46 @@ export const AccountSelectionStep = ({ onAccountSelected, onModeSelect }: Accoun
   const [needsSetup, setNeedsSetup] = useState(false);
   const { toast } = useToast();
 
-  const loadMCCAccounts = async () => {
+  const loadMCCAccounts = async (forceRedetect: boolean = false) => {
     try {
       setLoading(true);
       setNeedsSetup(false);
       
-      // First try to detect MCC hierarchy if not already detected
-      const { data: existingMCC, error: checkError } = await supabase
-        .from('google_ads_mcc_hierarchy')
-        .select('*')
-        .limit(1);
-      
-      if (!existingMCC || existingMCC.length === 0) {
-        console.log('No MCC hierarchy found, detecting...');
-        // Trigger MCC detection
-        try {
-          await supabase.functions.invoke('detect-mcc-hierarchy');
-          // Wait a moment for detection to complete
-          await new Promise(resolve => setTimeout(resolve, 2000));
-        } catch (detectError) {
-          console.error('MCC detection error:', detectError);
+      // Check if we should force re-detection
+      if (forceRedetect) {
+        console.log('🔄 Forcing MCC re-detection...');
+        toast({
+          title: "Re-detecting MCC Hierarchy",
+          description: "Fetching all client accounts...",
+        });
+        
+        // Clear existing hierarchy
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          await supabase
+            .from('google_ads_mcc_hierarchy')
+            .delete()
+            .eq('user_id', user.id);
+        }
+        
+        // Trigger fresh detection
+        await supabase.functions.invoke('detect-mcc-hierarchy');
+        await new Promise(resolve => setTimeout(resolve, 3000)); // Wait for detection to complete
+      } else {
+        // Normal flow - only detect if not already detected
+        const { data: existingMCC } = await supabase
+          .from('google_ads_mcc_hierarchy')
+          .select('*')
+          .limit(1);
+        
+        if (!existingMCC || existingMCC.length === 0) {
+          console.log('No MCC hierarchy found, detecting...');
+          try {
+            await supabase.functions.invoke('detect-mcc-hierarchy');
+            await new Promise(resolve => setTimeout(resolve, 2000));
+          } catch (detectError) {
+            console.error('MCC detection error:', detectError);
+          }
         }
       }
       
@@ -289,9 +309,13 @@ export const AccountSelectionStep = ({ onAccountSelected, onModeSelect }: Accoun
                     Back to MCC
                   </Button>
                 )}
-                <Button variant="outline" size="sm" onClick={loadMCCAccounts}>
+                <Button variant="outline" size="sm" onClick={() => loadMCCAccounts(false)}>
                   <RefreshCw className="h-4 w-4 mr-2" />
                   Refresh
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => loadMCCAccounts(true)}>
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Re-detect MCC
                 </Button>
               </div>
             </CardTitle>
@@ -349,7 +373,7 @@ export const AccountSelectionStep = ({ onAccountSelected, onModeSelect }: Accoun
                     <p className="text-sm mt-2">
                       Only active, non-manager accounts can have campaigns created
                     </p>
-                    <Button variant="outline" onClick={loadMCCAccounts} className="mt-4">
+                    <Button variant="outline" onClick={() => loadMCCAccounts(false)} className="mt-4">
                       <RefreshCw className="h-4 w-4 mr-2" />
                       Retry
                     </Button>

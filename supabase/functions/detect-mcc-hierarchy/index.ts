@@ -155,16 +155,14 @@ serve(async (req) => {
         account_name: accountName,
       });
 
-      // Query for child accounts under this MCC
+      // Query for child accounts under this MCC (same query as fetch-google-ads-accounts)
       const childAccountsQuery = `
         SELECT 
-          customer_client.id,
+          customer_client.client_customer, 
           customer_client.descriptive_name,
-          customer_client.manager,
-          customer_client.status,
-          customer_client_link.manager_link_id
-        FROM customer_client_link
-        WHERE customer_client_link.status = 'ACTIVE'
+          customer_client.manager
+        FROM customer_client
+        WHERE customer_client.level = 1
       `;
 
       const childResponse = await fetch(`https://googleads.googleapis.com/v20/customers/${primaryCustomerId}/googleAds:search`, {
@@ -172,9 +170,10 @@ serve(async (req) => {
         headers: {
           "Authorization": `Bearer ${accessToken}`,
           "developer-token": DEVELOPER_TOKEN!,
+          "login-customer-id": primaryCustomerId,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ query: childAccountsQuery }),
+        body: JSON.stringify({ query: childAccountsQuery.trim() }),
       });
 
       if (childResponse.ok) {
@@ -183,12 +182,12 @@ serve(async (req) => {
         
         if (childData.results) {
           for (const result of childData.results) {
-            const clientId = result.customerClient?.id?.toString() || '';
+            const clientCustomer = result.customerClient?.clientCustomer || '';
+            const clientId = clientCustomer.replace('customers/', '');
             const clientName = result.customerClient?.descriptiveName || `Client ${clientId}`;
             const clientIsManager = result.customerClient?.manager || false;
-            const clientStatus = result.customerClient?.status || 'UNKNOWN';
             
-            if (clientId && clientStatus === 'ENABLED') {
+            if (clientId) {
               hierarchyData.push({
                 user_id: user.id,
                 customer_id: clientId,
