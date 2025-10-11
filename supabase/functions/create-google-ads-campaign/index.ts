@@ -440,6 +440,67 @@ serve(async (req) => {
           });
         };
 
+        // Create image assets first if any ads have imageUrls
+        const imageAssetResourceNames: string[] = [];
+        const allImageUrls = new Set<string>();
+        
+        // Collect all unique image URLs from all ads
+        campaignData.adGroups.forEach((adGroup: any) => {
+          if (adGroup.ads && Array.isArray(adGroup.ads)) {
+            adGroup.ads.forEach((ad: any) => {
+              if (ad.imageUrls && Array.isArray(ad.imageUrls)) {
+                ad.imageUrls.forEach((url: string) => {
+                  if (url && url.trim()) {
+                    allImageUrls.add(url.trim());
+                  }
+                });
+              }
+            });
+          }
+        });
+
+        if (allImageUrls.size > 0) {
+          console.log(`Creating ${allImageUrls.size} image assets...`);
+          const imageOperations = Array.from(allImageUrls).map((imageUrl) => ({
+            create: {
+              type: 'IMAGE',
+              imageAsset: {
+                fullSize: {
+                  url: imageUrl
+                }
+              }
+            }
+          }));
+
+          try {
+            const imageResponse = await fetch(`https://googleads.googleapis.com/v20/customers/${numericCustomerId}/assets:mutate`, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${ACCESS_TOKEN}`,
+                'developer-token': DEVELOPER_TOKEN,
+                ...(loginCustomerId ? { 'login-customer-id': loginCustomerId } : {}),
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                operations: imageOperations,
+              }),
+            });
+
+            if (imageResponse.ok) {
+              const imageResult = await imageResponse.json();
+              imageResult.results.forEach((result: any) => {
+                imageAssetResourceNames.push(result.resourceName);
+              });
+              console.log(`✅ Created ${imageAssetResourceNames.length} image assets`);
+            } else {
+              const errorText = await imageResponse.text();
+              console.error('Image asset creation failed:', errorText);
+            }
+          } catch (error) {
+            console.error('Error creating image assets:', error);
+          }
+        }
+
         // Create RSAs (Responsive Search Ads) - 3 per ad group
         const finalUrl = campaignData.settings.finalUrl;
         if (finalUrl && adGroupResults.results.length > 0) {
@@ -527,6 +588,43 @@ serve(async (req) => {
             } catch (error) {
               console.error('Error creating RSAs:', error);
             }
+          }
+        }
+
+        // Create image extensions at campaign level if we have image assets
+        if (imageAssetResourceNames.length > 0 && campaignResourceName) {
+          console.log(`Creating image extensions for campaign (${imageAssetResourceNames.length} images)...`);
+          
+          const imageExtensionOperations = imageAssetResourceNames.map((assetResourceName) => ({
+            create: {
+              campaign: campaignResourceName,
+              imageAsset: assetResourceName,
+            }
+          }));
+
+          try {
+            const extensionResponse = await fetch(`https://googleads.googleapis.com/v20/customers/${numericCustomerId}/campaignAssets:mutate`, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${ACCESS_TOKEN}`,
+                'developer-token': DEVELOPER_TOKEN,
+                ...(loginCustomerId ? { 'login-customer-id': loginCustomerId } : {}),
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                operations: imageExtensionOperations,
+              }),
+            });
+
+            if (extensionResponse.ok) {
+              const extensionResult = await extensionResponse.json();
+              console.log(`✅ Created ${extensionResult.results.length} image extensions`);
+            } else {
+              const errorText = await extensionResponse.text();
+              console.error('Image extension creation failed:', errorText);
+            }
+          } catch (error) {
+            console.error('Error creating image extensions:', error);
           }
         }
       }

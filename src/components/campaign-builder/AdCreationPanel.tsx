@@ -31,6 +31,7 @@ interface Ad {
   path1: string;
   path2: string;
   finalUrl: string;
+  imageUrls?: string[]; // Up to 20 image URLs for image extensions
 }
 
 interface AdCreationPanelProps {
@@ -146,7 +147,8 @@ export const AdCreationPanel: React.FC<AdCreationPanelProps> = ({
       descriptions: ['', ''],
       path1: '',
       path2: '',
-      finalUrl: businessInfo.websiteUrl || ''
+      finalUrl: businessInfo.websiteUrl || '',
+      imageUrls: ['']
     };
 
     const newAds = { ...ads };
@@ -430,6 +432,57 @@ export const AdCreationPanel: React.FC<AdCreationPanelProps> = ({
                               placeholder="https://..."
                             />
                           </div>
+                        </div>
+
+                        {/* Image Extensions */}
+                        <div className="space-y-2">
+                          <Label className="flex items-center gap-2">
+                            Image Extensions (Optional)
+                            <Badge variant="secondary" className="text-xs">Up to 20</Badge>
+                          </Label>
+                          <p className="text-xs text-muted-foreground mb-2">
+                            Add image URLs for your ads. Images should be square (1:1) and at least 300x300px.
+                          </p>
+                          {(ad.imageUrls || ['']).map((imageUrl, imgIndex) => (
+                            <div key={imgIndex} className="flex gap-2">
+                              <Input
+                                value={imageUrl}
+                                onChange={(e) => {
+                                  const newImageUrls = [...(ad.imageUrls || [''])];
+                                  newImageUrls[imgIndex] = e.target.value;
+                                  updateAd(adGroup.name, adIndex, { imageUrls: newImageUrls });
+                                }}
+                                placeholder={`Image URL ${imgIndex + 1}`}
+                              />
+                              {imgIndex === (ad.imageUrls || ['']).length - 1 && (ad.imageUrls || ['']).length < 20 && (
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    const newImageUrls = [...(ad.imageUrls || ['']), ''];
+                                    updateAd(adGroup.name, adIndex, { imageUrls: newImageUrls });
+                                  }}
+                                >
+                                  <Plus className="h-4 w-4" />
+                                </Button>
+                              )}
+                              {(ad.imageUrls || ['']).length > 1 && (
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    const newImageUrls = [...(ad.imageUrls || [''])];
+                                    newImageUrls.splice(imgIndex, 1);
+                                    updateAd(adGroup.name, adIndex, { imageUrls: newImageUrls });
+                                  }}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              )}
+                            </div>
+                          ))}
                         </div>
                       </CardContent>
                     </Card>
