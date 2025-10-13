@@ -157,6 +157,8 @@ serve(async (req) => {
 
     // Set up filters - ALWAYS include date filter to avoid Google Ads API errors
     const selectedTimeframe = timeframe || 'LAST_30_DAYS';
+    console.log(`📅 Timeframe requested: ${timeframe}, using: ${selectedTimeframe}`);
+    
     let dateFilter = '';
     if (selectedTimeframe === 'LAST_7_DAYS') {
       dateFilter = `AND segments.date DURING LAST_7_DAYS`;
@@ -333,6 +335,9 @@ serve(async (req) => {
       if (ad.metrics.clicks > 0) {
         ad.metrics.conversionsFromInteractionsRate = ad.metrics.conversions / ad.metrics.clicks;
       }
+      
+      // Log CTR calculation for debugging
+      console.log(`📊 Ad ${adId}: ${ad.metrics.clicks} clicks / ${ad.metrics.impressions} impr = ${(ad.metrics.ctr * 100).toFixed(2)}% CTR`);
       
       // Attach weekly trends sorted by week
       const weeks = Array.from(adWeeklyData.values())
