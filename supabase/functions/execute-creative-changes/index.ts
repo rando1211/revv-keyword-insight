@@ -356,10 +356,31 @@ serve(async (req) => {
             throw new Error('Could not fetch current ad data');
           }
           
-          // Compose new assets
+          // Compose new assets with limits
           const assetField = change.type === 'HEADLINE' ? 'headlines' : 'descriptions';
-          const existingAssets = currentAd[assetField] || [];
-          const newAssets = [...existingAssets, { text: change.text }];
+          const existingHeadlines = currentAd.headlines || [];
+          const existingDescriptions = currentAd.descriptions || [];
+          let finalHeadlines = existingHeadlines;
+          let finalDescriptions = existingDescriptions;
+          if (assetField === 'headlines') {
+            const max = 15;
+            const proposed = [...existingHeadlines, { text: change.text }];
+            if (proposed.length > max) {
+              console.log(`✂️ Trimming headlines from ${proposed.length} to ${max}`);
+              finalHeadlines = [...existingHeadlines.slice(0, max - 1), { text: change.text }];
+            } else {
+              finalHeadlines = proposed;
+            }
+          } else {
+            const max = 4;
+            const proposed = [...existingDescriptions, { text: change.text }];
+            if (proposed.length > max) {
+              console.log(`✂️ Trimming descriptions from ${proposed.length} to ${max}`);
+              finalDescriptions = [...existingDescriptions.slice(0, max - 1), { text: change.text }];
+            } else {
+              finalDescriptions = proposed;
+            }
+          }
           
           // Create a NEW RSA ad in the same ad group (Ad fields are immutable)
           const adGroupResource = `customers/${cleanCustomerId}/adGroups/${adGroupId}`;
@@ -379,8 +400,8 @@ serve(async (req) => {
                   ad: {
                     finalUrls,
                     responsiveSearchAd: {
-                      headlines: assetField === 'headlines' ? newAssets : (currentAd.headlines || []),
-                      descriptions: assetField === 'descriptions' ? newAssets : (currentAd.descriptions || [])
+                      headlines: finalHeadlines,
+                      descriptions: finalDescriptions
                     }
                   }
                 }
