@@ -263,8 +263,70 @@ serve(async (req) => {
     }
 
     const apiData = await response.json();
-    const results = apiData.results || [];
-    console.log(`✅ API returned ${results.length} results`);
+const results = apiData.results || [];
+console.log(`✅ API returned ${results.length} results`);
+
+// Fetch asset-level performance so each headline/description has real metrics
+let assetMetricsMap = new Map<string, { impr: number; clicks: number; conv: number }>();
+try {
+  const assetQuery = `
+    SELECT
+      campaign.id,
+      ad_group.id,
+      ad_group_ad.ad.id,
+      ad_group_ad_asset_view.field_type,
+      asset.text_asset.text,
+      metrics.impressions,
+      metrics.clicks,
+      metrics.conversions,
+      segments.week
+    FROM ad_group_ad_asset_view
+    WHERE campaign.advertising_channel_type = SEARCH
+      AND ad_group_ad.ad.type = RESPONSIVE_SEARCH_AD
+      AND ad_group_ad_asset_view.enabled = TRUE
+      ${dateFilter}
+      ${campaignFilter}
+    ORDER BY metrics.impressions DESC
+    LIMIT 5000
+  `;
+
+  const assetResp = await fetch(`https://googleads.googleapis.com/v20/customers/${cleanCustomerId}/googleAds:search`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${access_token}`,
+      'developer-token': DEVELOPER_TOKEN || '',
+      'login-customer-id': correctManagerId,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ query: assetQuery }),
+  });
+
+  if (!assetResp.ok) {
+    console.log('⚠️ Asset-level query failed:', await assetResp.text());
+  } else {
+    const assetData = await assetResp.json();
+    const assetRows = assetData.results || [];
+    console.log(`🔎 Asset rows: ${assetRows.length}`);
+
+    // Aggregate by (adId, fieldType, text)
+    assetMetricsMap = new Map();
+    for (const row of assetRows) {
+      const adId = row.adGroupAd?.ad?.id?.toString();
+      const field = row.adGroupAdAssetView?.fieldType || row.adGroupAdAssetView?.field_type || row.adGroupAdAssetView?.field_type?.toString?.();
+      const text = row.asset?.textAsset?.text || row.asset?.text_asset?.text;
+      if (!adId || !field || !text) continue;
+      const key = `${adId}__${field.toString()}__${text}`;
+      const impr = Number(row.metrics?.impressions ?? 0);
+      const clicks = Number(row.metrics?.clicks ?? 0);
+      const conv = Number(row.metrics?.conversions ?? 0);
+      const prev = assetMetricsMap.get(key) || { impr: 0, clicks: 0, conv: 0 };
+      assetMetricsMap.set(key, { impr: prev.impr + impr, clicks: prev.clicks + clicks, conv: prev.conv + conv });
+    }
+    console.log(`✅ Aggregated asset metrics: ${assetMetricsMap.size} keys`);
+  }
+} catch (e) {
+  console.log('⚠️ Error during asset-level metrics fetch:', e instanceof Error ? e.message : 'Unknown error');
+}
     
     // Deduplicate and aggregate ads by adId + week
     const adMap = new Map();
@@ -431,18 +493,19 @@ serve(async (req) => {
 
           const assets: any[] = [];
 
-          // Process headlines with full data
           if (rsa.headlines) {
             rsa.headlines.forEach((headline: any, index: number) => {
+              const aKey = `${ad.id}__HEADLINE__${headline.text}`;
+              const agg = assetMetricsMap.get(aKey);
               const asset = {
                 id: `${ad.id}_headline_${index}`,
                 type: 'HEADLINE' as const,
                 text: headline.text,
                 pinnedField: headline.pinnedField || 'UNSPECIFIED',
                 metrics: {
-                  impr: parseInt(metrics?.impressions || '0'),
-                  ctr: parseFloat(metrics?.ctr || '0'),
-                  convRate: parseFloat(metrics?.conversionsFromInteractionsRate || '0')
+                  impr: agg?.impr ?? parseInt(metrics?.impressions || '0'),
+                  ctr: agg && agg.impr > 0 ? agg.clicks / agg.impr : parseFloat(metrics?.ctr || '0'),
+                  convRate: agg && agg.clicks > 0 ? agg.conv / agg.clicks : parseFloat(metrics?.conversionsFromInteractionsRate || '0')
                 }
               };
               assets.push(asset);
@@ -458,27 +521,28 @@ serve(async (req) => {
                 pinnedField: headline.pinnedField || 'UNSPECIFIED',
                 campaign: result.campaign.name,
                 adGroup: result.adGroup.name,
-                clicks: parseInt(metrics?.clicks || '0'),
-                impressions: parseInt(metrics?.impressions || '0'),
-                ctr: parseFloat(metrics?.ctr || '0'),
-                conversions: parseFloat(metrics?.conversions || '0'),
+                clicks: agg?.clicks ?? parseInt(metrics?.clicks || '0'),
+                impressions: agg?.impr ?? parseInt(metrics?.impressions || '0'),
+                ctr: agg && agg.impr > 0 ? agg.clicks / agg.impr : parseFloat(metrics?.ctr || '0'),
+                conversions: agg?.conv ?? parseFloat(metrics?.conversions || '0'),
                 cost: (parseInt(metrics?.costMicros || '0')) / 1000000
               });
             });
           }
 
-          // Process descriptions
           if (rsa.descriptions) {
             rsa.descriptions.forEach((description: any, index: number) => {
+              const aKey = `${ad.id}__DESCRIPTION__${description.text}`;
+              const agg = assetMetricsMap.get(aKey);
               const asset = {
                 id: `${ad.id}_description_${index}`,
                 type: 'DESCRIPTION' as const,
                 text: description.text,
                 pinnedField: description.pinnedField || 'UNSPECIFIED',
                 metrics: {
-                  impr: parseInt(metrics?.impressions || '0'),
-                  ctr: parseFloat(metrics?.ctr || '0'),
-                  convRate: parseFloat(metrics?.conversionsFromInteractionsRate || '0')
+                  impr: agg?.impr ?? parseInt(metrics?.impressions || '0'),
+                  ctr: agg && agg.impr > 0 ? agg.clicks / agg.impr : parseFloat(metrics?.ctr || '0'),
+                  convRate: agg && agg.clicks > 0 ? agg.conv / agg.clicks : parseFloat(metrics?.conversionsFromInteractionsRate || '0')
                 }
               };
               assets.push(asset);
@@ -493,10 +557,10 @@ serve(async (req) => {
                 pinnedField: description.pinnedField || 'UNSPECIFIED',
                 campaign: result.campaign.name,
                 adGroup: result.adGroup.name,
-                clicks: parseInt(metrics?.clicks || '0'),
-                impressions: parseInt(metrics?.impressions || '0'),
-                ctr: parseFloat(metrics?.ctr || '0'),
-                conversions: parseFloat(metrics?.conversions || '0'),
+                clicks: agg?.clicks ?? parseInt(metrics?.clicks || '0'),
+                impressions: agg?.impr ?? parseInt(metrics?.impressions || '0'),
+                ctr: agg && agg.impr > 0 ? agg.clicks / agg.impr : parseFloat(metrics?.ctr || '0'),
+                conversions: agg?.conv ?? parseFloat(metrics?.conversions || '0'),
                 cost: (parseInt(metrics?.costMicros || '0')) / 1000000
               });
             });
