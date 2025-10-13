@@ -1017,6 +1017,38 @@ ${riskFactors.map(risk => `• ${risk}`).join('\n')}
                   </>
                 )}
               </Button>
+              <Button
+                variant="outline"
+                className="w-full"
+                disabled={isAuditing}
+                onClick={() => {
+                  if (!creativesData?.adsStructured?.length) {
+                    toast({
+                      title: 'Analyze first',
+                      description: 'Fetch creatives before running the RSA audit.',
+                    });
+                    return;
+                  }
+                  runRSAAudit(
+                    creativesData.adsStructured,
+                    creativesData.adGroupStats,
+                    creativesData.searchTerms,
+                    creativesData.keywords
+                  );
+                }}
+              >
+                {isAuditing ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Running RSA Audit...
+                  </>
+                ) : (
+                  <>
+                    <Play className="h-4 w-4 mr-2" />
+                    Run RSA Audit
+                  </>
+                )}
+              </Button>
               <p className="text-xs text-muted-foreground text-center w-full">
                 💡 Tip: Leave campaigns blank to audit all Search campaigns
               </p>
