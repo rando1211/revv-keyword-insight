@@ -27,6 +27,11 @@ const D_MAX = 90;
 
 // ============= VALIDATORS =============
 
+function validateNoDynamicInsertion(text: string): boolean {
+  // Reject any text containing dynamic insertion syntax
+  return !text.includes('{') && !text.includes('}');
+}
+
 function validateLength(text: string, maxChars: number): boolean {
   return [...text].length <= maxChars;
 }
@@ -128,9 +133,11 @@ function validateRSA(output: RewriteSuggestions, context: RewriteContext): strin
   // Length checks
   output.headlines.forEach((h, i) => {
     if (!validateLength(h, H_MAX)) errors.push(`H${i+1} exceeds ${H_MAX} chars`);
+    if (!validateNoDynamicInsertion(h)) errors.push(`H${i+1} contains dynamic insertion syntax`);
   });
   output.descriptions.forEach((d, i) => {
     if (!validateLength(d, D_MAX)) errors.push(`D${i+1} exceeds ${D_MAX} chars`);
+    if (!validateNoDynamicInsertion(d)) errors.push(`D${i+1} contains dynamic insertion syntax`);
   });
   
   // Caps checks
@@ -543,8 +550,10 @@ ${topPerformersSection}
 Create ${context.constraints.headlines} headlines and ${context.constraints.descriptions} descriptions for a responsive search ad.
 
 CRITICAL GUIDELINES:
-- Headlines: max 30 characters each
-- Descriptions: max 90 characters each
+- Headlines: max 30 characters each (HARD LIMIT - count every character including spaces)
+- Descriptions: max 90 characters each (HARD LIMIT - count every character including spaces)
+- DO NOT use dynamic keyword insertion syntax like {Keyword:...} or {KeyWord:...}
+- Write complete, static headlines only - no curly braces or insertion codes
 - Include primary keywords naturally in headlines
 - Focus on benefits and value propositions
 - Create urgency and compelling calls-to-action
@@ -562,6 +571,7 @@ ${geo ? `- Include location "${geo}" in at least 1 headline` : ''}
 - AVOID excessive capitalization
 - AVOID unverifiable claims
 - AVOID spammy punctuation
+- AVOID dynamic insertion syntax - use plain text only
 ${context.topPerformers ? '\nIMPORTANT: Use the same structure and tone as the TOP WINNING examples above.' : ''}
 
 Return ONLY a JSON object with this exact structure:
@@ -591,9 +601,15 @@ async function generateWithAI(context: RewriteContext): Promise<RewriteSuggestio
     const prompt = buildPrompt(context, policyNotes, attempts > 0 ? lastErrors.join('; ') : undefined);
     try {
       const ai = await callLovableAI(prompt);
-      // Sanitize lengths
-      const headlines = (ai.headlines || []).map(h => smartTruncate(h, H_MAX)).slice(0, context.constraints.headlines);
-      const descriptions = (ai.descriptions || []).map(d => smartTruncate(d, D_MAX)).slice(0, context.constraints.descriptions);
+      // Sanitize lengths and filter out dynamic insertion syntax
+      const headlines = (ai.headlines || [])
+        .filter(h => validateNoDynamicInsertion(h)) // Remove any with curly braces
+        .map(h => smartTruncate(h, H_MAX))
+        .slice(0, context.constraints.headlines);
+      const descriptions = (ai.descriptions || [])
+        .filter(d => validateNoDynamicInsertion(d)) // Remove any with curly braces
+        .map(d => smartTruncate(d, D_MAX))
+        .slice(0, context.constraints.descriptions);
       
       const output: RewriteSuggestions = {
         headlines,
