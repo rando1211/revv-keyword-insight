@@ -1574,27 +1574,6 @@ function injectQueryBenefitCTA(ad: Ad, context: any): Change[] {
   
   return changes;
 }
-      // Passed all checks
-      const warningNote = lintIssues.length > 0 
-        ? ` Note: ${lintIssues.map(i => i.message).join('; ')}` 
-        : '';
-      
-      const explanation = (classification.canonicalizationReason || 
-        `Generated ${verticalRules.vertical}-compliant CTA using verb "${template.verb}"`) + warningNote;
-      
-      changes.push({ 
-        op: 'ADD_ASSET', 
-        type: 'HEADLINE', 
-        text: template.text,
-        explanation,
-        rule: 'ADS-MISS-008' // Missing query-benefit CTA
-      });
-      added++;
-    }
-  }
-  
-  return changes;
-}
 
 function dedupeChanges(changes: Change[]): Change[] {
   const seen = new Set<string>();
