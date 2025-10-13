@@ -15,7 +15,7 @@ interface OptimizationCardProps {
   isExpanded: boolean;
   onToggle: () => void;
   customerId: string;
-  onApply: () => void;
+  onApply: (newAdId?: string) => void;
 }
 
 export const OptimizationCard = ({ 
@@ -67,13 +67,18 @@ export const OptimizationCard = ({
       });
       
       if (error) throw error;
+
+      // Extract new ad ID from response
+      const newAdId = data?.newAdId || data?.results?.[0]?.newAdId;
       
       toast({
         title: '✅ Optimization Applied',
-        description: `Successfully updated ad ${optimization.adId}`,
+        description: newAdId 
+          ? `Created new ad ${newAdId} with ${changes.length} assets`
+          : `Successfully updated ad ${optimization.adId}`,
       });
       
-      onApply();
+      onApply(newAdId);
     } catch (error: any) {
       toast({
         title: 'Apply Failed',
@@ -274,7 +279,7 @@ export const OptimizationCard = ({
             <Alert className="mb-4">
               <AlertTriangle className="h-4 w-4" />
               <AlertDescription className="text-xs">
-                <strong>✅ Experiment-First Approach:</strong> This optimization ADDS new headlines/descriptions to A/B test improvements while keeping existing winners. Historical data is preserved. Only high-risk issues (policy violations, proven waste {'>'}200 clicks) trigger pauses.
+                <strong>✅ Experiment-First Approach:</strong> This creates a new RSA with your updated assets. New ads need impressions before appearing in performance queries (typically 24-48 hours).
               </AlertDescription>
             </Alert>
             <div className="flex gap-2">

@@ -1497,15 +1497,8 @@ const findingChanges = auditResults.changeSet.filter(
                 auditResults={auditResults}
                 customerId={customerId}
                 onRefresh={() => {
-                  // Re-run audit to get fresh data
-                  if (creativesData?.adsStructured) {
-                    runRSAAudit(
-                      creativesData.adsStructured,
-                      creativesData.adGroupStats,
-                      creativesData.searchTerms,
-                      creativesData.keywords
-                    );
-                  }
+                  // Fetch fresh data from Google Ads before re-auditing
+                  analyzeCreatives();
                 }}
               />
             ) : (

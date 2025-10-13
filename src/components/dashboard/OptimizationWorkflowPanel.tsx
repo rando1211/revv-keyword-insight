@@ -227,7 +227,15 @@ export const OptimizationWorkflowPanel = ({
             isExpanded={expandedAd === opt.adId}
             onToggle={() => setExpandedAd(expandedAd === opt.adId ? null : opt.adId)}
             customerId={customerId}
-            onApply={onRefresh}
+            onApply={(newAdId) => {
+              if (newAdId) {
+                toast({
+                  title: '📝 Note',
+                  description: `New ad ${newAdId} created. It will appear in reports once it receives impressions.`,
+                });
+              }
+              onRefresh();
+            }}
           />
         ))}
       </div>

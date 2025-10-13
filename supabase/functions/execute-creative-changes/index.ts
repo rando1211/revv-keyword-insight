@@ -294,6 +294,7 @@ serve(async (req) => {
 
     // Execute changes
     const googleAdsResponses: any[] = [];
+    let newAdId: string | undefined = undefined;
 
     for (const change of changes) {
       try {
@@ -513,6 +514,19 @@ serve(async (req) => {
 
         const responseData = await response.json();
         
+        // Extract new ad ID from create operations (atomic swap)
+        if ((change.op === 'ADD_ASSET' || change.op === 'UPDATE_ASSET') && responseData.results) {
+          const createResult = responseData.results.find((r: any) => r.resourceName?.includes('/adGroupAds/'));
+          if (createResult?.resourceName) {
+            // resourceName format: customers/<cid>/adGroupAds/<adGroupId>~<adId>
+            const match = createResult.resourceName.match(/~(\d+)$/);
+            if (match) {
+              newAdId = match[1];
+              console.log(`✅ Extracted new ad ID: ${newAdId}`);
+            }
+          }
+        }
+        
         // Log errors for debugging
         if (response.status >= 400) {
           console.error(`❌ Google Ads API error (${response.status}):`, JSON.stringify(responseData, null, 2));
@@ -521,7 +535,8 @@ serve(async (req) => {
         googleAdsResponses.push({
           change,
           status: response.status,
-          response: responseData
+          response: responseData,
+          newAdId: (change.op === 'ADD_ASSET' || change.op === 'UPDATE_ASSET') ? newAdId : undefined
         });
 
       } catch (changeError) {
@@ -632,7 +647,9 @@ serve(async (req) => {
       validationErrors,
       googleAdsResponses,
       postChangeChecks,
-      activityLogCreated: !logError
+      activityLogCreated: !logError,
+      newAdId: newAdId, // Return the new ad ID for UI feedback
+      results: googleAdsResponses.map(r => ({ newAdId: r.newAdId }))
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
