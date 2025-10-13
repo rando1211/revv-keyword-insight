@@ -19,6 +19,7 @@ export const AdAuditActions = ({ ad, finding, changeSet, customerId, onExecute }
   const { toast } = useToast();
   const [showPreview, setShowPreview] = useState(false);
   const [isExecuting, setIsExecuting] = useState(false);
+  const [isAutoFixing, setIsAutoFixing] = useState(false);
   const [previewData, setPreviewData] = useState<any>(null);
   const [validationErrors, setValidationErrors] = useState<any[]>([]);
 
@@ -165,6 +166,86 @@ export const AdAuditActions = ({ ad, finding, changeSet, customerId, onExecute }
     }
   };
 
+  const handleAutoFix = async () => {
+    setIsAutoFixing(true);
+    try {
+      toast({
+        title: "🤖 AI analyzing ad...",
+        description: "Generating optimized improvements",
+      });
+
+      // Step 1: Get AI-generated improvements
+      const { data: aiData, error: aiError } = await supabase.functions.invoke('ai-auto-fix-ad', {
+        body: {
+          ad,
+          finding,
+          customerId
+        }
+      });
+
+      if (aiError) throw aiError;
+      if (!aiData.success) throw new Error(aiData.error || 'AI analysis failed');
+
+      console.log('AI improvements:', aiData);
+
+      toast({
+        title: "✨ AI improvements ready",
+        description: aiData.aiSummary,
+      });
+
+      // Step 2: Auto-execute the AI-generated changes
+      const { data: execData, error: execError } = await supabase.functions.invoke('execute-creative-changes', {
+        body: {
+          customerId,
+          adId: ad.adId,
+          campaignId: ad.campaignId,
+          adGroupId: ad.adGroupId,
+          ruleCode: finding.rule,
+          severity: finding.severity,
+          findingMessage: finding.message,
+          changes: aiData.changes,
+          inputSnapshot: ad,
+          dryRun: false
+        }
+      });
+
+      if (execError) throw execError;
+
+      if (execData.blockers && execData.blockers.length > 0) {
+        toast({
+          title: "⚠️ Validation failed",
+          description: `${execData.blockers.length} blocking issues found`,
+          variant: "destructive"
+        });
+        return;
+      }
+
+      if (!execData.success) {
+        const failedDetail = execData?.failedChanges?.[0]?.response?.error?.message
+          || execData?.failedChanges?.[0]?.error
+          || execData?.error;
+        throw new Error(failedDetail ? `Google Ads: ${failedDetail}` : 'Execution failed');
+      }
+
+      toast({
+        title: "✅ Auto-fix complete!",
+        description: aiData.improvements.map((i: any) => `• ${i.text.substring(0, 40)}...`).join('\n'),
+      });
+
+      onExecute?.();
+
+    } catch (error) {
+      console.error('Auto-fix error:', error);
+      toast({
+        title: "Auto-fix failed",
+        description: error instanceof Error ? error.message : "Failed to auto-fix ad",
+        variant: "destructive"
+      });
+    } finally {
+      setIsAutoFixing(false);
+    }
+  };
+
   // Render action buttons based on rule
   const renderActions = () => {
     switch (finding.rule) {
@@ -181,13 +262,27 @@ export const AdAuditActions = ({ ad, finding, changeSet, customerId, onExecute }
       case 'PERF-CTR-001':
         return (
           <div className="flex gap-2">
-            <Button onClick={handlePreview} variant="outline" size="sm">
-              <RefreshCw className="w-4 h-4 mr-1" />
-              Rewrite Variant
+            <Button 
+              onClick={handleAutoFix} 
+              variant="default" 
+              size="sm"
+              disabled={isAutoFixing}
+            >
+              {isAutoFixing ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                  Auto-fixing...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="w-4 h-4 mr-1" />
+                  Auto-fix
+                </>
+              )}
             </Button>
-            <Button onClick={handleCloneAndRewrite} variant="outline" size="sm">
-              <Copy className="w-4 h-4 mr-1" />
-              Clone Variant
+            <Button onClick={handlePreview} variant="outline" size="sm">
+              <Eye className="w-4 h-4 mr-1" />
+              Manual
             </Button>
           </div>
         );
@@ -209,9 +304,23 @@ export const AdAuditActions = ({ ad, finding, changeSet, customerId, onExecute }
       case 'AGE-STALE-001':
       case 'FATIGUE-CTR-003':
         return (
-          <Button onClick={handleCloneAndRewrite} variant="outline" size="sm">
-            <Copy className="w-4 h-4 mr-1" />
-            Clone & Refresh
+          <Button 
+            onClick={handleAutoFix} 
+            variant="default" 
+            size="sm"
+            disabled={isAutoFixing}
+          >
+            {isAutoFixing ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                Auto-fixing...
+              </>
+            ) : (
+              <>
+                <RefreshCw className="w-4 h-4 mr-1" />
+                Auto-fix
+              </>
+            )}
           </Button>
         );
 
