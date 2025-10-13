@@ -339,11 +339,15 @@ async function callLovableAI(prompt: string): Promise<{ headlines: string[]; des
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({
-      // model: 'google/gemini-2.5-flash', // default
+      model: 'google/gemini-2.5-flash',
       messages: [
-        { role: 'system', content: 'You are a Google Ads copywriting expert. Always return valid JSON only with no additional text or formatting.' },
+        { 
+          role: 'system', 
+          content: 'You are a Google Ads copywriting expert specializing in high-converting responsive search ads. Always return valid JSON only with no additional text or formatting.' 
+        },
         { role: 'user', content: prompt }
-      ]
+      ],
+      temperature: 0.8
     })
   });
 
@@ -376,60 +380,65 @@ async function callLovableAI(prompt: string): Promise<{ headlines: string[]; des
 
 function buildPrompt(context: RewriteContext, policyNotes: string[] = [], revise?: string): string {
   const geo = context.geo.city || context.geo.region || '';
-  const offersObj = {
-    financing: context.offers.financing,
-    promotions: context.offers.promotions,
-    trust: context.offers.trust,
-    differentiators: context.offers.differentiators
-  };
+  const models = context.modelsOrSKUs.join(', ') || 'N/A';
+  const keywords = context.topKeywords.join(', ');
+  const searchTerms = context.topSearchTerms.slice(0, 5).join(', ');
   
-  const categoryContext = context.category ? `\n- Category: ${context.category} (USE THIS IN COPY - e.g., "Yamaha ATV" not "Yamaha Shop")` : '';
-  const isOffRoad = context.category && /atv|utv|off.?road|dirt.?bike/i.test(context.category);
-  const actionVerbs = isOffRoad 
-    ? 'Use action verbs like: Conquer, Explore, Ride, Adventure, Trail-Ready, Get Off-Road'
-    : 'Use action verbs like: Ride, Drive, Own, Get';
+  const categoryContext = context.category ? `${context.category}` : 'products';
+  const isOffRoad = context.category && /atv|utv|off.?road|dirt.?bike|motorcycle/i.test(context.category);
   
-  const prompt = `You are writing Google Search Ads for ${context.brand} ${context.category || 'products'}. This is POWERSPORTS/OFF-ROAD, not ecommerce.
+  const prompt = `You are a Google Ads copywriting expert. Create high-converting responsive search ads for the following:
 
-FOLLOW THIS EXACT STRUCTURE:
-- Headline 1 = Brand + Category/Model + Intent (e.g., "Yamaha ATV – Trail Ready")
-- Headline 2 = Offer or Benefit
-- Headline 3 = Proof / Trust
-- Add 2–5 more headlines mixing: Model / Geo / Urgency / CTA
+Business: ${context.brand}
+Category: ${categoryContext}
+${geo ? `Location: ${geo}` : ''}
+Target Keywords: ${keywords}
+Top Search Terms: ${searchTerms}
+${models !== 'N/A' ? `Models/Products: ${models}` : ''}
 
-Descriptions: ${actionVerbs}. Format: "Action + Product + Benefit + CTA". Keep to <= 90 chars.
+Available Offers:
+- Financing: ${context.offers.financing.join(', ') || 'Not specified'}
+- Promotions: ${context.offers.promotions.join(', ') || 'Not specified'}
+- Trust Signals: ${context.offers.trust.join(', ') || 'Not specified'}
+- Differentiators: ${context.offers.differentiators.join(', ') || 'Not specified'}
 
-CONTEXT:
-- Brand: ${context.brand}${categoryContext}
-- Geo: ${geo || 'N/A'}
-- Top Keywords: ${JSON.stringify(context.topKeywords)}
-- Top Search Terms: ${JSON.stringify(context.topSearchTerms)}
-- Models/SKUs: ${JSON.stringify(context.modelsOrSKUs)}
-- Offers: ${JSON.stringify(offersObj)}
-- Trust/Differentiators: ${JSON.stringify([...context.offers.trust, ...context.offers.differentiators])}
+Create ${context.constraints.headlines} headlines and ${context.constraints.descriptions} descriptions for a responsive search ad.
 
-CRITICAL RULES:
-- Headlines <= 30 chars; Descriptions <= 90 chars
-- Include "${context.brand}" in at least 2 headlines
-- Include "${context.category || 'product'}" or model in headlines (NOT "shop" or "store")
-- Include 1 model headline (if models present)
-- Include 1 geo headline (if geo present)
-- Include 1 trust headline
-- ${isOffRoad ? 'Use trail/adventure/off-road language, NOT generic ecommerce' : 'Focus on the riding/ownership experience'}
-- No excessive caps; no unverifiable claims; no punctuation spam
+Guidelines:
+- Headlines: max 30 characters each
+- Descriptions: max 90 characters each
+- Include primary keywords naturally in headlines
+- Focus on benefits and value propositions
+- Create urgency and compelling calls-to-action
+- Ensure mobile-friendly copy
+- Match search intent for the keyword theme
+- Use numbers and specific benefits when possible
+${isOffRoad ? '- Use action-oriented language (Ride, Explore, Conquer, Adventure, Trail-Ready)' : ''}
+${isOffRoad ? '- Focus on the riding/adventure experience, not generic shopping' : ''}
+- Include the brand name "${context.brand}" in at least 2 headlines
+- Include category "${categoryContext}" or model names (NOT generic words like "shop" or "store")
+${geo ? `- Include location "${geo}" in at least 1 headline` : ''}
+- Include trust signals or social proof in at least 1 headline
+- Include offers or financing options prominently
+- DO NOT use excessive capitalization
+- DO NOT make unverifiable claims
+- DO NOT use spammy punctuation
 
-RETURN JSON ONLY in this schema:
+Return ONLY a JSON object with this exact structure:
 {
-  "headlines": ["...", "..."],
-  "descriptions": ["...", "..."],
+  "headlines": ["headline1", "headline2", "headline3", "headline4", "headline5"],
+  "descriptions": ["description1", "description2"],
   "meta": {
-    "usedKeywords": ["..."],
+    "usedKeywords": ["keyword1", "keyword2"],
     "hasGeo": true,
     "hasModel": true,
-    "hasTrust": true
+    "hasTrust": true,
+    "hasOffer": true
   }
 }
-${revise ? `\nRevise to fix: ${revise}` : ''}`;
+
+Make the copy compelling, relevant, and high-converting for ${categoryContext}.${revise ? `\n\nIMPORTANT - Fix these issues from previous attempt: ${revise}` : ''}`;
+  
   return prompt;
 }
 
