@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { AdAuditActions } from "./AdAuditActions";
+import { OptimizationWorkflowPanel } from "./OptimizationWorkflowPanel";
 import { 
   Brain, 
   TrendingUp, 

@@ -1,5 +1,8 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { calculatePriorityScore } from './priority-scoring.ts';
+import { classifyIssues, type ClassifiedIssue } from './issue-classification.ts';
+import { generateRewritesForIssue, type RewriteSuggestions } from './rewrite-generators.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',

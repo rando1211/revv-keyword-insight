@@ -192,6 +192,10 @@ serve(async (req) => {
         ad_group_ad.policy_summary.approval_status,
         metrics.impressions, metrics.clicks, metrics.cost_micros,
         metrics.conversions, metrics.ctr, metrics.conversions_from_interactions_rate,
+        metrics.average_cpc,
+        metrics.search_impression_share,
+        metrics.search_rank_lost_impression_share,
+        ad_group.quality_score,
         segments.date,
         segments.week
       FROM ad_group_ad
