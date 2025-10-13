@@ -1166,6 +1166,7 @@ const findingChanges = auditResults.changeSet.filter(
             <TabsTrigger value="executive">Executive Summary</TabsTrigger>
             <TabsTrigger value="assets">Creative Assets</TabsTrigger>
             <TabsTrigger value="optimizations">Optimizations</TabsTrigger>
+            <TabsTrigger value="smart">Smart Optimizer</TabsTrigger>
             <TabsTrigger value="performance">Performance</TabsTrigger>
           </TabsList>
 
@@ -1479,6 +1480,15 @@ const findingChanges = auditResults.changeSet.filter(
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* Smart Optimizer Tab */}
+          <TabsContent value="smart" className="space-y-4">
+            <OptimizationWorkflowPanel 
+              auditResults={auditResults}
+              customerId={customerId}
+              onRefresh={() => analyzeCreatives()}
+            />
           </TabsContent>
 
           {/* Performance Tab */}
