@@ -209,7 +209,24 @@ serve(async (req) => {
       const findings = auditAd(ad, adGroupStats, topQueries || [], keywords || [], verticalRules);
       console.log(`📋 Ad ${ad.adId}: ${findings.length} findings (${findings.filter(f => f.severity === 'error').length} errors, ${findings.filter(f => f.severity === 'warn').length} warnings)`);
       const score = calculateAdScore(ad, findings);
-      const changes = buildChangeSet(ad, findings, { topQueries, keywords, adGroupStats, verticalRules });
+      
+      // Build rich context for generators
+      const rewriteContext = buildRewriteContext(ad, keywords || [], topQueries || [], detectedVertical);
+      const fullContext = { 
+        topQueries, 
+        keywords, 
+        adGroupStats, 
+        verticalRules,
+        brand: rewriteContext.brand,
+        category: rewriteContext.category,
+        geo: rewriteContext.geo,
+        modelsOrSKUs: rewriteContext.modelsOrSKUs,
+        offers: rewriteContext.offers,
+        topKeywords: rewriteContext.topKeywords,
+        requireLocation: rewriteContext.constraints.requireLocation
+      };
+      
+      const changes = buildChangeSet(ad, findings, fullContext);
 
       allFindings.push({ adId: ad.adId, findings });
       allScores.push({ adId: ad.adId, ...score });
@@ -309,8 +326,8 @@ serve(async (req) => {
 
 // === QUERY CLASSIFICATION & CANONICALIZATION ===
 
-function classifyQuery(query: string, verticalRules: VerticalRules): QueryClassification {
-  const lowerQuery = query.toLowerCase();
+function classifyQuery(query: string, verticalRules: VerticalRules, ctx?: { brand?: string; category?: string; modelsOrSKUs?: string[] }): QueryClassification {
+  const lowerQuery = (query || '').toLowerCase();
   
   // Check if it's a problem/condition that needs canonicalization
   for (const [problem, solution] of Object.entries(verticalRules.problemToSolutionMap)) {
@@ -341,8 +358,13 @@ function classifyQuery(query: string, verticalRules: VerticalRules): QueryClassi
     return { type: 'BRAND/MODEL', originalObject: query, canonicalObject: query };
   }
   
-  // Default to PRODUCT
-  return { type: 'PRODUCT', originalObject: query, canonicalObject: query };
+  // NEW: semantic fallback – prefer model > brand+category > brand
+  const model = ctx?.modelsOrSKUs?.[0];
+  const brand = ctx?.brand;
+  const category = ctx?.category;
+  const fallback = model || [brand, category].filter(Boolean).join(' ') || brand || (query || '').trim();
+  
+  return { type: 'KEYWORD', originalObject: query, canonicalObject: fallback || 'Generic' };
 }
 
 function detectVertical(keywords: string[], topQueries: string[]): string {
@@ -1183,6 +1205,36 @@ function normalizeCase(text: string, type: 'HEADLINE' | 'DESCRIPTION'): string {
   return text;
 }
 
+// === GENERATION HELPERS ===
+
+// Hard constraint validators
+const H_MAX = 30, D_MAX = 90;
+
+function containsAny(hay: string, needles: string[]) {
+  const s = (hay || '').toLowerCase();
+  return needles?.some(n => n && s.includes(n.toLowerCase()));
+}
+
+function passesHeadlineMustHaves(text: string, ctx: any) {
+  const okLen = getDisplayedTextLength(text) <= H_MAX;
+  const hasKeyword = ctx.topKeywords?.length ? containsAny(text, ctx.topKeywords) : true;
+  const hasModel = ctx.modelsOrSKUs?.length ? containsAny(text, ctx.modelsOrSKUs) : true;
+  const hasGeo = ctx.requireLocation ? containsAny(text, [ctx.geo?.city, ctx.geo?.region].filter(Boolean)) : true;
+  return okLen && hasKeyword && hasModel && hasGeo;
+}
+
+function passesDescriptionMustHaves(text: string, ctx: any) {
+  return getDisplayedTextLength(text) <= D_MAX && !/product\b/i.test(text); // ban "product"
+}
+
+function tooSimilar(a: string, b: string) {
+  const A = new Set(a.toLowerCase().split(/\W+/));
+  const B = new Set(b.toLowerCase().split(/\W+/));
+  const inter = [...A].filter(x => B.has(x)).length;
+  const union = new Set([...A, ...B]).size || 1;
+  return inter / union > 0.8;
+}
+
 // Helper: Check if headline/description already exists in ad
 function isDuplicate(text: string, ad: Ad, type: 'HEADLINE' | 'DESCRIPTION'): boolean {
   const existingTexts = ad.assets
@@ -1256,8 +1308,8 @@ function variantFromTopNgrams(context: any, ad: Ad, type: 'HEADLINE' | 'DESCRIPT
   }
   
   // Get top query and classify it
-  const topQuery = context.topQueries?.[0] || context.keywords?.[0] || 'Product';
-  const classification = classifyQuery(topQuery, verticalRules);
+  const topQuery = context.topQueries?.[0] || context.keywords?.[0] || context.brand || '';
+  const classification = classifyQuery(topQuery, verticalRules, context);
   
   // Use canonical object if it was transformed
   const useObject = classification.canonicalObject;
@@ -1326,26 +1378,27 @@ function variantFromTopNgrams(context: any, ad: Ad, type: 'HEADLINE' | 'DESCRIPT
     ];
     explanation = classification.canonicalizationReason || 'Service-focused copy';
   } else {
-    // Ecommerce default
+    // Ecommerce default – upgraded to include offer/geo/model/CTA
+    const brand = context.brand || '';
+    const geo = context.geo?.city || context.geo?.region || '';
+    const offer = context.offers?.financing?.[0] || context.offers?.promotions?.[0] || 'Low Monthly Payments';
+    const model = context.modelsOrSKUs?.[0];
+    
+    const base = useObject; // from classification (keyword/model/brand+category)
+    
     templates = type === 'HEADLINE' ? [
-      'Shop {keyword} Today',
-      'Get Your {keyword} Now',
-      'Quality {keyword}',
-      '{keyword} Available',
-      '{keyword} - Shop Now',
-      'Get {keyword} Today',
-      'Premium {keyword}',
-      '{keyword} Sale',
-      'Save on {keyword}',
-      'Affordable {keyword}'
+      `${base} – ${offer}`,
+      `${brand} ${model || base} In Stock`,
+      `${base} ${geo ? geo + ' – ' : ''}Apply Online`,
+      `${base} – Trade-Ins Welcome`,
+      `${brand} Dealer ${geo ? '– ' + geo : ''}`,
+      `${model || base} – Test Ride Today`
     ] : [
-      'Discover our {keyword} selection. Shop now and save.',
-      'Get the best {keyword} deals. Free shipping available.',
-      'Quality {keyword} with expert service. Order today.',
-      'Find your perfect {keyword}. Browse our collection.',
-      'Shop trusted {keyword} brands. Fast delivery available.'
+      `Shop ${brand} ${model || base}. ${offer}. Fast approval. Apply online.`,
+      `Huge ${brand} inventory${geo ? ' in ' + geo : ''}. Trade-ins welcome. Get pre-approved now.`
     ];
-    explanation = 'Product-focused copy';
+    
+    explanation = 'Product-focused copy with offer/geo/model emphasis';
   }
   
   // Try each template in random order until one fits, is unique, and passes validation
@@ -1366,6 +1419,14 @@ function variantFromTopNgrams(context: any, ad: Ad, type: 'HEADLINE' | 'DESCRIPT
     if (hasErrors) {
       continue; // Skip this template, has policy violations
     }
+    
+    // AFTER lint check, BEFORE return: check must-haves
+    if (type === 'HEADLINE' && !passesHeadlineMustHaves(result, context)) continue;
+    if (type === 'DESCRIPTION' && !passesDescriptionMustHaves(result, context)) continue;
+    
+    // Diversity against existing assets
+    const existingH = ad.assets.filter(a => a.type === 'HEADLINE').map(a => a.text);
+    if (type === 'HEADLINE' && existingH.some(h => tooSimilar(h, result))) continue;
     
     // Passed all checks (only warnings or no issues are acceptable)
     const warningNote = lintIssues.length > 0 
@@ -1470,21 +1531,19 @@ function injectQueryBenefitCTA(ad: Ad, context: any): Change[] {
   if (context.topQueries?.length > 0 && headlines.length < 12) {
     const verticalRules: VerticalRules = context.verticalRules || VERTICAL_RULES[3];
     const query = context.topQueries[0];
-    const classification = classifyQuery(query, verticalRules);
+    const classification = classifyQuery(query, verticalRules, context);
     const useObject = classification.canonicalObject;
     
-    // Generate policy-compliant templates using imperative verbs
-    const allowedTemplates: Array<{ text: string; verb: string }> = [];
+    // CHANGE – build richer, compliant templates using keyword + offer (+ geo)
+    const offer = context.offers?.financing?.[0] || context.offers?.promotions?.[0] || 'Apply Online';
+    const geo = context.geo?.city || context.geo?.region || '';
     
-    // Convert Set to Array and take first 4
-    const verbsArray = Array.from(verticalRules.imperativeVerbs).slice(0, 4);
-    
-    for (const verb of verbsArray) {
-      const text = `${verb.charAt(0).toUpperCase() + verb.slice(1)} ${useObject}`;
-      if (text.length <= 30) {
-        allowedTemplates.push({ text, verb });
-      }
-    }
+    const allowedTemplates: { text: string; why: string }[] = [
+      { text: `${useObject} – ${offer}`,                    why: 'keyword+offer' },
+      { text: `${useObject}${geo ? ' ' + geo : ''} – Apply Online`, why: 'keyword+geo+cta' },
+      { text: `${useObject} – Trade-Ins Welcome`,           why: 'keyword+differentiator' },
+      { text: `${useObject} – Test Ride Today`,             why: 'keyword+intent' }
+    ].filter(t => getDisplayedTextLength(t.text) <= H_MAX);
     
     // Try to add up to 2 valid headlines
     let added = 0;
@@ -1494,11 +1553,27 @@ function injectQueryBenefitCTA(ad: Ad, context: any): Change[] {
       // Check uniqueness
       if (isDuplicate(template.text, ad, 'HEADLINE')) continue;
       
-      // Run claims-based linting instead of old validation
+      // Run claims-based linting
       const lintIssues = lintHeadline(template.text, verticalRules);
       const hasErrors = lintIssues.some(issue => issue.severity === 'error');
       if (hasErrors) continue;
       
+      // Check must-haves
+      if (!passesHeadlineMustHaves(template.text, context)) continue;
+      
+      changes.push({
+        op: 'ADD_ASSET',
+        type: 'HEADLINE',
+        text: template.text,
+        explanation: `Query-driven headline: ${template.why}`,
+        rule: 'ADS-MISS-008' // Missing query-benefit CTA
+      });
+      added++;
+    }
+  }
+  
+  return changes;
+}
       // Passed all checks
       const warningNote = lintIssues.length > 0 
         ? ` Note: ${lintIssues.map(i => i.message).join('; ')}` 
@@ -1523,8 +1598,9 @@ function injectQueryBenefitCTA(ad: Ad, context: any): Change[] {
 
 function dedupeChanges(changes: Change[]): Change[] {
   const seen = new Set<string>();
-  return changes.filter(change => {
-    const key = `${change.op}_${change.assetId}_${change.text}`;
+  return changes.filter((change) => {
+    const textKey = (change.text || '').toLowerCase().trim();
+    const key = `${change.op}_${change.assetId || ''}_${textKey}_${change.type || ''}`;
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
