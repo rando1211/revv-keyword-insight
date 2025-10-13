@@ -341,7 +341,7 @@ async function callLovableAI(prompt: string): Promise<{ headlines: string[]; des
     body: JSON.stringify({
       // model: 'google/gemini-2.5-flash', // default
       messages: [
-        { role: 'system', content: 'You are a senior Google Search Ads copywriter. Return ONLY valid JSON.' },
+        { role: 'system', content: 'You are a Google Ads copywriting expert. Always return valid JSON only with no additional text or formatting.' },
         { role: 'user', content: prompt }
       ]
     })
@@ -356,14 +356,20 @@ async function callLovableAI(prompt: string): Promise<{ headlines: string[]; des
 
   const data = await response.json();
   const content: string = data?.choices?.[0]?.message?.content || '';
+  
   try {
-    const parsed = JSON.parse(content);
+    // Clean up the response to ensure it's valid JSON (remove markdown code blocks)
+    const cleanContent = content.replace(/```json\n?/, '').replace(/```\n?$/, '').trim();
+    const parsed = JSON.parse(cleanContent);
+    
     return {
       headlines: Array.isArray(parsed.headlines) ? parsed.headlines : [],
       descriptions: Array.isArray(parsed.descriptions) ? parsed.descriptions : [],
       meta: parsed.meta
     };
-  } catch {
+  } catch (parseError) {
+    console.error('Failed to parse AI response:', parseError);
+    console.error('Raw content:', content);
     throw new Error('AI did not return valid JSON');
   }
 }
