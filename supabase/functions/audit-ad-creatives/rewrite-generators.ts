@@ -201,6 +201,33 @@ function toTitleCase(str: string): string {
   );
 }
 
+// ==== Similarity & De-dup Helpers ====
+const STOPWORDS = new Set(['the','and','for','in','on','a','an','to','your','with','of','at','we','you','now','new']);
+function tokenize(s: string): string[] {
+  return s
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .split(/\s+/)
+    .filter(w => w && !STOPWORDS.has(w));
+}
+function jaccardSimilarity(a: string, b: string): number {
+  const ta = new Set(tokenize(a));
+  const tb = new Set(tokenize(b));
+  if (ta.size === 0 || tb.size === 0) return 0;
+  let inter = 0;
+  ta.forEach(t => { if (tb.has(t)) inter++; });
+  const union = ta.size + tb.size - inter;
+  return inter / union;
+}
+function dedupeList(items: string[], threshold = 0.6): string[] {
+  const out: string[] = [];
+  items.forEach(item => {
+    const isDup = out.some(existing => jaccardSimilarity(existing, item) >= threshold);
+    if (!isDup) out.push(item);
+  });
+  return out;
+}
+
 // ============= GENERATORS =============
 
 function generateH1KeywordIntent(context: RewriteContext): string[] {
@@ -660,19 +687,30 @@ async function generateWithAI(context: RewriteContext): Promise<RewriteSuggestio
   let attempts = 0;
   let lastErrors: string[] = [];
 
-  while (attempts < 2) {
+  while (attempts < 3) {
     const prompt = buildPrompt(context, policyNotes, attempts > 0 ? lastErrors.join('; ') : undefined);
     try {
       const ai = await callLovableAI(prompt);
       // Sanitize lengths and filter out dynamic insertion syntax
-      const headlines = (ai.headlines || [])
+      const rawHeadlines = (ai.headlines || [])
         .filter(h => validateNoDynamicInsertion(h)) // Remove any with curly braces
-        .map(h => smartTruncate(h, H_MAX))
-        .slice(0, context.constraints.headlines);
-      const descriptions = (ai.descriptions || [])
+        .map(h => smartTruncate(h, H_MAX));
+      const rawDescriptions = (ai.descriptions || [])
         .filter(d => validateNoDynamicInsertion(d)) // Remove any with curly braces
-        .map(d => smartTruncate(d, D_MAX))
-        .slice(0, context.constraints.descriptions);
+        .map(d => smartTruncate(d, D_MAX));
+
+      const headlines = dedupeList(rawHeadlines, 0.6).slice(0, context.constraints.headlines);
+      const descriptions = dedupeList(rawDescriptions, 0.6).slice(0, context.constraints.descriptions);
+
+      // Not enough unique assets? Ask the model to revise with stronger variation.
+      if (headlines.length < context.constraints.headlines || descriptions.length < context.constraints.descriptions) {
+        lastErrors = [
+          `Only ${headlines.length}/${context.constraints.headlines} unique headlines and ${descriptions.length}/${context.constraints.descriptions} unique descriptions.`,
+          'Reduce phrasing overlap. Try different CTAs, benefits, trust signals, geo/model angles.'
+        ];
+        attempts++;
+        continue;
+      }
       
       const output: RewriteSuggestions = {
         headlines,
