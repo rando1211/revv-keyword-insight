@@ -320,7 +320,7 @@ serve(async (req) => {
             })
           });
         } else if (change.op === 'ADD_ASSET' && change.type && change.text) {
-          console.log(`➕ Adding ${change.type} asset by cloning ad and appending: "${change.text}"`);
+          console.log(`🔄 Swapping ad (remove + create) to add ${change.type}: "${change.text}"`);
           
           // Fetch current ad (assets + final urls)
           const adResourceName = `customers/${cleanCustomerId}/adGroupAds/${adGroupId}~${adId}`;
@@ -381,11 +381,12 @@ serve(async (req) => {
               finalDescriptions = proposed;
             }
           }
-          // Enforce absolute caps and log
+          // Enforce absolute caps
           finalHeadlines = (finalHeadlines || []).slice(0, 15);
           finalDescriptions = (finalDescriptions || []).slice(0, 4);
           console.log(`📏 Final asset counts -> headlines: ${finalHeadlines.length}, descriptions: ${finalDescriptions.length}`);
-          // Create a NEW RSA ad in the same ad group (Ad fields are immutable)
+          
+          // ATOMIC SWAP: Remove old ad + Create new ad in single request
           const adGroupResource = `customers/${cleanCustomerId}/adGroups/${adGroupId}`;
           response = await fetch(`https://googleads.googleapis.com/v20/customers/${cleanCustomerId}/adGroupAds:mutate`, {
             method: 'POST',
@@ -396,23 +397,30 @@ serve(async (req) => {
               'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-              operations: [{
-                create: {
-                  adGroup: adGroupResource,
-                  status: 'ENABLED',
-                  ad: {
-                    finalUrls,
-                    responsiveSearchAd: {
-                      headlines: finalHeadlines,
-                      descriptions: finalDescriptions
+              operations: [
+                {
+                  // First: Remove the existing ad
+                  remove: adResourceName
+                },
+                {
+                  // Second: Create new ad with updated assets
+                  create: {
+                    adGroup: adGroupResource,
+                    status: 'ENABLED',
+                    ad: {
+                      finalUrls,
+                      responsiveSearchAd: {
+                        headlines: finalHeadlines,
+                        descriptions: finalDescriptions
+                      }
                     }
                   }
                 }
-              }]
+              ]
             })
           });
         } else if (change.op === 'UPDATE_ASSET' && change.assetId && change.text) {
-          console.log(`✏️  Updating asset ${change.assetId} by cloning ad with new text: "${change.text}"`);
+          console.log(`🔄 Swapping ad (remove + create) to update asset ${change.assetId}: "${change.text}"`);
           
           // Fetch current ad (assets + final urls)
           const adResourceName = `customers/${cleanCustomerId}/adGroupAds/${adGroupId}~${adId}`;
@@ -459,7 +467,7 @@ serve(async (req) => {
           const finalDescriptions2 = (assetField === 'descriptions' ? updatedAssets : existingDescriptions2).slice(0, 4);
           console.log(`📏 Final (update) asset counts -> headlines: ${finalHeadlines2.length}, descriptions: ${finalDescriptions2.length}`);
           
-          // Create a NEW RSA ad with updated assets
+          // ATOMIC SWAP: Remove old ad + Create new ad in single request
           const adGroupResource = `customers/${cleanCustomerId}/adGroups/${adGroupId}`;
           response = await fetch(`https://googleads.googleapis.com/v20/customers/${cleanCustomerId}/adGroupAds:mutate`, {
             method: 'POST',
@@ -470,19 +478,26 @@ serve(async (req) => {
               'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-              operations: [{
-                create: {
-                  adGroup: adGroupResource,
-                  status: 'ENABLED',
-                  ad: {
-                    finalUrls,
-                    responsiveSearchAd: {
-                      headlines: finalHeadlines2,
-                      descriptions: finalDescriptions2
+              operations: [
+                {
+                  // First: Remove the existing ad
+                  remove: adResourceName
+                },
+                {
+                  // Second: Create new ad with updated assets
+                  create: {
+                    adGroup: adGroupResource,
+                    status: 'ENABLED',
+                    ad: {
+                      finalUrls,
+                      responsiveSearchAd: {
+                        headlines: finalHeadlines2,
+                        descriptions: finalDescriptions2
+                      }
                     }
                   }
                 }
-              }]
+              ]
             })
           });
         } else if (change.op === 'PAUSE_ASSET' && change.assetId) {
