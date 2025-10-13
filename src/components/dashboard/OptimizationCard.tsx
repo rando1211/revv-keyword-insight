@@ -45,13 +45,13 @@ export const OptimizationCard = ({
         ...suggestions.headlines.slice(0, 3).map((h: string) => ({
           op: 'ADD_ASSET',
           type: 'HEADLINE',
-          text: h,
+          text: sanitize(h),
           adId: optimization.adId
         })),
         ...suggestions.descriptions.slice(0, 2).map((d: string) => ({
           op: 'ADD_ASSET',
           type: 'DESCRIPTION',
-          text: d,
+          text: sanitize(d),
           adId: optimization.adId
         }))
       ];
@@ -98,10 +98,10 @@ export const OptimizationCard = ({
   const copyToClipboard = () => {
     const text = [
       '=== Suggested Headlines ===',
-      ...suggestions.headlines,
+      ...suggestions.headlines.map(sanitize),
       '',
       '=== Suggested Descriptions ===',
-      ...suggestions.descriptions
+      ...suggestions.descriptions.map(sanitize)
     ].join('\n');
     
     navigator.clipboard.writeText(text);
@@ -236,11 +236,11 @@ export const OptimizationCard = ({
             {suggestions.headlines.map((h: string, i: number) => (
               <div key={i} className="relative">
                 <Textarea
-                  value={h}
+                  value={sanitize(h)}
                   onChange={(e) => {
                     const newH = [...suggestions.headlines];
                     newH[i] = e.target.value.slice(0, 30); // Enforce limit
-                    setSuggestions({ ...suggestions, headlines: newH });
+                    setSuggestions({ ...suggestions, headlines: newH.map(sanitize) });
                   }}
                   className="font-mono text-sm pr-16"
                   maxLength={30}
@@ -262,11 +262,11 @@ export const OptimizationCard = ({
             {suggestions.descriptions.map((d: string, i: number) => (
               <div key={i} className="relative">
                 <Textarea
-                  value={d}
+                  value={sanitize(d)}
                   onChange={(e) => {
                     const newD = [...suggestions.descriptions];
                     newD[i] = e.target.value.slice(0, 90); // Enforce limit
-                    setSuggestions({ ...suggestions, descriptions: newD });
+                    setSuggestions({ ...suggestions, descriptions: newD.map(sanitize) });
                   }}
                   className="font-mono text-sm pr-16"
                   maxLength={90}
