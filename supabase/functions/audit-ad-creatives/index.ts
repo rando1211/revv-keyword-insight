@@ -321,6 +321,22 @@ serve(async (req) => {
           if (!rewriteMeta) rewriteMeta = rewrites.meta;
         }
 
+        // Sanitize to remove dynamic keyword insertion and braces
+        const sanitizeCopy = (t: string) => {
+          let x = t.replace(/[{}]/g, '');
+          x = x.replace(/^\s*(?:key\s*word)\s*:\s*/i, '');
+          x = x.replace(/\s+/g, ' ').trim();
+          return x;
+        };
+        const cleanedHeadlines = allSuggestedHeadlines
+          .map(sanitizeCopy)
+          .filter(h => h && !/key\s*word\s*:/i.test(h))
+          .slice(0, 6);
+        const cleanedDescriptions = allSuggestedDescriptions
+          .map(sanitizeCopy)
+          .filter(d => d && !/key\s*word\s*:/i.test(d))
+          .slice(0, 2);
+
         // Create optimization object
         const optimization = {
           adId: ad.adId,
@@ -330,8 +346,8 @@ serve(async (req) => {
           priorityScore: priorityScore.score,
           priorityReasons: priorityScore.reasons,
           issues: classifiedIssues,
-          suggested_headlines: allSuggestedHeadlines.slice(0, 6),
-          suggested_descriptions: allSuggestedDescriptions.slice(0, 2),
+          suggested_headlines: cleanedHeadlines,
+          suggested_descriptions: cleanedDescriptions,
           rewriteFramework: {
             h1_formula: 'Keyword + Intent',
             h2_formula: 'Offer/Benefit',

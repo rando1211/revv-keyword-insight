@@ -26,9 +26,14 @@ export const OptimizationCard = ({
   onApply 
 }: OptimizationCardProps) => {
   const { toast } = useToast();
+  const sanitize = (t: string) => t
+    ? t.replace(/[{}]/g, '')
+        .replace(/^\s*(?:key\s*word)\s*:\s*/i, '')
+        .trim()
+    : t;
   const [suggestions, setSuggestions] = useState({
-    headlines: optimization.suggested_headlines || [],
-    descriptions: optimization.suggested_descriptions || []
+    headlines: (optimization.suggested_headlines || []).map(sanitize),
+    descriptions: (optimization.suggested_descriptions || []).map(sanitize)
   });
   const [isApplying, setIsApplying] = useState(false);
 
