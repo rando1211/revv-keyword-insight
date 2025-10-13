@@ -36,7 +36,7 @@ export const OptimizationCard = ({
     const s = (t || '').trim();
     if (!s) return true;
     if (s.split(/\s+/).length < 3) return true;
-    if (/[–-:]\s*$/.test(s)) return true;
+    if (/[–\-:]\s*$/.test(s)) return true;
     if (/(?:^|\s)(?:for|with|to|at|on|in|your|our|new|the|and|or|of)$/i.test(s)) return true;
     return false;
   };
