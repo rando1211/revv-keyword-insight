@@ -3,6 +3,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { calculatePriorityScore } from './priority-scoring.ts';
 import { classifyIssues, type ClassifiedIssue } from './issue-classification.ts';
 import { generateRewritesForIssue, type RewriteSuggestions } from './rewrite-generators.ts';
+import { buildRewriteContext } from './context-builder.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -219,19 +220,32 @@ serve(async (req) => {
         const priorityScore = calculatePriorityScore(ad, findings);
         const classifiedIssues = classifyIssues(findings, ad);
         
-        // Generate rewrites for each classified issue
+        // Build rich context for rewrite generation
+        const rewriteContext = buildRewriteContext(
+          ad,
+          keywords || [],
+          topQueries || [],
+          detectedVertical
+        );
+        
+        // Generate rewrites using context
         const allSuggestedHeadlines: string[] = [];
         const allSuggestedDescriptions: string[] = [];
+        let rewriteMeta: any = null;
         
         for (const issue of classifiedIssues) {
           const rewrites = generateRewritesForIssue(
             issue,
             ad,
-            keywords || [],
-            topQueries || []
+            rewriteContext
           );
           allSuggestedHeadlines.push(...rewrites.headlines);
           allSuggestedDescriptions.push(...rewrites.descriptions);
+          
+          // Capture meta from first rewrite
+          if (!rewriteMeta) {
+            rewriteMeta = rewrites.meta;
+          }
         }
 
         // Create optimization object
@@ -243,14 +257,15 @@ serve(async (req) => {
           priorityScore: priorityScore.score,
           priorityReasons: priorityScore.reasons,
           issues: classifiedIssues,
-          suggested_headlines: allSuggestedHeadlines.slice(0, 5), // Top 5
-          suggested_descriptions: allSuggestedDescriptions.slice(0, 3), // Top 3
+          suggested_headlines: allSuggestedHeadlines.slice(0, 6),
+          suggested_descriptions: allSuggestedDescriptions.slice(0, 2),
           rewriteFramework: {
             h1_formula: 'Keyword + Intent',
             h2_formula: 'Offer/Benefit',
-            h3_formula: 'Proof/Social',
-            description_formula: 'Feature + Benefit + CTA'
+            h3_formula: 'Proof/Trust',
+            description_formula: 'Pain + Solution + Offer + CTA'
           },
+          rewriteMeta: rewriteMeta,
           currentMetrics: {
             ctr: ad.metrics?.ctr || 0,
             impressions: ad.metrics?.impressions || 0,

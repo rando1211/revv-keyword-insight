@@ -190,6 +190,27 @@ export const OptimizationCard = ({
             ))}
           </div>
           
+          {/* Validation Badges */}
+          {optimization.rewriteMeta && (
+            <div className="flex flex-wrap gap-2 mb-4">
+              <Badge variant={optimization.rewriteMeta.usedKeywords?.length > 0 ? "default" : "secondary"}>
+                {optimization.rewriteMeta.usedKeywords?.length > 0 ? "✓" : "○"} Keyword
+              </Badge>
+              <Badge variant={optimization.rewriteMeta.hasModel ? "default" : "secondary"}>
+                {optimization.rewriteMeta.hasModel ? "✓" : "○"} Model
+              </Badge>
+              <Badge variant={optimization.rewriteMeta.hasGeo ? "default" : "secondary"}>
+                {optimization.rewriteMeta.hasGeo ? "✓" : "○"} Geo
+              </Badge>
+              <Badge variant={optimization.rewriteMeta.hasOffer ? "default" : "secondary"}>
+                {optimization.rewriteMeta.hasOffer ? "✓" : "○"} Offer
+              </Badge>
+              <Badge variant={optimization.rewriteMeta.hasTrust ? "default" : "secondary"}>
+                {optimization.rewriteMeta.hasTrust ? "✓" : "○"} Trust
+              </Badge>
+            </div>
+          )}
+          
           {/* Suggested Headlines (Editable) */}
           <div className="space-y-2 mb-4">
             <Label className="text-sm font-semibold">✨ AI-Generated Headlines</Label>
