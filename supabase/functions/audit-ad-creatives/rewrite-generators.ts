@@ -127,6 +127,26 @@ function validateMustHaves(output: RewriteSuggestions, context: RewriteContext):
   return errors;
 }
 
+// Validate that descriptions are diverse (not repetitive)
+function validateDescriptionDiversity(descriptions: string[]): string[] {
+  const errors: string[] = [];
+  
+  for (let i = 0; i < descriptions.length; i++) {
+    for (let j = i + 1; j < descriptions.length; j++) {
+      const desc1Words = descriptions[i].toLowerCase().split(/\s+/);
+      const desc2Words = descriptions[j].toLowerCase().split(/\s+/);
+      const commonWords = desc1Words.filter(w => desc2Words.includes(w));
+      const similarity = commonWords.length / Math.max(desc1Words.length, desc2Words.length);
+      
+      if (similarity > 0.7) {
+        errors.push(`Descriptions ${i + 1} and ${j + 1} are too similar (${(similarity * 100).toFixed(0)}% overlap)`);
+      }
+    }
+  }
+  
+  return errors;
+}
+
 function validateRSA(output: RewriteSuggestions, context: RewriteContext): string[] {
   const errors: string[] = [];
   
@@ -150,6 +170,9 @@ function validateRSA(output: RewriteSuggestions, context: RewriteContext): strin
   if (!diversity.valid) {
     errors.push(...diversity.issues);
   }
+  
+  // Description diversity check (prevent repetitive copy)
+  errors.push(...validateDescriptionDiversity(output.descriptions));
   
   // Must-haves
   errors.push(...validateMustHaves(output, context));
@@ -389,6 +412,7 @@ async function callLovableAI(prompt: string): Promise<{ headlines: string[]; des
 
   const body: any = {
     model: 'google/gemini-2.5-flash',
+    temperature: 0.9, // High creativity for diverse variations
     messages: [
       {
         role: 'system',
@@ -523,23 +547,27 @@ function buildPrompt(context: RewriteContext, policyNotes: string[] = [], revise
     actionGuidance = '- Use specific action verbs relevant to the category (NOT generic "Shop" or "Buy")';
   }
   
-  // Build top performers analysis section - SIMPLIFIED
+  // Build top performers analysis section - ANALYZE, DON'T COPY
   let topPerformersSection = '';
   if (context.topPerformers) {
     const { headlines, descriptions } = context.topPerformers;
     
     if (headlines.length > 0) {
-      topPerformersSection += '\n\nTOP WINNING HEADLINES (copy these patterns):\n';
+      topPerformersSection += '\n\n🏆 TOP WINNING HEADLINES (ANALYZE what makes these work - DO NOT COPY VERBATIM):\n';
       headlines.forEach((h, i) => {
         topPerformersSection += `${i + 1}. "${h.text}" (${(h.ctr * 100).toFixed(1)}% CTR)\n`;
       });
+      topPerformersSection += '\n📊 What makes these win: Specific models, brand trust, location relevance, clear CTAs\n';
+      topPerformersSection += '🎯 Your task: Create NEW variations using DIFFERENT wording but same winning themes\n';
     }
     
     if (descriptions.length > 0) {
-      topPerformersSection += '\nTOP WINNING DESCRIPTIONS (copy these patterns):\n';
+      topPerformersSection += '\n🏆 TOP WINNING DESCRIPTIONS (ANALYZE what makes these work - DO NOT COPY VERBATIM):\n';
       descriptions.forEach((d, i) => {
         topPerformersSection += `${i + 1}. "${d.text}" (${(d.ctr * 100).toFixed(1)}% CTR)\n`;
       });
+      topPerformersSection += '\n📊 What makes these win: Clear benefits, specific inventory, trust signals, urgency\n';
+      topPerformersSection += '🎯 Your task: Create NEW variations using DIFFERENT angles but same winning themes\n';
     }
   }
   
@@ -566,7 +594,25 @@ CRITICAL GUIDELINES:
 - Descriptions: max 90 characters each (HARD LIMIT - count every character including spaces)
 - DO NOT use dynamic keyword insertion syntax like {Keyword:...} or {KeyWord:...}
 - Write complete, static headlines only - no curly braces or insertion codes
-- BE CREATIVE: Generate diverse variations on winning patterns, not just copies
+
+🎨 DIVERSITY & CREATIVITY REQUIREMENTS:
+- Each headline must be UNIQUE - no two headlines can share more than 50% of their words
+- Each description must be UNIQUE - no two descriptions can share more than 50% of their words
+- DO NOT repeat the same phrasing - use synonyms, different angles, different structures
+- Test MULTIPLE call-to-action styles:
+  * Direct: "Schedule Service Today"
+  * Benefit-focused: "Save on Premium Models"
+  * Trust-based: "Trusted Since 1968"
+  * Urgency: "Limited Inventory Available"
+  * Question: "Looking for Yamaha?"
+- Test MULTIPLE benefit angles:
+  * Selection: "Largest Selection in CA"
+  * Price: "Best Prices Guaranteed"
+  * Service: "Expert Service & Parts"
+  * Location: "Serving Long Beach"
+  * Trust: "5-Star Rated Dealer"
+
+📝 CONTENT REQUIREMENTS:
 - Include primary keywords naturally in headlines
 - Focus on benefits and value propositions
 - Create urgency and compelling calls-to-action
@@ -580,12 +626,16 @@ ${actionGuidance}
 ${geo ? `- Include location "${geo}" in at least 2 headlines` : ''}
 - Include trust signals or social proof in at least 2 headlines
 - Include offers or financing options prominently in multiple headlines
-- AVOID generic words: "shop", "store", "product", "item", "buy now"
-- AVOID excessive capitalization
-- AVOID unverifiable claims
-- AVOID spammy punctuation
-- AVOID dynamic insertion syntax - use plain text only
-${context.topPerformers ? '\nIMPORTANT: Study the TOP WINNING examples and create 15 CREATIVE VARIATIONS on those themes—expand on what works while testing new angles.' : ''}
+
+🚫 AVOID:
+- Generic words: "shop", "store", "product", "item", "buy now"
+- Excessive capitalization
+- Unverifiable claims
+- Spammy punctuation
+- Dynamic insertion syntax - use plain text only
+- REPEATING the same copy with minor tweaks - each asset must be GENUINELY DIFFERENT
+
+${context.topPerformers ? '\n💡 WINNING PATTERN ANALYSIS:\nThe top performers show what themes resonate. NOW CREATE COMPLETELY NEW VARIATIONS:\n- If winners mention "Yamaha inventory" → try "Yamaha models in stock", "New Yamaha arrivals", "Yamaha selection"\n- If winners mention "Del Amo Motorsports" → try "Del Amo experts", "Your Del Amo dealer", "Del Amo trusted since 1968"\n- If winners use CTAs like "Shop" → try "Explore", "Discover", "Find", "Get", "Schedule"\n- THINK: What are 5 DIFFERENT ways to say the same winning message?' : ''}
 
 Return ONLY a JSON object with this exact structure:
 {
