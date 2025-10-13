@@ -18,7 +18,7 @@ export function generateH1KeywordIntent(keywords: string[], searchTerms: string[
   const topKeyword = keywords[0] || searchTerms[0]?.split(' ').slice(0, 2).join(' ') || 'Product';
   
   return [
-    `${topKeyword} – Get A Quote Today`,
+    `${topKeyword} – Get a Quote Today`,
     `${topKeyword} Near You – Low Financing`,
     `Buy ${topKeyword} – In Stock Now`,
     `${topKeyword} Dealer – Free Consultation`,
@@ -32,7 +32,7 @@ export function generateH2Offer(ad: any, vertical?: string): string[] {
     'Low Monthly Payments – Apply Online',
     'Free Shipping + Price Match Guarantee',
     '0% Financing Available – Trade-Ins Welcome',
-    'Limited Time Offer – Save Up To 30%',
+    'Limited Time Offer – Save up to 30%',
     'No Credit Check – Fast Approval'
   ];
   
@@ -42,7 +42,7 @@ export function generateH2Offer(ad: any, vertical?: string): string[] {
 // H3 = Proof or Trust
 export function generateH3Proof(ad: any): string[] {
   return [
-    'Trusted By 10,000+ Customers',
+    'Trusted by 10,000+ Customers',
     '5-Star Rated – A+ BBB Accredited',
     'Award-Winning Service Since 2010',
     'Certified Experts – 100% Satisfaction Guarantee',
@@ -93,7 +93,7 @@ export function generateRewritesForIssue(
       // Focus on keyword matching
       headlines = [
         ...generateH1KeywordIntent(keywords, searchTerms),
-        `Top-Rated ${keywords[0] || 'Service'} Provider`,
+        `Top-rated ${keywords[0] || 'Service'} Provider`,
         `${keywords[0] || 'Expert'} Solutions Near You`
       ].slice(0, 3);
       descriptions = [
@@ -130,7 +130,7 @@ export function generateRewritesForIssue(
       // Focus on freshness
       const year = new Date().getFullYear();
       headlines = [
-        `${year} Models In Stock – Shop Now`,
+        `${year} Models in Stock – Shop Now`,
         'New Arrivals – Browse Latest Collection',
         'Just Released – Limited Availability'
       ];
@@ -142,7 +142,7 @@ export function generateRewritesForIssue(
     case 'Local':
       // Focus on location
       headlines = [
-        '{LOCATION:City} – Visit Our Showroom',
+        '{LOCATION:City} – Visit our Showroom',
         'Serving {LOCATION:City} Since 2010',
         'Local {LOCATION:City} Dealer – Call Now'
       ];
