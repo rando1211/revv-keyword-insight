@@ -99,12 +99,25 @@ export const AdAuditActions = ({ ad, finding, changeSet, customerId, onExecute }
       }
 
       // If other non-success cases (e.g., generic failure)
-      if (!data.success) throw new Error(data.error || 'Execution failed');
+      if (!data.success) {
+        const failedDetail = data?.failedChanges?.[0]?.response?.error?.message
+          || data?.failedChanges?.[0]?.error
+          || data?.error;
+        throw new Error(failedDetail ? `Google Ads: ${failedDetail}` : 'Execution failed');
+      }
 
-      toast({
-        title: "✅ Changes applied",
-        description: `Successfully executed ${data.executed} changes`,
-      });
+      // Notify if operation resulted in no actual change (e.g., not yet implemented)
+      if (data?.googleAdsResponses?.some((r: any) => r?.response?.queued)) {
+        toast({
+          title: "No change applied",
+          description: "Operation queued or not implemented yet.",
+        });
+      } else {
+        toast({
+          title: "✅ Changes applied",
+          description: `Successfully executed ${data.executed} changes`,
+        });
+      }
 
       setShowPreview(false);
       onExecute?.();
