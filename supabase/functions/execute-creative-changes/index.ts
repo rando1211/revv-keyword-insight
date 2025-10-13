@@ -369,7 +369,7 @@ serve(async (req) => {
             headers: {
               'Authorization': `Bearer ${access_token}`,
               'developer-token': DEVELOPER_TOKEN || '',
-              'login-customer-id': loginCustomerId,
+              'login-customer-id': (loginCustomerId || '9301596383'),
               'Content-Type': 'application/json'
             },
             body: JSON.stringify({
@@ -434,7 +434,7 @@ serve(async (req) => {
             headers: {
               'Authorization': `Bearer ${access_token}`,
               'developer-token': DEVELOPER_TOKEN || '',
-              'login-customer-id': loginCustomerId,
+              'login-customer-id': (loginCustomerId || '9301596383'),
               'Content-Type': 'application/json'
             },
             body: JSON.stringify({
@@ -463,6 +463,12 @@ serve(async (req) => {
         }
 
         const responseData = await response.json();
+        
+        // Log errors for debugging
+        if (response.status >= 400) {
+          console.error(`❌ Google Ads API error (${response.status}):`, JSON.stringify(responseData, null, 2));
+        }
+        
         googleAdsResponses.push({
           change,
           status: response.status,
