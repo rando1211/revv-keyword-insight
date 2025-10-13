@@ -280,6 +280,54 @@ function generateDescriptions(context: RewriteContext): string[] {
 
 // ============= FALLBACK GENERATOR (Deterministic) =============
 
+function buildTopPerformersFallback(context: RewriteContext): RewriteSuggestions {
+  const ph = (context.topPerformers?.headlines || []).map((h: any) => h.text).filter(Boolean);
+  const pd = (context.topPerformers?.descriptions || []).map((d: any) => d.text).filter(Boolean);
+
+  const headlines = Array.from(new Set(ph))
+    .map((t) => smartTruncate(t, H_MAX))
+    .slice(0, context.constraints.headlines);
+
+  const descriptions = Array.from(new Set(pd))
+    .map((t) => smartTruncate(t, D_MAX))
+    .slice(0, context.constraints.descriptions);
+
+  // Backfill if needed using deterministic generators
+  if (headlines.length < context.constraints.headlines) {
+    const extras = [
+      ...generateH1KeywordIntent(context),
+      ...generateH2Offer(context),
+      ...generateH3Proof(context),
+    ];
+    for (const e of extras) {
+      if (headlines.length >= context.constraints.headlines) break;
+      if (!headlines.includes(e)) headlines.push(smartTruncate(e, H_MAX));
+    }
+  }
+
+  return {
+    headlines,
+    descriptions,
+    meta: {
+      usedKeywords: context.topKeywords.filter(kw =>
+        headlines.some(h => h.toLowerCase().includes(kw.toLowerCase()))
+      ),
+      hasGeo: headlines.some(h =>
+        containsAny(h, [context.geo.city || '', context.geo.region || '', 'Near Me', 'Local'].filter(Boolean) as string[])
+      ),
+      hasModel: headlines.some(h => containsAny(h, context.modelsOrSKUs)),
+      hasTrust: headlines.some(h => containsAny(h, context.offers.trust)),
+      hasOffer: headlines.some(h => containsAny(h, [...context.offers.financing, ...context.offers.promotions]))
+    },
+    framework: {
+      h1_formula: 'Keyword + Intent',
+      h2_formula: 'Offer/Benefit',
+      h3_formula: 'Proof/Trust',
+      description_formula: 'Pain + Solution + Offer + CTA'
+    }
+  };
+}
+
 export function generateFallbackRSA(context: RewriteContext): RewriteSuggestions {
   const keyword = context.topKeywords[0] || context.topSearchTerms[0] || context.brand;
   const keywordTitle = toTitleCase(keyword);
@@ -332,23 +380,55 @@ async function callLovableAI(prompt: string): Promise<{ headlines: string[]; des
   const apiKey = Deno.env.get('LOVABLE_API_KEY');
   if (!apiKey) throw new Error('LOVABLE_API_KEY is not configured');
 
+  const body: any = {
+    model: 'google/gemini-2.5-flash',
+    messages: [
+      {
+        role: 'system',
+        content: 'You are a Google Ads copywriting expert specializing in high-converting responsive search ads. Return results via the provided function tool ONLY.'
+      },
+      { role: 'user', content: prompt }
+    ],
+    tools: [
+      {
+        type: 'function',
+        function: {
+          name: 'return_rsa',
+          description: 'Return RSA assets that strictly follow Google Ads limits.',
+          parameters: {
+            type: 'object',
+            properties: {
+              headlines: { type: 'array', items: { type: 'string' } },
+              descriptions: { type: 'array', items: { type: 'string' } },
+              meta: {
+                type: 'object',
+                properties: {
+                  usedKeywords: { type: 'array', items: { type: 'string' } },
+                  hasGeo: { type: 'boolean' },
+                  hasModel: { type: 'boolean' },
+                  hasTrust: { type: 'boolean' },
+                  hasOffer: { type: 'boolean' }
+                },
+                required: ['usedKeywords', 'hasGeo', 'hasModel', 'hasTrust', 'hasOffer'],
+                additionalProperties: false
+              }
+            },
+            required: ['headlines', 'descriptions', 'meta'],
+            additionalProperties: false
+          }
+        }
+      }
+    ],
+    tool_choice: { type: 'function', function: { name: 'return_rsa' } }
+  };
+
   const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${apiKey}`,
       'Content-Type': 'application/json'
     },
-    body: JSON.stringify({
-      model: 'google/gemini-2.5-flash',
-      messages: [
-        { 
-          role: 'system', 
-          content: 'You are a Google Ads copywriting expert specializing in high-converting responsive search ads. Always return valid JSON only with no additional text or formatting.' 
-        },
-        { role: 'user', content: prompt }
-      ],
-      temperature: 0.8
-    })
+    body: JSON.stringify(body)
   });
 
   if (!response.ok) {
@@ -359,13 +439,31 @@ async function callLovableAI(prompt: string): Promise<{ headlines: string[]; des
   }
 
   const data = await response.json();
-  const content: string = data?.choices?.[0]?.message?.content || '';
-  
+  const message = data?.choices?.[0]?.message;
+
+  // Prefer tool calls for guaranteed structure
+  const toolCalls = message?.tool_calls;
+  if (Array.isArray(toolCalls) && toolCalls.length > 0) {
+    const fn = toolCalls.find((t: any) => t?.function?.name === 'return_rsa') || toolCalls[0];
+    const argsStr = fn?.function?.arguments || '{}';
+    try {
+      const parsed = JSON.parse(argsStr);
+      return {
+        headlines: Array.isArray(parsed.headlines) ? parsed.headlines : [],
+        descriptions: Array.isArray(parsed.descriptions) ? parsed.descriptions : [],
+        meta: parsed.meta
+      };
+    } catch (e) {
+      console.error('Failed to parse tool call args:', e, argsStr);
+      // fall-through to content parsing
+    }
+  }
+
+  // Fallback: parse content JSON (strip code fences)
+  const content: string = message?.content || '';
   try {
-    // Clean up the response to ensure it's valid JSON (remove markdown code blocks)
-    const cleanContent = content.replace(/```json\n?/, '').replace(/```\n?$/, '').trim();
-    const parsed = JSON.parse(cleanContent);
-    
+    const clean = content.replace(/```json\s*/i, '').replace(/```\s*$/i, '').trim();
+    const parsed = JSON.parse(clean);
     return {
       headlines: Array.isArray(parsed.headlines) ? parsed.headlines : [],
       descriptions: Array.isArray(parsed.descriptions) ? parsed.descriptions : [],
@@ -581,7 +679,11 @@ export async function generateRewritesForIssue(
 
   const errors = validateRSA(output, context);
   if (errors.length > 0) {
-    output = generateFallbackRSA(context);
+    if (context.topPerformers && ((context.topPerformers.headlines?.length ?? 0) > 0 || (context.topPerformers.descriptions?.length ?? 0) > 0)) {
+      output = buildTopPerformersFallback(context);
+    } else {
+      output = generateFallbackRSA(context);
+    }
   }
 
   return output;
