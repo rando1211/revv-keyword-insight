@@ -43,18 +43,48 @@ serve(async (req) => {
       throw new Error('LOVABLE_API_KEY is not configured');
     }
 
-    // Build context for AI
-    const adContext = {
+    // Validate ad data
+    if (!ad || !ad.adId) {
+      console.error('❌ Invalid ad data received:', JSON.stringify(ad).substring(0, 200));
+      throw new Error('Invalid ad data - missing adId');
+    }
+
+    console.log('📋 Ad data received:', {
+      adId: ad.adId,
       campaign: ad.campaign,
       adGroup: ad.adGroup,
-      headlines: ad.assets?.filter((a: any) => a.type === 'HEADLINE').map((a: any) => a.text) || [],
-      descriptions: ad.assets?.filter((a: any) => a.type === 'DESCRIPTION').map((a: any) => a.text) || [],
+      hasAssets: !!ad.assets,
+      assetsCount: ad.assets?.length || 0,
+      hasHeadlines: ad.headlines?.length || 0,
+      hasDescriptions: ad.descriptions?.length || 0
+    });
+
+    // Build context for AI - handle different ad data structures
+    const headlines = ad.headlines || ad.assets?.filter((a: any) => a.type === 'HEADLINE').map((a: any) => a.text) || [];
+    const descriptions = ad.descriptions || ad.assets?.filter((a: any) => a.type === 'DESCRIPTION').map((a: any) => a.text) || [];
+    
+    if (headlines.length === 0 && descriptions.length === 0) {
+      console.error('❌ No headlines or descriptions found in ad:', JSON.stringify(ad).substring(0, 300));
+      throw new Error('Ad has no headlines or descriptions to optimize');
+    }
+
+    const adContext = {
+      campaign: ad.campaign || ad.campaignName || 'Unknown Campaign',
+      adGroup: ad.adGroup || ad.adGroupName || 'Unknown Ad Group',
+      headlines,
+      descriptions,
       metrics: {
-        ctr: ad.metrics?.ctr || 0,
-        conversions: ad.metrics?.conversions || 0,
-        cost: ad.metrics?.cost || 0
+        ctr: ad.ctr || ad.metrics?.ctr || 0,
+        conversions: ad.conversions || ad.metrics?.conversions || 0,
+        cost: ad.cost || ad.metrics?.cost || 0
       }
     };
+
+    console.log('✅ Ad context built:', {
+      headlinesCount: adContext.headlines.length,
+      descriptionsCount: adContext.descriptions.length,
+      ctr: adContext.metrics.ctr
+    });
 
     // Create AI prompt based on finding type
     let systemPrompt = `You are a Google Ads optimization expert. Analyze the ad and generate specific improvements.
