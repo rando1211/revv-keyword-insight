@@ -54,8 +54,14 @@ export const OptimizationCard = ({
       const { data, error } = await supabase.functions.invoke('execute-creative-changes', {
         body: {
           customerId,
-          ad: optimization,
+          adId: optimization.adId,
+          campaignId: optimization.campaignId,
+          adGroupId: optimization.adGroupId,
+          ruleCode: 'AUDIT-OPT',
+          severity: 'suggest',
+          findingMessage: 'Experiment-first asset additions from audit',
           changes,
+          inputSnapshot: optimization,
           dryRun: false
         }
       });

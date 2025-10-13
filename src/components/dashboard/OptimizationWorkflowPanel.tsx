@@ -80,8 +80,14 @@ export const OptimizationWorkflowPanel = ({
           const { error } = await supabase.functions.invoke('execute-creative-changes', {
             body: {
               customerId,
-              ad: opt,
+              adId: opt.adId,
+              campaignId: opt.campaignId,
+              adGroupId: opt.adGroupId,
+              ruleCode: 'AUDIT-OPT',
+              severity: 'suggest',
+              findingMessage: 'Experiment-first asset additions from audit (bulk)',
               changes,
+              inputSnapshot: opt,
               dryRun: false
             }
           });
