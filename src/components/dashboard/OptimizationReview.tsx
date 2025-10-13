@@ -9,7 +9,6 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAccount } from '@/contexts/AccountContext';
 import { evaluateCustomRules, getCustomRules, type CustomRule } from '@/lib/custom-optimization-rules';
-import { OptimizationCard } from './OptimizationCard';
 
 interface Optimization {
   id: string;
@@ -307,19 +306,75 @@ export const OptimizationReview = ({ optimizations, customerId, accountName, cam
                 <h4 className="font-medium text-sm text-muted-foreground mb-3 flex items-center gap-2">
                   🤖 AI-Generated Optimizations ({optimizations.length})
                 </h4>
-                {optimizations.map((optimization) => (
-                  <OptimizationCard
-                    key={optimization.id}
-                    optimization={optimization}
-                    isSelected={selectedOptimizations.includes(optimization.id)}
-                    onToggle={() => handleOptimizationToggle(optimization.id)}
-                    isExpanded={expandedDetails.includes(optimization.id)}
-                    onToggleDetails={() => toggleDetails(optimization.id)}
-                    extractKeywordDetails={extractKeywordDetails}
-                    getTypeIcon={getTypeIcon}
-                    getImpactColor={getImpactColor}
-                  />
-                ))}
+                {optimizations.map((optimization) => {
+                  const isSelected = selectedOptimizations.includes(optimization.id);
+                  const isExpanded = expandedDetails.includes(optimization.id);
+                  const keywords = extractKeywordDetails(optimization);
+                  
+                  return (
+                    <Card key={optimization.id} className="mb-3 border-l-4 border-l-blue-500">
+                      <CardContent className="p-4">
+                        <div className="flex items-start space-x-3">
+                          <Checkbox
+                            checked={isSelected}
+                            onCheckedChange={() => handleOptimizationToggle(optimization.id)}
+                            className="mt-1"
+                          />
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center space-x-2">
+                                <span className="text-xl">{getTypeIcon(optimization.type)}</span>
+                                <h4 className="font-semibold">{optimization.title}</h4>
+                                <Badge variant={getImpactColor(optimization.impact) as any}>
+                                  {optimization.impact} Impact
+                                </Badge>
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => toggleDetails(optimization.id)}
+                              >
+                                {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                              </Button>
+                            </div>
+                            <p className="text-sm text-muted-foreground mb-2">{optimization.description}</p>
+                            <div className="flex items-center space-x-4 text-sm">
+                              <span className="text-muted-foreground">
+                                Estimated Impact: <strong className="text-foreground">{optimization.estimatedImpact}</strong>
+                              </span>
+                              <Badge variant="outline">
+                                {optimization.confidence}% Confidence
+                              </Badge>
+                            </div>
+                            
+                            {isExpanded && (
+                              <div className="mt-4 p-3 bg-muted rounded-lg">
+                                <h5 className="font-medium mb-2">Technical Details:</h5>
+                                <div className="text-xs space-y-1 font-mono">
+                                  <div><strong>Endpoint:</strong> {optimization.apiEndpoint}</div>
+                                  <div><strong>Method:</strong> {optimization.method}</div>
+                                  {keywords && keywords.length > 0 && (
+                                    <div className="mt-2">
+                                      <strong>Keywords to add:</strong>
+                                      <ul className="ml-4 mt-1 space-y-1">
+                                        {keywords.map((kw, idx) => (
+                                          <li key={idx}>
+                                            {kw.text} ({kw.matchType})
+                                            {kw.negative && ' - NEGATIVE'}
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
               </div>
             )}
 
@@ -328,20 +383,78 @@ export const OptimizationReview = ({ optimizations, customerId, accountName, cam
                 <h4 className="font-medium text-sm text-muted-foreground mb-3 flex items-center gap-2">
                   ⚡ Custom Rule Optimizations ({customOptimizations.length})
                 </h4>
-                {customOptimizations.map((optimization) => (
-                  <OptimizationCard
-                    key={optimization.id}
-                    optimization={optimization}
-                    isSelected={selectedOptimizations.includes(optimization.id)}
-                    onToggle={() => handleOptimizationToggle(optimization.id)}
-                    isExpanded={expandedDetails.includes(optimization.id)}
-                    onToggleDetails={() => toggleDetails(optimization.id)}
-                    extractKeywordDetails={extractKeywordDetails}
-                    getTypeIcon={getTypeIcon}
-                    getImpactColor={getImpactColor}
-                    isCustomRule={true}
-                  />
-                ))}
+                {customOptimizations.map((optimization) => {
+                  const isSelected = selectedOptimizations.includes(optimization.id);
+                  const isExpanded = expandedDetails.includes(optimization.id);
+                  const keywords = extractKeywordDetails(optimization as any);
+                  
+                  return (
+                    <Card key={optimization.id} className="mb-3 border-l-4 border-l-orange-500">
+                      <CardContent className="p-4">
+                        <div className="flex items-start space-x-3">
+                          <Checkbox
+                            checked={isSelected}
+                            onCheckedChange={() => handleOptimizationToggle(optimization.id)}
+                            className="mt-1"
+                          />
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center space-x-2">
+                                <span className="text-xl">{getTypeIcon('custom_rule')}</span>
+                                <h4 className="font-semibold">{optimization.title}</h4>
+                                <Badge variant={getImpactColor(optimization.impact) as any}>
+                                  {optimization.impact} Impact
+                                </Badge>
+                                <Badge variant="outline" className="bg-orange-100">
+                                  Custom Rule
+                                </Badge>
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => toggleDetails(optimization.id)}
+                              >
+                                {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                              </Button>
+                            </div>
+                            <p className="text-sm text-muted-foreground mb-2">{optimization.description}</p>
+                            <div className="flex items-center space-x-4 text-sm">
+                              <span className="text-muted-foreground">
+                                Estimated Impact: <strong className="text-foreground">{optimization.estimatedImpact}</strong>
+                              </span>
+                              <Badge variant="outline">
+                                {optimization.confidence}% Confidence
+                              </Badge>
+                            </div>
+                            
+                            {isExpanded && (
+                              <div className="mt-4 p-3 bg-muted rounded-lg">
+                                <h5 className="font-medium mb-2">Technical Details:</h5>
+                                <div className="text-xs space-y-1 font-mono">
+                                  <div><strong>Endpoint:</strong> {optimization.apiEndpoint}</div>
+                                  <div><strong>Method:</strong> {optimization.method}</div>
+                                  {keywords && keywords.length > 0 && (
+                                    <div className="mt-2">
+                                      <strong>Keywords to add:</strong>
+                                      <ul className="ml-4 mt-1 space-y-1">
+                                        {keywords.map((kw, idx) => (
+                                          <li key={idx}>
+                                            {kw.text} ({kw.matchType})
+                                            {kw.negative && ' - NEGATIVE'}
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
               </div>
             )}
           </div>

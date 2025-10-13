@@ -195,7 +195,6 @@ serve(async (req) => {
         metrics.average_cpc,
         metrics.search_impression_share,
         metrics.search_rank_lost_impression_share,
-        ad_group.quality_score,
         segments.date,
         segments.week
       FROM ad_group_ad
