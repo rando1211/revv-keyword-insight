@@ -2,6 +2,30 @@
 // H1 = Keyword + Intent | H2 = Offer or Benefit | H3 = Proof or Trust
 // Description = Pain + Solution + Offer + CTA
 
+// Helper: Convert to Title Case (capitalize first letter of each word)
+function toTitleCase(str: string): string {
+  return str.replace(/\w\S*/g, (txt) => {
+    return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();
+  });
+}
+
+// Helper: Smart truncate at word boundary
+function smartTruncate(text: string, maxLength: number): string {
+  if (text.length <= maxLength) return text;
+  
+  // Find last space before maxLength
+  const truncated = text.substring(0, maxLength);
+  const lastSpace = truncated.lastIndexOf(' ');
+  
+  // If we found a space and it's not too far back, use it
+  if (lastSpace > maxLength * 0.7) {
+    return truncated.substring(0, lastSpace);
+  }
+  
+  // Otherwise, just truncate at maxLength but remove any trailing punctuation/dashes
+  return truncated.replace(/[\s\-–—,:;.!?]+$/, '');
+}
+
 export interface RewriteSuggestions {
   headlines: string[];
   descriptions: string[];
@@ -17,23 +41,26 @@ export interface RewriteSuggestions {
 export function generateH1KeywordIntent(keywords: string[], searchTerms: string[]): string[] {
   const topKeyword = keywords[0] || searchTerms[0]?.split(' ').slice(0, 2).join(' ') || 'Product';
   
-  return [
-    `${topKeyword} – Get a Quote Today`,
-    `${topKeyword} Near You – Low Financing`,
-    `Buy ${topKeyword} – In Stock Now`,
-    `${topKeyword} Dealer – Free Consultation`,
-    `Request ${topKeyword} Quote Now`
-  ].slice(0, 3);
+  // Use proper grammar: "Shop Motorcycles" not "Buy motorcycle shop"
+  const variants = [
+    `${toTitleCase(topKeyword)} - Get a Quote`,
+    `${toTitleCase(topKeyword)} Near You`,
+    `Shop ${toTitleCase(topKeyword)} - In Stock`,
+    `${toTitleCase(topKeyword)} Dealer`,
+    `Request ${toTitleCase(topKeyword)} Quote`
+  ];
+  
+  return variants.slice(0, 3);
 }
 
 // H2 = Offer or Benefit
 export function generateH2Offer(ad: any, vertical?: string): string[] {
   const offers = [
-    'Low Monthly Payments – Apply Online',
-    'Free Shipping + Price Match Guarantee',
-    '0% Financing Available – Trade-Ins Welcome',
-    'Limited Time Offer – Save up to 30%',
-    'No Credit Check – Fast Approval'
+    'Low Payments - Apply Online',
+    'Free Shipping + Price Match',
+    '0% Financing - Trade-Ins OK',
+    'Limited Offer - Save Up To 30%',
+    'No Credit Check - Fast Approval'
   ];
   
   return offers.slice(0, 2);
@@ -42,11 +69,11 @@ export function generateH2Offer(ad: any, vertical?: string): string[] {
 // H3 = Proof or Trust
 export function generateH3Proof(ad: any): string[] {
   return [
-    'Trusted by 10,000+ Customers',
-    '5-Star Rated – A+ BBB Accredited',
-    'Award-Winning Service Since 2010',
-    'Certified Experts – 100% Satisfaction Guarantee',
-    'Industry Leader – 20+ Years Experience'
+    'Trusted By 10,000+ Customers',
+    '5-Star Rated - A+ BBB',
+    'Award-Winning Since 2010',
+    'Certified - 100% Satisfaction',
+    'Industry Leader - 20+ Years'
   ].slice(0, 2);
 }
 
@@ -59,9 +86,9 @@ export function generateDescriptionFull(
   const keyword = keywords[0] || searchTerms[0]?.split(' ').slice(0, 2).join(' ') || 'product';
   
   return [
-    `Looking for ${keyword}? We offer low monthly payments, fast delivery, and expert support. Get a free quote today.`,
-    `Find the perfect ${keyword} with our huge selection. Special financing available. Trade-ins welcome. Visit us now.`,
-    `Get ${keyword} delivered fast. Price match guarantee plus free installation. Call for exclusive deals. Limited time.`
+    `Looking for ${keyword}? We offer low payments, fast delivery, expert support. Get a free quote today.`,
+    `Find the perfect ${keyword}. Huge selection, special financing, trade-ins welcome. Visit us now.`,
+    `Get ${keyword} delivered fast. Price match guarantee, free install. Exclusive deals, limited time.`
   ].slice(0, 2);
 }
 
@@ -160,9 +187,9 @@ export function generateRewritesForIssue(
       descriptions = generateDescriptionFull(ad, keywords, searchTerms);
   }
   
-  // Ensure character limits
-  headlines = headlines.map(h => h.slice(0, 30));
-  descriptions = descriptions.map(d => d.slice(0, 90));
+  // Ensure character limits with smart truncation
+  headlines = headlines.map(h => smartTruncate(h, 30));
+  descriptions = descriptions.map(d => smartTruncate(d, 90));
   
   return {
     headlines,
