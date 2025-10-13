@@ -193,8 +193,6 @@ serve(async (req) => {
         metrics.impressions, metrics.clicks, metrics.cost_micros,
         metrics.conversions, metrics.ctr, metrics.conversions_from_interactions_rate,
         metrics.average_cpc,
-        metrics.search_impression_share,
-        metrics.search_rank_lost_impression_share,
         segments.date,
         segments.week
       FROM ad_group_ad

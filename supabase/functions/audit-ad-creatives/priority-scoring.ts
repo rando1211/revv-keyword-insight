@@ -33,8 +33,8 @@ export function calculatePriorityScore(
   
   // Extract metrics with fallbacks
   const ctr = ad.metrics?.ctr || 0;
-  const qualityScore = ad.qualityScore || ad.metrics?.qualityScore || 0;
-  const impressionShare = ad.metrics?.impressionShare || ad.metrics?.search_impression_share || 0;
+  const qualityScore = 0; // Quality score not available at ad level
+  const impressionShare = 0; // Impression share not available at ad level
   const adStrength = ad.adStrength || 'UNKNOWN';
   
   // Calculate days since last edit
@@ -49,17 +49,9 @@ export function calculatePriorityScore(
     reasons.push(`CTR ${(ctr * 100).toFixed(1)}% below benchmark ${(benchmarks.avgCtr * 100).toFixed(1)}%`);
   }
   
-  // 2. Quality Score < 7 (2 points)
-  if (qualityScore > 0 && qualityScore < benchmarks.avgQualityScore) {
-    score += 2;
-    reasons.push(`Quality Score ${qualityScore}/${benchmarks.avgQualityScore}`);
-  }
+  // 2. Quality Score < 7 (skip - not available at ad level)
   
-  // 3. Impression Share < 50% (1 point)
-  if (impressionShare > 0 && impressionShare < benchmarks.minImpressionShare) {
-    score += 1;
-    reasons.push(`Impression Share ${(impressionShare * 100).toFixed(0)}%`);
-  }
+  // 3. Impression Share < 50% (skip - not available at ad level)
   
   // 4. No fresh assets in 30 days (1 point)
   if (daysSinceEdit > 30) {
