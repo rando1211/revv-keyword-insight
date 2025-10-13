@@ -79,7 +79,7 @@ serve(async (req) => {
 
     console.log('📅 Time windows:', windows);
 
-    const cleanCustomerId = customerId.replace('customers/', '');
+    const cleanCustomerId = String(customerId).replace('customers/', '').replace(/-/g, '').trim();
     const apiVersion = 'v21';
     const apiUrl = `https://googleads.googleapis.com/${apiVersion}/customers/${cleanCustomerId}/googleAds:search`;
     
@@ -100,7 +100,7 @@ serve(async (req) => {
     const accessibleData = await accessibleCustomersResponse.json();
     console.log('✅ Accessible customers:', accessibleData);
     
-    const accessibleIds = accessibleData.resourceNames?.map((name: string) => name.replace('customers/', '')) || [];
+    const accessibleIds = accessibleData.resourceNames?.map((name: string) => name.replace('customers/', '').replace(/-/g, '')) || [];
     console.log('📊 Accessible IDs:', accessibleIds);
     
     // Check if target customer is directly accessible
