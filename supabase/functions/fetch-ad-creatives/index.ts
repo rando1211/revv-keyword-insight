@@ -291,10 +291,14 @@ serve(async (req) => {
       }
       
       const ad = adMap.get(adId);
-      ad.metrics.impressions += row.metrics?.impressions || 0;
-      ad.metrics.clicks += row.metrics?.clicks || 0;
-      ad.metrics.costMicros += row.metrics?.costMicros || 0;
-      ad.metrics.conversions += row.metrics?.conversions || 0;
+      const imp = Number(row.metrics?.impressions ?? 0);
+      const clk = Number(row.metrics?.clicks ?? 0);
+      const cst = Number(row.metrics?.costMicros ?? 0);
+      const conv = Number(row.metrics?.conversions ?? 0);
+      ad.metrics.impressions += imp;
+      ad.metrics.clicks += clk;
+      ad.metrics.costMicros += cst;
+      ad.metrics.conversions += conv;
       
       // Track first appearance date (earliest date segment)
       if (row.segments?.date && (!ad.firstSeen || row.segments.date < ad.firstSeen)) {
@@ -315,8 +319,10 @@ serve(async (req) => {
           });
         }
         const weekData = adWeeklyData.get(weekKey);
-        weekData.impr += row.metrics?.impressions || 0;
-        weekData.clicks += row.metrics?.clicks || 0;
+        const wImp = Number(row.metrics?.impressions ?? 0);
+        const wClk = Number(row.metrics?.clicks ?? 0);
+        weekData.impr += wImp;
+        weekData.clicks += wClk;
       }
     }
     
@@ -330,7 +336,9 @@ serve(async (req) => {
     // Recalculate derived metrics and attach weekly trends
     for (const [adId, ad] of adMap.entries()) {
       if (ad.metrics.impressions > 0) {
-        ad.metrics.ctr = ad.metrics.clicks / ad.metrics.impressions;
+        ad.metrics.ctr = ad.metrics.clicks / ad.metrics.impressions; // ratio 0-1
+      } else {
+        ad.metrics.ctr = 0;
       }
       if (ad.metrics.clicks > 0) {
         ad.metrics.conversionsFromInteractionsRate = ad.metrics.conversions / ad.metrics.clicks;
