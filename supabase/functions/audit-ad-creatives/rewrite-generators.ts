@@ -37,58 +37,69 @@ export interface RewriteSuggestions {
   };
 }
 
-// H1 = Keyword + Intent
+// H1 = Keyword + Intent (MUST include actual keyword from search terms)
 export function generateH1KeywordIntent(keywords: string[], searchTerms: string[]): string[] {
-  const topKeyword = keywords[0] || searchTerms[0]?.split(' ').slice(0, 2).join(' ') || 'Product';
+  const topKeyword = keywords[0] || searchTerms[0] || 'Product';
+  const year = new Date().getFullYear();
   
-  // Use proper grammar: "Shop Motorcycles" not "Buy motorcycle shop"
+  // Extract brand/model if possible
+  const words = topKeyword.toLowerCase().split(' ');
+  const hasBrand = words.length > 1;
+  
   const variants = [
-    `${toTitleCase(topKeyword)} - Get a Quote`,
-    `${toTitleCase(topKeyword)} Near You`,
-    `Shop ${toTitleCase(topKeyword)} - In Stock`,
-    `${toTitleCase(topKeyword)} Dealer`,
-    `Request ${toTitleCase(topKeyword)} Quote`
+    `${toTitleCase(topKeyword)} For Sale - Low Payments`,
+    `${year} ${toTitleCase(topKeyword)} Dealer Near Me`,
+    `${toTitleCase(topKeyword)} - In Stock Now`,
+    `Shop ${toTitleCase(topKeyword)} - Apply Online`,
+    `${toTitleCase(topKeyword)} Financing - Fast Approval`
   ];
   
   return variants.slice(0, 3);
 }
 
-// H2 = Offer or Benefit
-export function generateH2Offer(ad: any, vertical?: string): string[] {
+// H2 = Offer or Benefit (MUST have clear value prop)
+export function generateH2Offer(ad: any, keywords: string[]): string[] {
+  const keyword = keywords[0] || 'Product';
+  const keywordTitle = toTitleCase(keyword);
+  
   const offers = [
-    'Low Payments - Apply Online',
-    'Free Shipping + Price Match',
-    '0% Financing - Trade-Ins OK',
-    'Limited Offer - Save Up To 30%',
-    'No Credit Check - Fast Approval'
+    `No Credit? No Problem - Instant Approval`,
+    `${keywordTitle} Financing - Trade-Ins Welcome`,
+    `0% APR Available - Low Monthly Payments`,
+    `Local ${keywordTitle} Delivery - Test Drive Today`,
+    `Huge ${keywordTitle} Inventory - Save Up To 30%`
   ];
   
   return offers.slice(0, 2);
 }
 
-// H3 = Proof or Trust
-export function generateH3Proof(ad: any): string[] {
+// H3 = Proof or Trust (social proof + guarantees)
+export function generateH3Proof(ad: any, keywords: string[]): string[] {
+  const keyword = keywords[0] || 'Product';
+  const keywordTitle = toTitleCase(keyword);
+  
   return [
-    'Trusted By 10,000+ Customers',
-    '5-Star Rated - A+ BBB',
-    'Award-Winning Since 2010',
-    'Certified - 100% Satisfaction',
-    'Industry Leader - 20+ Years'
+    `5-Star Rated ${keywordTitle} Dealer`,
+    `Trusted By 10,000+ Customers - A+ BBB`,
+    `Industry Leader - 20+ Years Experience`,
+    `Certified ${keywordTitle} Experts - 100% Satisfaction`,
+    `Award-Winning Service Since 2010`
   ].slice(0, 2);
 }
 
-// Description = Pain + Solution + Offer + CTA
+// Description = Pain + Solution + Offer + CTA (MUST be specific and actionable)
 export function generateDescriptionFull(
   ad: any, 
   keywords: string[], 
   searchTerms: string[]
 ): string[] {
-  const keyword = keywords[0] || searchTerms[0]?.split(' ').slice(0, 2).join(' ') || 'product';
+  const keyword = keywords[0] || searchTerms[0] || 'product';
+  const keywordLower = keyword.toLowerCase();
   
   return [
-    `Looking for ${keyword}? We offer low payments, fast delivery, expert support. Get a free quote today.`,
-    `Find the perfect ${keyword}. Huge selection, special financing, trade-ins welcome. Visit us now.`,
-    `Get ${keyword} delivered fast. Price match guarantee, free install. Exclusive deals, limited time.`
+    `Shop new ${keywordLower}. Fast approval, low payments, huge inventory. Apply now.`,
+    `Get riding today. Easy financing, local delivery, trade-ins welcome. Call now.`,
+    `Find your perfect ${keywordLower}. No credit check, instant approval. Test drive today.`
   ].slice(0, 2);
 }
 
@@ -105,84 +116,82 @@ export function generateRewritesForIssue(
   
   switch (issue.category) {
     case 'CTR':
-      // Focus on keyword + urgency
+      // Focus on keyword + urgency + CTA
       headlines = [
         ...generateH1KeywordIntent(keywords, searchTerms),
-        'Call Now – Limited Time Special Offer',
-        'Get Started Today – Free Consultation'
-      ].slice(0, 3);
+        `${toTitleCase(keywords[0] || 'Product')} - Call Now For Quote`,
+      ];
       descriptions = [
         ...generateDescriptionFull(ad, keywords, searchTerms)
       ];
       break;
       
     case 'Relevance':
-      // Focus on keyword matching
+      // Focus on exact keyword matching
       headlines = [
         ...generateH1KeywordIntent(keywords, searchTerms),
-        `Top-rated ${keywords[0] || 'Service'} Provider`,
-        `${keywords[0] || 'Expert'} Solutions Near You`
-      ].slice(0, 3);
+        `Top-Rated ${toTitleCase(keywords[0] || 'Service')} Near You`,
+      ];
       descriptions = [
-        `Find exactly what you need with our ${keywords[0] || 'expert'} service. Fast response, fair prices, guaranteed satisfaction.`
+        `Shop ${(keywords[0] || 'product').toLowerCase()}. Fast approval, low payments, huge selection. Apply now.`
       ];
       break;
       
     case 'Offer':
-      // Focus on value prop
+      // Focus on clear value prop with keyword
       headlines = [
-        ...generateH2Offer(ad),
-        'Price Match Guarantee + Free Shipping',
-        'Special Financing – 0% APR Available'
-      ].slice(0, 3);
+        ...generateH2Offer(ad, keywords),
+        `Special ${toTitleCase(keywords[0] || 'Product')} Financing - 0% APR`
+      ];
       descriptions = [
-        'Get the best value with our price match guarantee, free shipping, and flexible financing options. Shop with confidence.',
-        'Limited-time offers on all models. Low monthly payments, fast approval, trade-ins welcome. Visit us today.'
+        `Shop ${(keywords[0] || 'product').toLowerCase()}. Low payments, fast approval, trade-ins welcome. Apply now.`,
+        `Get riding today. Easy financing, local delivery, huge inventory. Call for quote.`
       ];
       break;
       
     case 'Proof':
-      // Focus on trust signals
+      // Focus on trust signals with keyword
       headlines = [
-        ...generateH3Proof(ad),
-        'Licensed & Insured – 5-Star Rated',
-        'Family Owned Since 1995 – A+ BBB'
-      ].slice(0, 3);
+        ...generateH3Proof(ad, keywords),
+        `Licensed ${toTitleCase(keywords[0] || 'Product')} Dealer - 5-Star Rated`
+      ];
       descriptions = [
-        'Join thousands of satisfied customers. Award-winning service, certified professionals, 100% satisfaction guaranteed.'
+        `Trusted ${(keywords[0] || 'product').toLowerCase()} dealer. Award-winning service, 100% satisfaction. Visit us.`
       ];
       break;
       
     case 'Variation':
-      // Focus on freshness
+      // Focus on freshness with keyword
       const year = new Date().getFullYear();
+      const keyword = toTitleCase(keywords[0] || 'Product');
       headlines = [
-        `${year} Models in Stock – Shop Now`,
-        'New Arrivals – Browse Latest Collection',
-        'Just Released – Limited Availability'
+        `${year} ${keyword} Models In Stock - Shop Now`,
+        `New ${keyword} Arrivals - Test Drive Today`,
+        `Latest ${keyword} Collection - Limited Time`
       ];
       descriptions = [
-        `Check out our newest ${year} models. Huge selection, unbeatable prices, expert service. Test drive today.`
+        `Shop new ${year} ${keyword.toLowerCase()}. Huge selection, low payments, expert service. Apply now.`
       ];
       break;
       
     case 'Local':
-      // Focus on location
+      // Focus on location with keyword
+      const localKeyword = toTitleCase(keywords[0] || 'Product');
       headlines = [
-        '{LOCATION:City} – Visit our Showroom',
-        'Serving {LOCATION:City} Since 2010',
-        'Local {LOCATION:City} Dealer – Call Now'
+        `${localKeyword} Dealer Near Me - Visit Today`,
+        `Local ${localKeyword} Sales - Serving Your Area`,
+        `{LOCATION:City} ${localKeyword} Dealer - Call Now`
       ];
       descriptions = [
-        'Your local trusted provider in {LOCATION:City}. Fast service, competitive prices, community-focused. Visit us today.'
+        `Local ${localKeyword.toLowerCase()} dealer. Fast service, low payments, huge inventory. Visit today.`
       ];
       break;
       
     default:
-      // Generic fallback
+      // Fallback: H1 + H2 formula
       headlines = [
         ...generateH1KeywordIntent(keywords, searchTerms),
-        ...generateH2Offer(ad)
+        ...generateH2Offer(ad, keywords)
       ].slice(0, 3);
       descriptions = generateDescriptionFull(ad, keywords, searchTerms);
   }
