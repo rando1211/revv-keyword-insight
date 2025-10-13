@@ -191,6 +191,7 @@ serve(async (req) => {
     }
 
     console.log(`🔍 Auditing ${ads.length} ads with 31-rule engine (+ vertical policy checks)`);
+    console.log(`📊 Statistical thresholds: CTR (≥1k impr, ≥50 clicks), CVR (≥50 clicks), Fatigue (≥1k impr, ≥50 clicks)`);
 
     const allFindings: any[] = [];
     const allScores: any[] = [];
@@ -205,6 +206,7 @@ serve(async (req) => {
 
     for (const ad of ads) {
       const findings = auditAd(ad, adGroupStats, topQueries || [], keywords || [], verticalRules);
+      console.log(`📋 Ad ${ad.adId}: ${findings.length} findings (${findings.filter(f => f.severity === 'error').length} errors, ${findings.filter(f => f.severity === 'warn').length} warnings)`);
       const score = calculateAdScore(ad, findings);
       const changes = buildChangeSet(ad, findings, { topQueries, keywords, adGroupStats, verticalRules });
 
@@ -539,7 +541,7 @@ function auditAd(ad: Ad, adGroupStats: any, topQueries: string[], keywords: stri
 
   // Rule 7: Performance pruning (ADS-NGRAM-007)
   if (adGroupStats?.ctrMean && adGroupStats?.ctrStd) {
-    ad.assets.filter(a => a.metrics.impr >= 3000).forEach(asset => {
+    ad.assets.filter(a => a.metrics.impr >= 1000).forEach(asset => {
       const zCtr = (asset.metrics.ctr - adGroupStats.ctrMean) / adGroupStats.ctrStd;
       const zCr = (asset.metrics.convRate - adGroupStats.crMean) / adGroupStats.crStd;
       if (zCtr < -1 && zCr < -1) {
@@ -593,7 +595,7 @@ function auditAd(ad: Ad, adGroupStats: any, topQueries: string[], keywords: stri
   
   // Rule 11: Low CTR Performance (PERF-CTR-001) - WITH STATISTICAL SIGNIFICANCE
   const agStats = adGroupStats[ad.adGroupId];
-  if (agStats && ad.metrics.impressions >= 2000 && ad.metrics.clicks >= 150) {
+  if (agStats && ad.metrics.impressions >= 1000 && ad.metrics.clicks >= 50) {
     const adCtr = ad.metrics.ctr;
     
     // Use Wilson score for 95% confidence interval
@@ -629,7 +631,7 @@ function auditAd(ad: Ad, adGroupStats: any, topQueries: string[], keywords: stri
   }
   
   // Rule 13: Poor Conversion Rate (PERF-CVR-001)
-  if (agStats && ad.metrics.clicks >= 150 && agStats.crStd > 0) {
+  if (agStats && ad.metrics.clicks >= 50 && agStats.crStd > 0) {
     const adCr = ad.metrics.conversions / ad.metrics.clicks;
     const crThreshold = agStats.crMean * 0.5;
     if (adCr < crThreshold && ad.metrics.conversions > 0) {
@@ -653,7 +655,7 @@ function auditAd(ad: Ad, adGroupStats: any, topQueries: string[], keywords: stri
   // === ADVANCED FRESHNESS & FATIGUE RULES (with ≥3k impr or ≥150 clicks guardrails) ===
 
   // Rule 15: Stale ad with declining CTR (AGE-STALE-001)
-  if (ad.lastEditDate && ad.weeklyTrends && ad.metrics.impressions >= 3000) {
+  if (ad.lastEditDate && ad.weeklyTrends && ad.metrics.impressions >= 1000) {
     const daysSinceEdit = Math.floor((Date.now() - new Date(ad.lastEditDate).getTime()) / (1000 * 60 * 60 * 24));
     const recent4wkCtr = ad.weeklyTrends.slice(-4).reduce((sum: number, w: any) => sum + w.ctr, 0) / 4;
     const ctrDrop = agStats?.ctrMean ? ((agStats.ctrMean - recent4wkCtr) / agStats.ctrMean) * 100 : 0;
@@ -662,22 +664,22 @@ function auditAd(ad: Ad, adGroupStats: any, topQueries: string[], keywords: stri
       findings.push({
         rule: 'AGE-STALE-001',
         severity: 'warn',
-        message: `Last edited ${daysSinceEdit}d ago, CTR down ${ctrDrop.toFixed(0)}% vs 4-wk median (≥3k impr). Clone & refresh with updated year/season/offer.`
+        message: `Last edited ${daysSinceEdit}d ago, CTR down ${ctrDrop.toFixed(0)}% vs 4-wk median (≥1k impr). Clone & refresh with updated year/season/offer.`
       });
     }
   }
 
   // Rule 16: No fresh variant gap (FRESH-GAP-002)
-  if (ad.daysSinceLastVariant && ad.daysSinceLastVariant >= 60 && ad.metrics.impressions >= 3000) {
+  if (ad.daysSinceLastVariant && ad.daysSinceLastVariant >= 60 && ad.metrics.impressions >= 1000) {
     findings.push({
       rule: 'FRESH-GAP-002',
       severity: 'suggest',
-      message: `No new variant in ${ad.daysSinceLastVariant}d (≥3k impr). Create variant with top query n-grams + new CTA.`
+      message: `No new variant in ${ad.daysSinceLastVariant}d (≥1k impr). Create variant with top query n-grams + new CTA.`
     });
   }
 
   // Rule 17: CTR fatigue - 3+ consecutive weekly declines (FATIGUE-CTR-003)
-  if (ad.weeklyTrends && ad.weeklyTrends.length >= 3 && ad.metrics.impressions >= 3000 && ad.metrics.clicks >= 150) {
+  if (ad.weeklyTrends && ad.weeklyTrends.length >= 3 && ad.metrics.impressions >= 1000 && ad.metrics.clicks >= 50) {
     const weeks = ad.weeklyTrends.slice(-3);
     let declines = 0;
     for (let i = 1; i < weeks.length; i++) {
@@ -687,7 +689,7 @@ function auditAd(ad: Ad, adGroupStats: any, topQueries: string[], keywords: stri
       findings.push({
         rule: 'FATIGUE-CTR-003',
         severity: 'warn',
-        message: `3 consecutive weekly CTR declines (≥3k impr, ≥150 clicks, ≥500 impr/wk). Replace 20-30% of headlines (keep top performers).`
+        message: `3 consecutive weekly CTR declines (≥1k impr, ≥50 clicks, ≥500 impr/wk). Replace 20-30% of headlines (keep top performers).`
       });
     }
   }

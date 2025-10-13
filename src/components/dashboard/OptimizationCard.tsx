@@ -131,6 +131,9 @@ export const OptimizationCard = ({
               <div>QS: {optimization.currentMetrics?.qualityScore || 'N/A'}</div>
               <div>Strength: {optimization.currentMetrics?.adStrength || 'N/A'}</div>
             </div>
+            <div className="text-xs text-muted-foreground mt-1 italic">
+              Ad-level metrics
+            </div>
           </div>
           
           <Button variant="ghost" size="sm" className="ml-2">
@@ -240,22 +243,30 @@ export const OptimizationCard = ({
           </div>
           
           {/* Action Buttons */}
-          <div className="flex gap-2">
-            <Button
-              onClick={handleApply}
-              variant="default"
-              disabled={isApplying}
-            >
-              <CheckCircle className="mr-2 h-4 w-4" />
-              {isApplying ? 'Applying...' : 'Apply All'}
-            </Button>
-            <Button
-              onClick={copyToClipboard}
-              variant="outline"
-            >
-              <Copy className="mr-2 h-4 w-4" />
-              Copy for Import
-            </Button>
+          <div className="space-y-2">
+            <Alert className="mb-4">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription className="text-xs">
+                <strong>⚠️ Important:</strong> Applying changes via API creates a new ad and removes the old one, which resets performance history. For production accounts, use "Copy for Import" and apply manually in Google Ads Editor to preserve historical data.
+              </AlertDescription>
+            </Alert>
+            <div className="flex gap-2">
+              <Button
+                onClick={handleApply}
+                variant="default"
+                disabled={isApplying}
+              >
+                <CheckCircle className="mr-2 h-4 w-4" />
+                {isApplying ? 'Applying...' : 'Apply All (Creates New Ad)'}
+              </Button>
+              <Button
+                onClick={copyToClipboard}
+                variant="outline"
+              >
+                <Copy className="mr-2 h-4 w-4" />
+                Copy for Manual Import
+              </Button>
+            </div>
           </div>
         </CardContent>
       )}
