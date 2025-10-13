@@ -190,7 +190,7 @@ serve(async (req) => {
       });
     }
 
-    console.log(`🔍 Auditing ${ads.length} ads with 23-rule engine`);
+    console.log(`🔍 Auditing ${ads.length} ads with 31-rule engine (+ vertical policy checks)`);
 
     const allFindings: any[] = [];
     const allScores: any[] = [];
