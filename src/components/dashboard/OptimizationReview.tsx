@@ -312,9 +312,9 @@ export const OptimizationReview = ({ optimizations, customerId, accountName, cam
                     key={optimization.id}
                     optimization={optimization}
                     isSelected={selectedOptimizations.includes(optimization.id)}
-                    onToggle={handleOptimizationToggle}
+                    onToggle={() => handleOptimizationToggle(optimization.id)}
                     isExpanded={expandedDetails.includes(optimization.id)}
-                    onToggleDetails={toggleDetails}
+                    onToggleDetails={() => toggleDetails(optimization.id)}
                     extractKeywordDetails={extractKeywordDetails}
                     getTypeIcon={getTypeIcon}
                     getImpactColor={getImpactColor}
@@ -333,9 +333,9 @@ export const OptimizationReview = ({ optimizations, customerId, accountName, cam
                     key={optimization.id}
                     optimization={optimization}
                     isSelected={selectedOptimizations.includes(optimization.id)}
-                    onToggle={handleOptimizationToggle}
+                    onToggle={() => handleOptimizationToggle(optimization.id)}
                     isExpanded={expandedDetails.includes(optimization.id)}
-                    onToggleDetails={toggleDetails}
+                    onToggleDetails={() => toggleDetails(optimization.id)}
                     extractKeywordDetails={extractKeywordDetails}
                     getTypeIcon={getTypeIcon}
                     getImpactColor={getImpactColor}
