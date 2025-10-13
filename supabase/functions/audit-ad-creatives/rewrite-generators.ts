@@ -405,8 +405,20 @@ async function callLovableAI(prompt: string): Promise<{ headlines: string[]; des
           parameters: {
             type: 'object',
             properties: {
-              headlines: { type: 'array', items: { type: 'string' } },
-              descriptions: { type: 'array', items: { type: 'string' } },
+              headlines: { 
+                type: 'array', 
+                items: { type: 'string', maxLength: 30 },
+                minItems: 15,
+                maxItems: 15,
+                description: '15 unique headlines (30 chars max each)'
+              },
+              descriptions: { 
+                type: 'array', 
+                items: { type: 'string', maxLength: 90 },
+                minItems: 4,
+                maxItems: 4,
+                description: '4 unique descriptions (90 chars max each)'
+              },
               meta: {
                 type: 'object',
                 properties: {
@@ -554,6 +566,7 @@ CRITICAL GUIDELINES:
 - Descriptions: max 90 characters each (HARD LIMIT - count every character including spaces)
 - DO NOT use dynamic keyword insertion syntax like {Keyword:...} or {KeyWord:...}
 - Write complete, static headlines only - no curly braces or insertion codes
+- BE CREATIVE: Generate diverse variations on winning patterns, not just copies
 - Include primary keywords naturally in headlines
 - Focus on benefits and value propositions
 - Create urgency and compelling calls-to-action
@@ -562,22 +575,22 @@ CRITICAL GUIDELINES:
 - Use numbers and specific benefits when possible
 ${actionGuidance}
 - Focus on the customer experience and outcome, not generic shopping language
-- Include the brand name "${context.brand}" in at least 2 headlines
+- Include the brand name "${context.brand}" in at least 3 headlines
 - Include specific category "${categoryContext}" or model names/numbers
-${geo ? `- Include location "${geo}" in at least 1 headline` : ''}
-- Include trust signals or social proof in at least 1 headline
-- Include offers or financing options prominently
+${geo ? `- Include location "${geo}" in at least 2 headlines` : ''}
+- Include trust signals or social proof in at least 2 headlines
+- Include offers or financing options prominently in multiple headlines
 - AVOID generic words: "shop", "store", "product", "item", "buy now"
 - AVOID excessive capitalization
 - AVOID unverifiable claims
 - AVOID spammy punctuation
 - AVOID dynamic insertion syntax - use plain text only
-${context.topPerformers ? '\nIMPORTANT: Use the same structure and tone as the TOP WINNING examples above.' : ''}
+${context.topPerformers ? '\nIMPORTANT: Study the TOP WINNING examples and create 15 CREATIVE VARIATIONS on those themes—expand on what works while testing new angles.' : ''}
 
 Return ONLY a JSON object with this exact structure:
 {
-  "headlines": ["headline1", "headline2", "headline3", "headline4", "headline5"],
-  "descriptions": ["description1", "description2"],
+  "headlines": ["headline1", "headline2", "headline3", "headline4", "headline5", "headline6", "headline7", "headline8", "headline9", "headline10", "headline11", "headline12", "headline13", "headline14", "headline15"],
+  "descriptions": ["description1", "description2", "description3", "description4"],
   "meta": {
     "usedKeywords": ["keyword1", "keyword2"],
     "hasGeo": true,

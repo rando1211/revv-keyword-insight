@@ -51,13 +51,13 @@ export const OptimizationCard = ({
     try {
       // Build change set from edited suggestions
       const changes = [
-        ...suggestions.headlines.filter((t: string) => t && !isDKI(t) && !isIncomplete(t)).slice(0, 3).map((h: string) => ({
+        ...suggestions.headlines.filter((t: string) => t && !isDKI(t) && !isIncomplete(t)).slice(0, 15).map((h: string) => ({
           op: 'ADD_ASSET',
           type: 'HEADLINE',
           text: sanitize(h),
           adId: optimization.adId
         })),
-        ...suggestions.descriptions.filter((t: string) => t && !isDKI(t) && !isIncomplete(t)).slice(0, 2).map((d: string) => ({
+        ...suggestions.descriptions.filter((t: string) => t && !isDKI(t) && !isIncomplete(t)).slice(0, 4).map((d: string) => ({
           op: 'ADD_ASSET',
           type: 'DESCRIPTION',
           text: sanitize(d),

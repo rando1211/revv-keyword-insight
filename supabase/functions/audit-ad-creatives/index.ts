@@ -340,11 +340,11 @@ serve(async (req) => {
         const cleanedHeadlines = allSuggestedHeadlines
           .filter((h: string) => !isDKI(h) && !isIncomplete(h))
           .map(sanitizeCopy)
-          .slice(0, 6);
+          .slice(0, 15);
         const cleanedDescriptions = allSuggestedDescriptions
           .filter((d: string) => !isDKI(d) && !isIncomplete(d))
           .map(sanitizeCopy)
-          .slice(0, 2);
+          .slice(0, 4);
 
         // Create optimization object
         const optimization = {
