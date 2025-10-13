@@ -155,12 +155,17 @@ serve(async (req) => {
     // Step 3: Query ad creatives (CLIENT in URL, MANAGER in login-customer-id header)
     console.log('📋 Step 3: Fetching ad creatives with correct authentication...');
 
-    // Set up filters
+    // Set up filters - ALWAYS include date filter to avoid Google Ads API errors
     const selectedTimeframe = timeframe || 'LAST_30_DAYS';
     let dateFilter = '';
     if (selectedTimeframe === 'LAST_7_DAYS') {
       dateFilter = `AND segments.date DURING LAST_7_DAYS`;
-    } else if (selectedTimeframe === 'LAST_30_DAYS') {
+    } else if (selectedTimeframe === 'LAST_14_DAYS') {
+      dateFilter = `AND segments.date DURING LAST_14_DAYS`;
+    } else if (selectedTimeframe === 'LAST_90_DAYS') {
+      dateFilter = `AND segments.date DURING LAST_90_DAYS`;
+    } else {
+      // Default to LAST_30_DAYS if not specified or invalid
       dateFilter = `AND segments.date DURING LAST_30_DAYS`;
     }
 
