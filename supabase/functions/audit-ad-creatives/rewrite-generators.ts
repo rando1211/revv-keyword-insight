@@ -406,6 +406,33 @@ function buildPrompt(context: RewriteContext, policyNotes: string[] = [], revise
     actionGuidance = '- Use specific action verbs relevant to the category (NOT generic "Shop" or "Buy")';
   }
   
+  // Build top performers analysis section
+  let topPerformersSection = '';
+  if (context.topPerformers) {
+    const { headlines, descriptions } = context.topPerformers;
+    
+    if (headlines.length > 0) {
+      topPerformersSection += '\n\n🏆 TOP PERFORMING HEADLINES (Learn from these winning patterns):\n';
+      headlines.forEach((h, i) => {
+        topPerformersSection += `${i + 1}. "${h.text}" - CTR: ${(h.ctr * 100).toFixed(2)}%${h.conversions ? `, Conv Rate: ${(h.conversions * 100).toFixed(2)}%` : ''}\n`;
+      });
+      topPerformersSection += '\nPATTERN ANALYSIS: Study what makes these winners:\n';
+      topPerformersSection += '- What keywords/phrases do they use?\n';
+      topPerformersSection += '- What tone/structure do they follow?\n';
+      topPerformersSection += '- What benefits/offers do they emphasize?\n';
+      topPerformersSection += '- How do they create urgency or trust?\n';
+      topPerformersSection += '\n⚡ YOUR TASK: Create NEW variants that follow these PROVEN patterns but with fresh wording.\n';
+    }
+    
+    if (descriptions.length > 0) {
+      topPerformersSection += '\n\n🏆 TOP PERFORMING DESCRIPTIONS (Mirror these successful formulas):\n';
+      descriptions.forEach((d, i) => {
+        topPerformersSection += `${i + 1}. "${d.text}" - CTR: ${(d.ctr * 100).toFixed(2)}%${d.conversions ? `, Conv Rate: ${(d.conversions * 100).toFixed(2)}%` : ''}\n`;
+      });
+      topPerformersSection += '\n⚡ Create descriptions that follow the same structure and messaging approach.\n';
+    }
+  }
+  
   const prompt = `You are a Google Ads copywriting expert. Create high-converting responsive search ads for the following:
 
 Business: ${context.brand}
@@ -420,6 +447,7 @@ Available Offers:
 - Promotions: ${context.offers.promotions.join(', ') || 'Not specified'}
 - Trust Signals: ${context.offers.trust.join(', ') || 'Not specified'}
 - Differentiators: ${context.offers.differentiators.join(', ') || 'Not specified'}
+${topPerformersSection}
 
 Create ${context.constraints.headlines} headlines and ${context.constraints.descriptions} descriptions for a responsive search ad.
 
@@ -443,6 +471,7 @@ ${geo ? `- Include location "${geo}" in at least 1 headline` : ''}
 - AVOID excessive capitalization
 - AVOID unverifiable claims
 - AVOID spammy punctuation
+${context.topPerformers ? '\n**MOST IMPORTANT**: Study the top performing assets above and create NEW variants that follow their PROVEN patterns. Use similar structure, tone, keywords, and messaging approach but with fresh creative execution.' : ''}
 
 Return ONLY a JSON object with this exact structure:
 {

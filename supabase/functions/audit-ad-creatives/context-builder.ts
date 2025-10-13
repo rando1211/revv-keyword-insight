@@ -24,6 +24,10 @@ export interface RewriteContext {
     descriptions: number;
     requireLocation: boolean;
   };
+  topPerformers?: {
+    headlines: Array<{ text: string; ctr: number; conversions?: number }>;
+    descriptions: Array<{ text: string; ctr: number; conversions?: number }>;
+  };
 }
 
 // Common brand patterns across verticals
@@ -133,6 +137,9 @@ export function buildRewriteContext(
   const category = detectCategory(keywords, searchTerms);
   const normalizedTopKeywords = cleanAndRankKeywords(brand, models, keywords, searchTerms, category);
 
+  // Extract top performers from assets
+  const topPerformers = extractTopPerformers(ad);
+
   return {
     accountName,
     brand,
@@ -146,7 +153,8 @@ export function buildRewriteContext(
       headlines: 6,
       descriptions: 2,
       requireLocation: geo.hasLocalIntent
-    }
+    },
+    topPerformers
   };
 }
 
@@ -361,4 +369,35 @@ function buildOffers(vertical: string, brand: string): {
   }
 
   return offers;
+}
+
+function extractTopPerformers(ad: any): {
+  headlines: Array<{ text: string; ctr: number; conversions?: number }>;
+  descriptions: Array<{ text: string; ctr: number; conversions?: number }>;
+} | undefined {
+  if (!ad.assets || !Array.isArray(ad.assets)) return undefined;
+
+  const headlines = ad.assets
+    .filter((a: any) => a.type === 'HEADLINE')
+    .map((a: any) => ({
+      text: a.text,
+      ctr: a.metrics?.ctr || 0,
+      conversions: a.metrics?.convRate ? a.metrics.convRate : undefined
+    }))
+    .sort((a, b) => b.ctr - a.ctr)
+    .slice(0, 3);
+
+  const descriptions = ad.assets
+    .filter((a: any) => a.type === 'DESCRIPTION')
+    .map((a: any) => ({
+      text: a.text,
+      ctr: a.metrics?.ctr || 0,
+      conversions: a.metrics?.convRate ? a.metrics.convRate : undefined
+    }))
+    .sort((a, b) => b.ctr - a.ctr)
+    .slice(0, 2);
+
+  if (headlines.length === 0 && descriptions.length === 0) return undefined;
+
+  return { headlines, descriptions };
 }
