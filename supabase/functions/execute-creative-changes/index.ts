@@ -381,7 +381,10 @@ serve(async (req) => {
               finalDescriptions = proposed;
             }
           }
-          
+          // Enforce absolute caps and log
+          finalHeadlines = (finalHeadlines || []).slice(0, 15);
+          finalDescriptions = (finalDescriptions || []).slice(0, 4);
+          console.log(`📏 Final asset counts -> headlines: ${finalHeadlines.length}, descriptions: ${finalDescriptions.length}`);
           // Create a NEW RSA ad in the same ad group (Ad fields are immutable)
           const adGroupResource = `customers/${cleanCustomerId}/adGroups/${adGroupId}`;
           response = await fetch(`https://googleads.googleapis.com/v20/customers/${cleanCustomerId}/adGroupAds:mutate`, {
@@ -445,11 +448,16 @@ serve(async (req) => {
           // Determine type from snapshot and build updated assets
           const assetType = inputSnapshot?.assets?.find((a: any) => a.id === change.assetId)?.type;
           const assetField = assetType === 'HEADLINE' ? 'headlines' : 'descriptions';
-          const existingAssets = currentAd[assetField] || [];
+          const existingHeadlines2 = currentAd.headlines || [];
+          const existingDescriptions2 = currentAd.descriptions || [];
           const assetIndex = parseInt(change.assetId.split('_').pop() || '0');
-          const updatedAssets = existingAssets.map((asset: any, idx: number) => 
+          const updatedAssets = (assetField === 'headlines' ? existingHeadlines2 : existingDescriptions2).map((asset: any, idx: number) => 
             idx === assetIndex ? { text: change.text } : asset
           );
+          // Enforce caps
+          const finalHeadlines2 = (assetField === 'headlines' ? updatedAssets : existingHeadlines2).slice(0, 15);
+          const finalDescriptions2 = (assetField === 'descriptions' ? updatedAssets : existingDescriptions2).slice(0, 4);
+          console.log(`📏 Final (update) asset counts -> headlines: ${finalHeadlines2.length}, descriptions: ${finalDescriptions2.length}`);
           
           // Create a NEW RSA ad with updated assets
           const adGroupResource = `customers/${cleanCustomerId}/adGroups/${adGroupId}`;
@@ -469,8 +477,8 @@ serve(async (req) => {
                   ad: {
                     finalUrls,
                     responsiveSearchAd: {
-                      headlines: assetField === 'headlines' ? updatedAssets : (currentAd.headlines || []),
-                      descriptions: assetField === 'descriptions' ? updatedAssets : (currentAd.descriptions || [])
+                      headlines: finalHeadlines2,
+                      descriptions: finalDescriptions2
                     }
                   }
                 }
