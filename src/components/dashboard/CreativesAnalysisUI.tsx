@@ -1250,9 +1250,169 @@ const findingChanges = auditResults.changeSet.filter(
 
           {/* Creative Assets Tab */}
           <TabsContent value="assets" className="space-y-4">
+            {/* Top Performers Section */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Top Headlines by CTR */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <TrendingUp className="h-5 w-5 text-green-500" />
+                    Top Headlines by CTR
+                  </CardTitle>
+                  <CardDescription>Best click-through rates</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {creativesData.creatives
+                      .filter((c: any) => c.type === 'headline')
+                      .sort((a: any, b: any) => b.ctr - a.ctr)
+                      .slice(0, 5)
+                      .map((creative: any, idx: number) => (
+                        <div key={creative.id} className="p-3 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-800">
+                          <div className="flex items-start justify-between gap-2 mb-2">
+                            <Badge variant="outline" className="bg-green-100 dark:bg-green-900 text-xs">#{idx + 1}</Badge>
+                            <Badge variant="secondary" className="text-xs font-bold text-green-700 dark:text-green-300">
+                              {(creative.ctr * 100).toFixed(2)}% CTR
+                            </Badge>
+                          </div>
+                          <p className="text-sm font-medium mb-2">"{creative.text}"</p>
+                          <div className="flex gap-3 text-xs text-muted-foreground">
+                            <span>{creative.clicks} clicks</span>
+                            <span>•</span>
+                            <span>{creative.impressions.toLocaleString()} impr</span>
+                            {creative.conversions > 0 && (
+                              <>
+                                <span>•</span>
+                                <span>{creative.conversions} conv</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Top Descriptions by CTR */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <TrendingUp className="h-5 w-5 text-blue-500" />
+                    Top Descriptions by CTR
+                  </CardTitle>
+                  <CardDescription>Best click-through rates</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {creativesData.creatives
+                      .filter((c: any) => c.type === 'description')
+                      .sort((a: any, b: any) => b.ctr - a.ctr)
+                      .slice(0, 5)
+                      .map((creative: any, idx: number) => (
+                        <div key={creative.id} className="p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                          <div className="flex items-start justify-between gap-2 mb-2">
+                            <Badge variant="outline" className="bg-blue-100 dark:bg-blue-900 text-xs">#{idx + 1}</Badge>
+                            <Badge variant="secondary" className="text-xs font-bold text-blue-700 dark:text-blue-300">
+                              {(creative.ctr * 100).toFixed(2)}% CTR
+                            </Badge>
+                          </div>
+                          <p className="text-sm font-medium mb-2">"{creative.text}"</p>
+                          <div className="flex gap-3 text-xs text-muted-foreground">
+                            <span>{creative.clicks} clicks</span>
+                            <span>•</span>
+                            <span>{creative.impressions.toLocaleString()} impr</span>
+                            {creative.conversions > 0 && (
+                              <>
+                                <span>•</span>
+                                <span>{creative.conversions} conv</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Top Headlines by Conversions */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Target className="h-5 w-5 text-purple-500" />
+                    Top Headlines by Conversions
+                  </CardTitle>
+                  <CardDescription>Best conversion performers</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {creativesData.creatives
+                      .filter((c: any) => c.type === 'headline' && c.conversions > 0)
+                      .sort((a: any, b: any) => b.conversions - a.conversions)
+                      .slice(0, 5)
+                      .map((creative: any, idx: number) => (
+                        <div key={creative.id} className="p-3 bg-purple-50 dark:bg-purple-950/20 rounded-lg border border-purple-200 dark:border-purple-800">
+                          <div className="flex items-start justify-between gap-2 mb-2">
+                            <Badge variant="outline" className="bg-purple-100 dark:bg-purple-900 text-xs">#{idx + 1}</Badge>
+                            <Badge variant="secondary" className="text-xs font-bold text-purple-700 dark:text-purple-300">
+                              {creative.conversions.toFixed(1)} conv
+                            </Badge>
+                          </div>
+                          <p className="text-sm font-medium mb-2">"{creative.text}"</p>
+                          <div className="flex gap-3 text-xs text-muted-foreground">
+                            <span>{(creative.ctr * 100).toFixed(2)}% CTR</span>
+                            <span>•</span>
+                            <span>{creative.clicks} clicks</span>
+                            <span>•</span>
+                            <span>${(creative.cost || 0).toFixed(2)} cost</span>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Top Descriptions by Conversions */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Target className="h-5 w-5 text-orange-500" />
+                    Top Descriptions by Conversions
+                  </CardTitle>
+                  <CardDescription>Best conversion performers</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {creativesData.creatives
+                      .filter((c: any) => c.type === 'description' && c.conversions > 0)
+                      .sort((a: any, b: any) => b.conversions - a.conversions)
+                      .slice(0, 5)
+                      .map((creative: any, idx: number) => (
+                        <div key={creative.id} className="p-3 bg-orange-50 dark:bg-orange-950/20 rounded-lg border border-orange-200 dark:border-orange-800">
+                          <div className="flex items-start justify-between gap-2 mb-2">
+                            <Badge variant="outline" className="bg-orange-100 dark:bg-orange-900 text-xs">#{idx + 1}</Badge>
+                            <Badge variant="secondary" className="text-xs font-bold text-orange-700 dark:text-orange-300">
+                              {creative.conversions.toFixed(1)} conv
+                            </Badge>
+                          </div>
+                          <p className="text-sm font-medium mb-2">"{creative.text}"</p>
+                          <div className="flex gap-3 text-xs text-muted-foreground">
+                            <span>{(creative.ctr * 100).toFixed(2)}% CTR</span>
+                            <span>•</span>
+                            <span>{creative.clicks} clicks</span>
+                            <span>•</span>
+                            <span>${(creative.cost || 0).toFixed(2)} cost</span>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* All Assets List */}
             <Card>
               <CardHeader>
-                <CardTitle>Creative Assets Performance</CardTitle>
+                <CardTitle>All Creative Assets Performance</CardTitle>
                 <CardDescription>
                   {creativesData.analysis.headlines} headlines, {creativesData.analysis.descriptions} descriptions
                 </CardDescription>
