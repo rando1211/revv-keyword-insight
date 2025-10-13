@@ -5,6 +5,65 @@ import { classifyIssues, type ClassifiedIssue } from './issue-classification.ts'
 import { generateRewritesForIssue, type RewriteSuggestions } from './rewrite-generators.ts';
 import { buildRewriteContext } from './context-builder.ts';
 
+/**
+ * ============================================================================
+ * AD CREATIVE AUDIT ENGINE - EXECUTION FRAMEWORK
+ * ============================================================================
+ * 
+ * GUIDING PRINCIPLE: Run an experiment first — pause only as a last resort.
+ * 
+ * WHY EXPERIMENT > PAUSE:
+ * ✅ Keeps traffic flowing (learning continues)
+ * ✅ Protects performance history (Quality Score, stats)
+ * ✅ Scientific improvement (A/B test for measurable gains)
+ * ✅ Google rewards iterative testing
+ * 
+ * ============================================================================
+ * WHEN TO RUN AN EXPERIMENT (Best Practice)
+ * ============================================================================
+ * 
+ * Use experiments when:
+ * ┌──────────────────────────────────────┬─────────────────────────────────┐
+ * │ Situation                            │ Why Experiment?                 │
+ * ├──────────────────────────────────────┼─────────────────────────────────┤
+ * │ CTR is low but conversions exist     │ Optimization opportunity        │
+ * │ Ad relevance is weak but valid       │ Keep learning without risk      │
+ * │ You have new copy or creative        │ A/B test improvement            │
+ * │ Want to improve Quality Score safely │ Keep ad history & stats         │
+ * └──────────────────────────────────────┴─────────────────────────────────┘
+ * 
+ * Implementation: ADD new headlines/descriptions to RSA instead of replacing
+ * 
+ * ============================================================================
+ * WHEN TO PAUSE (High-Risk Scenarios Only)
+ * ============================================================================
+ * 
+ * Pause immediately if:
+ * ┌──────────────────────────────────────┬─────────────────────────────────┐
+ * │ Condition                            │ Reason                          │
+ * ├──────────────────────────────────────┼─────────────────────────────────┤
+ * │ High spend + 0 conversions (>200 clk)│ Budget waste                    │
+ * │ Ad disapproved / risky claim         │ Compliance issue                │
+ * │ Irrelevant traffic / wrong intent    │ Hurts QS & CPA                  │
+ * │ Sea of duplicates dragging RSA       │ Polluting auction               │
+ * │ Policy violations                    │ Legal/compliance risk           │
+ * └──────────────────────────────────────┴─────────────────────────────────┘
+ * 
+ * ❗Rule of Thumb: If dangerous → pause. If underperforming → experiment.
+ * 
+ * ============================================================================
+ * BEST PRACTICE: ADD vs REPLACE
+ * ============================================================================
+ * 
+ * When running experiments, absolutely DO NOT replace headlines inside RSA.
+ * → Always ADD 2–3 new headline variants instead of editing live ones.
+ * 
+ * Why? Editing resets learning; adding preserves best performers and allows
+ * Google Ads to test new variants against existing winners.
+ * 
+ * ============================================================================
+ */
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -654,9 +713,12 @@ function auditAd(ad: Ad, adGroupStats: any, topQueries: string[], keywords: stri
   }
   
   // Rule 12: High Spend No Conversions (PERF-WASTE-001) - WITH COOL-OFF & SPARSE-CONV LOGIC
+  // ⚠️ PAUSE CRITERIA: Only pause when there's clear waste (>200 clicks + $50+ spend + 0 conv)
+  // Otherwise: Run experiment with new copy
   if (ad.metrics.cost > 50 && ad.metrics.conversions === 0 && ad.metrics.clicks > 20) {
-    const severity = ad.metrics.clicks < 200 ? 'warn' : 'error';
-    const action = ad.metrics.clicks < 200 ? 'Consider pausing or rewriting' : 'Pause ad';
+    const shouldPause = ad.metrics.clicks >= 200; // High confidence it's not working
+    const severity = shouldPause ? 'error' : 'warn';
+    const action = shouldPause ? '⛔ Pause ad - clear waste' : '✅ Run A/B experiment with new copy';
     findings.push({
       rule: 'PERF-WASTE-001',
       severity,
@@ -996,9 +1058,22 @@ for (const finding of findings) {
         changes.push(...addMissingAssets(ad, context));
         break;
 
+      case 'ADS-POL-005':
+      case 'ADS-VERB-PAIR':
+        // ⛔ IMMEDIATE PAUSE: Policy violations / disapproved ads
+        // These are compliance risks and must be paused immediately
+        changes.push({
+          op: 'PAUSE_AD',
+          adId: ad.adId,
+          rule: finding.rule,
+          explanation: `⛔ Pausing immediately - Policy violation detected: ${finding.message}`
+        });
+        break;
+
       case 'ADS-NGRAM-007':
         if (finding.assetId) {
-          changes.push({ op: 'PAUSE_ASSET', assetId: finding.assetId });
+          // ✅ EXPERIMENT MODE: Add new variant instead of pausing weak asset
+          // Keep existing asset running to maintain learning data
           const asset = ad.assets.find(a => a.id === finding.assetId);
           if (asset) {
             // Pass the failing asset so we can analyze its weaknesses
@@ -1056,11 +1131,30 @@ for (const finding of findings) {
         break;
 
       case 'PERF-WASTE-001':
-        // Recommend pausing the entire ad for high spend/no conversions
-        changes.push({
-          op: 'PAUSE_AD',
-          adId: ad.adId
-        });
+        // ✅ EXECUTION LOGIC: Run experiment first - pause only as last resort
+        // Only pause if >200 clicks (high confidence it's wasting budget)
+        // Otherwise: ADD new headlines to A/B test improvement
+        if (ad.metrics.clicks >= 200) {
+          changes.push({
+            op: 'PAUSE_AD',
+            adId: ad.adId,
+            explanation: '⛔ Pausing - High spend ($' + ad.metrics.cost.toFixed(2) + ') with 0 conversions after 200+ clicks'
+          });
+        } else {
+          // Add 2-3 new headlines to experiment with better copy
+          const rewrites = await generateRewritesForIssue(issue, ad, context);
+          if (rewrites?.headlines) {
+            for (let i = 0; i < Math.min(3, rewrites.headlines.length); i++) {
+              changes.push({
+                op: 'ADD_ASSET',
+                type: 'HEADLINE',
+                text: rewrites.headlines[i],
+                rule: 'PERF-WASTE-001',
+                explanation: `✅ A/B test - Adding new headline to improve conversion (current: $${ad.metrics.cost.toFixed(2)} spent, 0 conv)`
+              });
+            }
+          }
+        }
         break;
 
       case 'AGE-STALE-001':
@@ -1111,8 +1205,27 @@ for (const finding of findings) {
         break;
 
       case 'LOW-UTIL-015':
+        // ✅ EXPERIMENT MODE: Don't pause low-utilization assets
+        // Google Ads automatically adjusts serving based on performance
+        // Only flag for review, don't auto-pause
         if (finding.assetId) {
-          changes.push({ op: 'PAUSE_ASSET', assetId: finding.assetId });
+          const asset = ad.assets.find(a => a.id === finding.assetId);
+          if (asset) {
+            // Add a variant to test against instead of pausing
+            const rewrites = await generateRewritesForIssue(issue, ad, context);
+            if (rewrites) {
+              const newAssets = asset.type === 'HEADLINE' ? rewrites.headlines : rewrites.descriptions;
+              if (newAssets?.length > 0) {
+                changes.push({
+                  op: 'ADD_ASSET',
+                  type: asset.type,
+                  text: newAssets[0],
+                  rule: 'LOW-UTIL-015',
+                  explanation: `✅ Adding new ${asset.type.toLowerCase()} variant to compete with low-utilization asset`
+                });
+              }
+            }
+          }
         }
         break;
 
@@ -1137,6 +1250,19 @@ for (const finding of findings) {
           type: 'HEADLINE',
           text: '{LOCATION:City} - Visit Us Today'
         });
+        break;
+
+      default:
+        // Handle vertical-specific policy violations (claims-based errors)
+        if (finding.rule.includes('ADS-CLAIM') && finding.rule.includes('-ERR-')) {
+          // ⛔ IMMEDIATE PAUSE: Vertical policy claim violations (error-level)
+          changes.push({
+            op: 'PAUSE_AD',
+            adId: ad.adId,
+            rule: finding.rule,
+            explanation: `⛔ Pausing immediately - Policy claim violation: ${finding.message}`
+          });
+        }
         break;
     }
 
