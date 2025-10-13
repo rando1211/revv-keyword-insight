@@ -285,7 +285,7 @@ serve(async (req) => {
         requireLocation: rewriteContext.constraints.requireLocation
       };
       
-      const changes = buildChangeSet(ad, findings, fullContext);
+      const changes = await buildChangeSet(ad, findings, fullContext);
 
       allFindings.push({ adId: ad.adId, findings });
       allScores.push({ adId: ad.adId, ...score });
@@ -1008,7 +1008,7 @@ function calculateAdScore(ad: Ad, findings: Finding[]): any {
 }
 
 // === CHANGE-SET GENERATOR ===
-function buildChangeSet(ad: Ad, findings: Finding[], context: any): Change[] {
+async function buildChangeSet(ad: Ad, findings: Finding[], context: any): Promise<Change[]> {
   const changes: Change[] = [];
   const headlines = ad.assets.filter(a => a.type === 'HEADLINE');
   const descriptions = ad.assets.filter(a => a.type === 'DESCRIPTION');
