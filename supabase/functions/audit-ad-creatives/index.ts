@@ -321,7 +321,8 @@ serve(async (req) => {
           if (!rewriteMeta) rewriteMeta = rewrites.meta;
         }
 
-        // Sanitize to remove dynamic keyword insertion and braces
+        // Sanitize and FILTER OUT any dynamic keyword insertion entirely
+        const isDKI = (t: string) => /[{}]/.test(t) || /key\s*word\s*:?/i.test(t);
         const sanitizeCopy = (t: string) => {
           let x = t.replace(/[{}]/g, '');
           x = x.replace(/^\s*(?:key\s*word)\s*:\s*/i, '');
@@ -329,12 +330,12 @@ serve(async (req) => {
           return x;
         };
         const cleanedHeadlines = allSuggestedHeadlines
+          .filter((h: string) => !isDKI(h))
           .map(sanitizeCopy)
-          .filter(h => h && !/key\s*word\s*:/i.test(h))
           .slice(0, 6);
         const cleanedDescriptions = allSuggestedDescriptions
+          .filter((d: string) => !isDKI(d))
           .map(sanitizeCopy)
-          .filter(d => d && !/key\s*word\s*:/i.test(d))
           .slice(0, 2);
 
         // Create optimization object
