@@ -337,14 +337,35 @@ serve(async (req) => {
           x = x.replace(/\s+/g, ' ').trim();
           return x;
         };
+        
+        console.log(`🔍 Raw headlines from AI: ${allSuggestedHeadlines.length}`);
+        console.log(`🔍 Raw descriptions from AI: ${allSuggestedDescriptions.length}`);
+        
         const cleanedHeadlines = allSuggestedHeadlines
-          .filter((h: string) => !isDKI(h) && !isIncomplete(h))
+          .filter((h: string) => {
+            const dki = isDKI(h);
+            const incomplete = isIncomplete(h);
+            if (dki || incomplete) {
+              console.log(`❌ Filtered headline: "${h}" (DKI: ${dki}, Incomplete: ${incomplete})`);
+            }
+            return !dki && !incomplete;
+          })
           .map(sanitizeCopy)
           .slice(0, 15);
         const cleanedDescriptions = allSuggestedDescriptions
-          .filter((d: string) => !isDKI(d) && !isIncomplete(d))
+          .filter((d: string) => {
+            const dki = isDKI(d);
+            const incomplete = isIncomplete(d);
+            if (dki || incomplete) {
+              console.log(`❌ Filtered description: "${d}" (DKI: ${dki}, Incomplete: ${incomplete})`);
+            }
+            return !dki && !incomplete;
+          })
           .map(sanitizeCopy)
           .slice(0, 4);
+          
+        console.log(`✅ Final headlines after filtering: ${cleanedHeadlines.length}`);
+        console.log(`✅ Final descriptions after filtering: ${cleanedDescriptions.length}`);
 
         // Create optimization object
         const optimization = {
