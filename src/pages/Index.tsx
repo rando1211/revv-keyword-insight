@@ -21,6 +21,7 @@ import { useOnboarding } from '@/hooks/useOnboarding';
 import { ApiCredentialsManager } from '@/components/dashboard/ApiCredentialsManager';
 import { MCCHierarchyManager } from '@/components/dashboard/MCCHierarchyManager';
 import { CampaignBuilderWizard } from '@/components/campaign-builder/CampaignBuilderWizard';
+import { ImagePreview } from '@/components/ImagePreview';
 
 const Index = () => {
   const { toast } = useToast();
@@ -267,6 +268,8 @@ Simulation by REVV Marketing ROI Calculator
           </div>
         </div>
       </header>
+      
+      <ImagePreview />
       
       <div className="container mx-auto px-6 py-8 space-y-8">
 
