@@ -268,7 +268,7 @@ export const OptimizationCard = ({
             <Alert className="mb-4">
               <AlertTriangle className="h-4 w-4" />
               <AlertDescription className="text-xs">
-                <strong>⚠️ Important:</strong> Applying changes via API creates a new ad and removes the old one, which resets performance history. For production accounts, use "Copy for Import" and apply manually in Google Ads Editor to preserve historical data.
+                <strong>✅ Experiment-First Approach:</strong> This optimization ADDS new headlines/descriptions to A/B test improvements while keeping existing winners. Historical data is preserved. Only high-risk issues (policy violations, proven waste {'>'}200 clicks) trigger pauses.
               </AlertDescription>
             </Alert>
             <div className="flex gap-2">

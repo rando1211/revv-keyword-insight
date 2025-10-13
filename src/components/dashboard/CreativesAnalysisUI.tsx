@@ -216,6 +216,44 @@ export const CreativesAnalysisUI = ({ customerId, campaignIds, onBack }: Creativ
 
       console.log('✅ RSA Audit Complete:', auditResponse);
       setAuditResults(auditResponse);
+      
+      // Convert audit optimizations to executable recommendations
+      if (auditResponse.optimizations && auditResponse.optimizations.length > 0) {
+        const executableOptimizations = auditResponse.optimizations.map((opt: any, idx: number) => ({
+          id: `audit_opt_${opt.adId}_${idx}`,
+          type: opt.type || 'add_creative',
+          action: opt.type || 'add_creative',
+          priority: opt.priority || 'HIGH',
+          title: opt.title || `${opt.type === 'pause_ad' ? '⛔ Pause' : '✅ Add'} - ${opt.rule}`,
+          description: opt.description || opt.message,
+          impact: opt.severity === 'error' ? 'HIGH' : opt.severity === 'warn' ? 'MEDIUM' : 'LOW',
+          confidence: opt.confidence || 85,
+          timeToExecute: opt.changes?.length > 5 ? '2 minutes' : '30 seconds',
+          effort: 'Minimal',
+          adId: opt.adId,
+          campaignId: opt.campaignId,
+          adGroupId: opt.adGroupId,
+          campaign: adsStructured.find(ad => ad.adId === opt.adId)?.campaign || '',
+          adGroup: adsStructured.find(ad => ad.adId === opt.adId)?.adGroup || '',
+          changes: opt.changes || [],
+          newHeadlines: opt.changes?.filter((c: any) => c.type === 'HEADLINE' && c.op === 'ADD_ASSET').map((c: any) => c.text) || [],
+          newDescriptions: opt.changes?.filter((c: any) => c.type === 'DESCRIPTION' && c.op === 'ADD_ASSET').map((c: any) => c.text) || [],
+          expectedOutcome: opt.explanation || `Implements ${opt.changes?.length || 0} changes to improve ad performance`,
+          reasoning: opt.message,
+          executionStrategy: opt.type === 'pause_ad' ? '⛔ PAUSE STRATEGY' : '✅ EXPERIMENT STRATEGY (ADD NEW VARIANTS)',
+          kpis: opt.expectedImpact ? [
+            { metric: 'Expected Impact', target: opt.expectedImpact }
+          ] : []
+        }));
+        
+        console.log('📊 Converted audit optimizations:', executableOptimizations);
+        setPendingOptimizations(prev => [...prev, ...executableOptimizations]);
+        
+        toast({
+          title: "🎯 Optimizations Ready",
+          description: `${executableOptimizations.length} experiment-first recommendations generated. Go to "Optimizations" tab to execute.`,
+        });
+      }
 
     } catch (error) {
       console.error('RSA Audit failed:', error);
