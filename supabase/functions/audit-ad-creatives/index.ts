@@ -321,8 +321,16 @@ serve(async (req) => {
           if (!rewriteMeta) rewriteMeta = rewrites.meta;
         }
 
-        // Sanitize and FILTER OUT any dynamic keyword insertion entirely
+        // Sanitize and FILTER OUT any dynamic keyword insertion entirely + incomplete lines
         const isDKI = (t: string) => /[{}]/.test(t) || /key\s*word\s*:?/i.test(t);
+        const isIncomplete = (t: string) => {
+          const s = (t || '').trim();
+          if (!s) return true;
+          if (s.split(/\s+/).length < 3) return true;
+          if (/[–-:]\s*$/.test(s)) return true;
+          if (/(?:^|\s)(?:for|with|to|at|on|in|your|our|new|the|and|or|of)$/i.test(s)) return true;
+          return false;
+        };
         const sanitizeCopy = (t: string) => {
           let x = t.replace(/[{}]/g, '');
           x = x.replace(/^\s*(?:key\s*word)\s*:\s*/i, '');
@@ -330,11 +338,11 @@ serve(async (req) => {
           return x;
         };
         const cleanedHeadlines = allSuggestedHeadlines
-          .filter((h: string) => !isDKI(h))
+          .filter((h: string) => !isDKI(h) && !isIncomplete(h))
           .map(sanitizeCopy)
           .slice(0, 6);
         const cleanedDescriptions = allSuggestedDescriptions
-          .filter((d: string) => !isDKI(d))
+          .filter((d: string) => !isDKI(d) && !isIncomplete(d))
           .map(sanitizeCopy)
           .slice(0, 2);
 

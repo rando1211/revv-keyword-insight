@@ -32,9 +32,17 @@ export const OptimizationCard = ({
         .trim()
     : t;
   const isDKI = (t: string) => /[{}]/.test(t || '') || /key\s*word\s*:?/i.test(t || '');
+  const isIncomplete = (t: string) => {
+    const s = (t || '').trim();
+    if (!s) return true;
+    if (s.split(/\s+/).length < 3) return true;
+    if (/[–-:]\s*$/.test(s)) return true;
+    if (/(?:^|\s)(?:for|with|to|at|on|in|your|our|new|the|and|or|of)$/i.test(s)) return true;
+    return false;
+  };
   const [suggestions, setSuggestions] = useState({
-    headlines: (optimization.suggested_headlines || []).filter((s: string) => !isDKI(s)).map(sanitize),
-    descriptions: (optimization.suggested_descriptions || []).filter((s: string) => !isDKI(s)).map(sanitize)
+    headlines: (optimization.suggested_headlines || []).filter((s: string) => !isDKI(s) && !isIncomplete(s)).map(sanitize),
+    descriptions: (optimization.suggested_descriptions || []).filter((s: string) => !isDKI(s) && !isIncomplete(s)).map(sanitize)
   });
   const [isApplying, setIsApplying] = useState(false);
 
@@ -43,13 +51,13 @@ export const OptimizationCard = ({
     try {
       // Build change set from edited suggestions
       const changes = [
-        ...suggestions.headlines.filter((t: string) => t && !isDKI(t)).slice(0, 3).map((h: string) => ({
+        ...suggestions.headlines.filter((t: string) => t && !isDKI(t) && !isIncomplete(t)).slice(0, 3).map((h: string) => ({
           op: 'ADD_ASSET',
           type: 'HEADLINE',
           text: sanitize(h),
           adId: optimization.adId
         })),
-        ...suggestions.descriptions.filter((t: string) => t && !isDKI(t)).slice(0, 2).map((d: string) => ({
+        ...suggestions.descriptions.filter((t: string) => t && !isDKI(t) && !isIncomplete(t)).slice(0, 2).map((d: string) => ({
           op: 'ADD_ASSET',
           type: 'DESCRIPTION',
           text: sanitize(d),
@@ -99,10 +107,10 @@ export const OptimizationCard = ({
   const copyToClipboard = () => {
     const text = [
       '=== Suggested Headlines ===',
-      ...suggestions.headlines.filter((t: string) => t && !isDKI(t)).map(sanitize),
+      ...suggestions.headlines.filter((t: string) => t && !isDKI(t) && !isIncomplete(t)).map(sanitize),
       '',
       '=== Suggested Descriptions ===',
-      ...suggestions.descriptions.filter((t: string) => t && !isDKI(t)).map(sanitize)
+      ...suggestions.descriptions.filter((t: string) => t && !isDKI(t) && !isIncomplete(t)).map(sanitize)
     ].join('\n');
     
     navigator.clipboard.writeText(text);
