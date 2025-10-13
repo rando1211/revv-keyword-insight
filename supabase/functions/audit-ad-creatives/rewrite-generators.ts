@@ -385,7 +385,26 @@ function buildPrompt(context: RewriteContext, policyNotes: string[] = [], revise
   const searchTerms = context.topSearchTerms.slice(0, 5).join(', ');
   
   const categoryContext = context.category ? `${context.category}` : 'products';
-  const isOffRoad = context.category && /atv|utv|off.?road|dirt.?bike|motorcycle/i.test(context.category);
+  
+  // Determine category-specific action verbs
+  const categoryLower = categoryContext.toLowerCase();
+  let actionGuidance = '';
+  
+  if (/atv|utv|off.?road|dirt.?bike|motorcycle|powersports/i.test(categoryLower)) {
+    actionGuidance = '- Use action-oriented verbs: Ride, Explore, Conquer, Test Ride, Trail-Ready, Get Riding, Adventure';
+  } else if (/auto|car|truck|vehicle/i.test(categoryLower)) {
+    actionGuidance = '- Use action-oriented verbs: Drive, Test Drive, Own, Lease, Upgrade, Trade In';
+  } else if (/boat|marine|watercraft/i.test(categoryLower)) {
+    actionGuidance = '- Use action-oriented verbs: Sail, Cruise, Launch, Navigate, Own Your';
+  } else if (/rv|camper|motorhome/i.test(categoryLower)) {
+    actionGuidance = '- Use action-oriented verbs: Travel, Explore, Camp, Adventure, Hit The Road';
+  } else if (/home|real estate|property/i.test(categoryLower)) {
+    actionGuidance = '- Use action-oriented verbs: Own, Move In, Discover, Tour, Secure';
+  } else if (/service|repair|maintenance/i.test(categoryLower)) {
+    actionGuidance = '- Use action-oriented verbs: Schedule, Fix, Maintain, Service, Upgrade';
+  } else {
+    actionGuidance = '- Use specific action verbs relevant to the category (NOT generic "Shop" or "Buy")';
+  }
   
   const prompt = `You are a Google Ads copywriting expert. Create high-converting responsive search ads for the following:
 
@@ -404,7 +423,7 @@ Available Offers:
 
 Create ${context.constraints.headlines} headlines and ${context.constraints.descriptions} descriptions for a responsive search ad.
 
-Guidelines:
+CRITICAL GUIDELINES:
 - Headlines: max 30 characters each
 - Descriptions: max 90 characters each
 - Include primary keywords naturally in headlines
@@ -413,16 +432,17 @@ Guidelines:
 - Ensure mobile-friendly copy
 - Match search intent for the keyword theme
 - Use numbers and specific benefits when possible
-${isOffRoad ? '- Use action-oriented language (Ride, Explore, Conquer, Adventure, Trail-Ready)' : ''}
-${isOffRoad ? '- Focus on the riding/adventure experience, not generic shopping' : ''}
+${actionGuidance}
+- Focus on the customer experience and outcome, not generic shopping language
 - Include the brand name "${context.brand}" in at least 2 headlines
-- Include category "${categoryContext}" or model names (NOT generic words like "shop" or "store")
+- Include specific category "${categoryContext}" or model names/numbers
 ${geo ? `- Include location "${geo}" in at least 1 headline` : ''}
 - Include trust signals or social proof in at least 1 headline
 - Include offers or financing options prominently
-- DO NOT use excessive capitalization
-- DO NOT make unverifiable claims
-- DO NOT use spammy punctuation
+- AVOID generic words: "shop", "store", "product", "item", "buy now"
+- AVOID excessive capitalization
+- AVOID unverifiable claims
+- AVOID spammy punctuation
 
 Return ONLY a JSON object with this exact structure:
 {
@@ -437,7 +457,7 @@ Return ONLY a JSON object with this exact structure:
   }
 }
 
-Make the copy compelling, relevant, and high-converting for ${categoryContext}.${revise ? `\n\nIMPORTANT - Fix these issues from previous attempt: ${revise}` : ''}`;
+Make the copy compelling, category-specific, and high-converting for ${categoryContext}.${revise ? `\n\nIMPORTANT - Fix these issues from previous attempt: ${revise}` : ''}`;
   
   return prompt;
 }
