@@ -50,16 +50,16 @@ export const OptimizationWorkflowPanel = ({
   const applyAllHighPriority = async () => {
     setIsApplyingBulk(true);
     try {
-      const highPriorityOpts = sorted.filter((o: any) => o.priority === 'High');
+      const optsToApply = sorted; // Apply ALL optimizations, not just high priority
       
       toast({
-        title: '⚡ Applying High Priority Optimizations',
-        description: `Processing ${highPriorityOpts.length} optimizations...`,
+        title: '⚡ Applying All Optimizations',
+        description: `Processing ${optsToApply.length} optimizations...`,
       });
       
       let successCount = 0;
       
-      for (const opt of highPriorityOpts) {
+      for (const opt of optsToApply) {
         try {
           // Build change set from suggestions
           const changes = [
@@ -100,7 +100,7 @@ export const OptimizationWorkflowPanel = ({
       
       toast({
         title: '✅ Bulk Apply Complete',
-        description: `Successfully applied ${successCount}/${highPriorityOpts.length} optimizations`,
+        description: `Successfully applied ${successCount}/${optsToApply.length} optimizations`,
       });
       
       onRefresh();
@@ -239,10 +239,10 @@ export const OptimizationWorkflowPanel = ({
             size="lg"
             variant="default"
             onClick={applyAllHighPriority}
-            disabled={isApplyingBulk || highPriorityCount === 0}
+            disabled={isApplyingBulk || sorted.length === 0}
           >
             <Zap className="mr-2 h-4 w-4" />
-            Apply All High Priority ({highPriorityCount})
+            Apply All Optimizations ({sorted.length})
           </Button>
           
           <Button

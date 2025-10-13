@@ -284,7 +284,7 @@ export const OptimizationCard = ({
                 disabled={isApplying}
               >
                 <CheckCircle className="mr-2 h-4 w-4" />
-                {isApplying ? 'Applying...' : 'Apply All (Creates New Ad)'}
+                {isApplying ? 'Pushing to Google Ads...' : '🚀 Push to Google Ads'}
               </Button>
               <Button
                 onClick={copyToClipboard}
