@@ -1492,240 +1492,35 @@ const findingChanges = auditResults.changeSet.filter(
 
           {/* Optimizations Tab */}
           <TabsContent value="optimizations" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between">
-                  Optimization Recommendations
-                  <Badge variant="secondary" className="text-sm">
-                    {pendingOptimizations.length} Action{pendingOptimizations.length !== 1 ? 's' : ''} Available
-                  </Badge>
-                </CardTitle>
-                <CardDescription>
-                  Click "Execute" on any recommendation to implement it. Each action is independent.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-6">
-                  {pendingOptimizations.map((optimization) => (
-                    <div 
-                      key={optimization.id} 
-                      className={`border rounded-lg p-6 ${getImpactColor(optimization.impact)}`}
-                    >
-                      {/* Header */}
-                      <div className="flex items-start justify-between gap-4 mb-4">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3 mb-3">
-                            <Badge variant="outline" className="text-xs font-medium">
-                              {optimization.priority} PRIORITY
-                            </Badge>
-                            <Badge variant={optimization.impact === 'HIGH' ? 'destructive' : optimization.impact === 'MEDIUM' ? 'default' : 'secondary'}>
-                              {optimization.impact} Impact
-                            </Badge>
-                            <Badge variant="outline" className="text-xs">
-                              {optimization.confidence}% confidence
-                            </Badge>
-                            {optimization.timeToExecute && (
-                              <Badge variant="secondary" className="text-xs">
-                                ⏱️ {optimization.timeToExecute}
-                              </Badge>
-                            )}
-                          </div>
-                          <h4 className="text-lg font-semibold mb-2">{optimization.title}</h4>
-                          <p className="text-sm text-muted-foreground mb-4">{optimization.description}</p>
-                          
-                          {/* Expected Outcome */}
-                          {optimization.expectedOutcome && (
-                            <div className="bg-primary/10 border border-primary/20 rounded-lg p-3 mb-4">
-                              <div className="flex items-center gap-2 mb-1">
-                                <Target className="h-4 w-4 text-primary" />
-                                <span className="font-medium text-sm">Expected Outcome</span>
-                              </div>
-                              <p className="text-sm">{optimization.expectedOutcome}</p>
-                            </div>
-                          )}
-                        </div>
-                        <div className="flex gap-2">
-                          <Button 
-                            onClick={() => executeIndividualOptimization(optimization)}
-                            disabled={isExecuting}
-                            className="bg-primary hover:bg-primary/90"
-                          >
-                            {isExecuting ? (
-                              <>
-                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                Executing...
-                              </>
-                            ) : (
-                              <>
-                                <Play className="h-4 w-4 mr-2" />
-                                Execute Now
-                              </>
-                            )}
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => removePendingOptimization(optimization.id)}
-                            className="shrink-0"
-                          >
-                            Skip
-                          </Button>
-                        </div>
-                      </div>
-
-                      {/* Detailed Information Grid */}
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        
-                        {/* Step-by-Step Instructions */}
-                        {optimization.stepByStep && (
-                          <div className="space-y-2">
-                            <h5 className="font-medium text-sm flex items-center gap-2">
-                              <CheckCircle className="h-4 w-4" />
-                              Step-by-Step Instructions
-                            </h5>
-                            <div className="bg-muted/50 rounded-lg p-3">
-                              <ol className="space-y-2 text-sm">
-                                {optimization.stepByStep.map((step, index) => (
-                                  <li key={index} className="flex items-start gap-2">
-                                    <span className="bg-primary text-primary-foreground text-xs rounded-full w-5 h-5 flex items-center justify-center shrink-0 mt-0.5">
-                                      {index + 1}
-                                    </span>
-                                    <span>{step}</span>
-                                  </li>
-                                ))}
-                              </ol>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Reasoning & Context */}
-                        {optimization.reasoning && (
-                          <div className="space-y-2">
-                            <h5 className="font-medium text-sm flex items-center gap-2">
-                              <Brain className="h-4 w-4" />
-                              Why This Matters
-                            </h5>
-                            <div className="bg-muted/50 rounded-lg p-3">
-                              <p className="text-sm">{optimization.reasoning}</p>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Suggested Content (for creative additions) */}
-                        {optimization.suggestedHeadlines && (
-                          <div className="space-y-2">
-                            <h5 className="font-medium text-sm">Suggested Headlines</h5>
-                            <div className="space-y-2">
-                              {optimization.suggestedHeadlines.map((headline, index) => (
-                                <div key={index} className="bg-muted/50 rounded-lg p-3">
-                                  <p className="font-medium text-sm">"{headline.text}"</p>
-                                  <p className="text-xs text-muted-foreground mt-1">{headline.rationale}</p>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {optimization.suggestedDescriptions && (
-                          <div className="space-y-2">
-                            <h5 className="font-medium text-sm">Suggested Descriptions</h5>
-                            <div className="space-y-2">
-                              {optimization.suggestedDescriptions.map((desc, index) => (
-                                <div key={index} className="bg-muted/50 rounded-lg p-3">
-                                  <p className="font-medium text-sm">"{desc.text}"</p>
-                                  <p className="text-xs text-muted-foreground mt-1">{desc.rationale}</p>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Top Performers Data */}
-                        {optimization.topPerformers && (
-                          <div className="space-y-2">
-                            <h5 className="font-medium text-sm">Top Performers to Scale</h5>
-                            <div className="space-y-2">
-                              {optimization.topPerformers.map((performer, index) => (
-                                <div key={index} className="bg-success/10 rounded-lg p-3">
-                                  <p className="font-medium text-sm">"{performer.text}"</p>
-                                  <div className="flex items-center gap-4 mt-1 text-xs">
-                                    <span>CTR: {performer.ctr}</span>
-                                    <span>Cost: {performer.cost}</span>
-                                    <span className="text-muted-foreground">{performer.campaign}</span>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Risk Factors */}
-                        {optimization.riskFactors && (
-                          <div className="space-y-2">
-                            <h5 className="font-medium text-sm flex items-center gap-2">
-                              <AlertTriangle className="h-4 w-4 text-warning" />
-                              Risk Factors
-                            </h5>
-                            <div className="bg-warning/10 rounded-lg p-3">
-                              <ul className="text-sm space-y-1">
-                                {optimization.riskFactors.map((risk, index) => (
-                                  <li key={index} className="flex items-start gap-2">
-                                    <span className="text-warning">•</span>
-                                    <span>{risk}</span>
-                                  </li>
-                                ))}
-                              </ul>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Follow-up Actions */}
-                        {optimization.followUpActions && (
-                          <div className="space-y-2">
-                            <h5 className="font-medium text-sm flex items-center gap-2">
-                              <TrendingUp className="h-4 w-4" />
-                              Follow-up Actions
-                            </h5>
-                            <div className="bg-muted/50 rounded-lg p-3">
-                              <ul className="text-sm space-y-1">
-                                {optimization.followUpActions.map((action, index) => (
-                                  <li key={index} className="flex items-start gap-2">
-                                    <span className="text-primary">•</span>
-                                    <span>{action}</span>
-                                  </li>
-                                ))}
-                              </ul>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Campaign/Ad Group Context */}
-                      {(optimization.campaign || optimization.adGroup) && (
-                        <div className="mt-4 pt-4 border-t">
-                          <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                            {optimization.campaign && (
-                              <span>📊 Campaign: <span className="font-medium">{optimization.campaign}</span></span>
-                            )}
-                            {optimization.adGroup && (
-                              <span>📁 Ad Group: <span className="font-medium">{optimization.adGroup}</span></span>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                  
-                  {pendingOptimizations.length === 0 && (
-                    <div className="text-center py-12 text-muted-foreground">
-                      <Zap className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                      <h3 className="text-lg font-medium mb-2">No optimizations pending</h3>
-                      <p>Run creative analysis to generate detailed, actionable recommendations</p>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+            {auditResults && auditResults.optimizations && auditResults.optimizations.length > 0 ? (
+              <OptimizationWorkflowPanel
+                auditResults={auditResults}
+                customerId={customerId}
+                onRefresh={() => {
+                  // Re-run audit to get fresh data
+                  if (creativesData?.adsStructured) {
+                    runRSAAudit(
+                      creativesData.adsStructured,
+                      creativesData.adGroupStats,
+                      creativesData.searchTerms,
+                      creativesData.keywords
+                    );
+                  }
+                }}
+              />
+            ) : (
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="text-center text-muted-foreground py-12">
+                    <Lightbulb className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p className="text-lg font-medium mb-2">No Audit Results Yet</p>
+                    <p className="text-sm mb-4">
+                      Click "Analyze Creatives" then "Run RSA Audit" to generate optimization recommendations
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
           {/* Smart Optimizer Tab */}
