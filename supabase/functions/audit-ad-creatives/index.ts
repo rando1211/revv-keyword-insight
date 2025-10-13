@@ -195,6 +195,7 @@ serve(async (req) => {
     const allFindings: any[] = [];
     const allScores: any[] = [];
     const allChanges: any[] = [];
+    const allOptimizations: any[] = [];
 
     // Detect vertical from first keyword or default to ecommerce
     const detectedVertical = vertical || detectVertical(keywords || [], topQueries || []);
@@ -210,19 +211,69 @@ serve(async (req) => {
       allFindings.push({ adId: ad.adId, findings });
       allScores.push({ adId: ad.adId, ...score });
       allChanges.push(...changes);
+
+      // Generate optimization recommendations using Smart Engine
+      if (findings.length > 0) {
+        const priorityScore = calculatePriorityScore(ad, findings);
+        const classifiedIssues = classifyIssues(findings, ad);
+        
+        // Generate rewrites for each classified issue
+        const allSuggestedHeadlines: string[] = [];
+        const allSuggestedDescriptions: string[] = [];
+        
+        for (const issue of classifiedIssues) {
+          const rewrites = generateRewritesForIssue(
+            issue,
+            ad,
+            keywords || [],
+            topQueries || []
+          );
+          allSuggestedHeadlines.push(...rewrites.headlines);
+          allSuggestedDescriptions.push(...rewrites.descriptions);
+        }
+
+        // Create optimization object
+        const optimization = {
+          adId: ad.adId,
+          campaign: ad.campaign || 'Unknown',
+          adGroup: ad.adGroup || 'Unknown',
+          priority: priorityScore.priority,
+          priorityScore: priorityScore.score,
+          priorityReasons: priorityScore.reasons,
+          issues: classifiedIssues,
+          suggested_headlines: allSuggestedHeadlines.slice(0, 5), // Top 5
+          suggested_descriptions: allSuggestedDescriptions.slice(0, 3), // Top 3
+          rewriteFramework: {
+            h1_formula: 'Keyword + Intent',
+            h2_formula: 'Offer/Benefit',
+            h3_formula: 'Proof/Social',
+            description_formula: 'Feature + Benefit + CTA'
+          },
+          currentMetrics: {
+            ctr: ad.metrics?.ctr || 0,
+            impressions: ad.metrics?.impressions || 0,
+            adStrength: ad.adStrength || 'UNKNOWN'
+          },
+          status: 'pending'
+        };
+
+        allOptimizations.push(optimization);
+      }
     }
 
-    console.log(`✅ Audit complete: ${allFindings.length} ads analyzed`);
+    console.log(`✅ Audit complete: ${allFindings.length} ads analyzed, ${allOptimizations.length} optimizations generated`);
 
     return new Response(JSON.stringify({
       success: true,
       findings: allFindings,
       scores: allScores,
       changeSet: allChanges,
+      optimizations: allOptimizations,
       summary: {
         totalAds: ads.length,
         totalFindings: allFindings.reduce((sum, f) => sum + f.findings.length, 0),
         totalChanges: allChanges.length,
+        totalOptimizations: allOptimizations.length,
         avgScore: allScores.reduce((sum, s) => sum + s.score, 0) / allScores.length
       },
       timestamp: new Date().toISOString()
