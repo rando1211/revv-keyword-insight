@@ -301,38 +301,135 @@ export function generateFallbackRSA(context: RewriteContext): RewriteSuggestions
   };
 }
 
+// ============= AI GENERATION (Lovable AI Gateway) =============
+
+async function callLovableAI(prompt: string): Promise<{ headlines: string[]; descriptions: string[]; meta?: any }> {
+  const apiKey = Deno.env.get('LOVABLE_API_KEY');
+  if (!apiKey) throw new Error('LOVABLE_API_KEY is not configured');
+
+  const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      // model: 'google/gemini-2.5-flash', // default
+      messages: [
+        { role: 'system', content: 'You are a senior Google Search Ads copywriter. Return ONLY valid JSON.' },
+        { role: 'user', content: prompt }
+      ]
+    })
+  });
+
+  if (!response.ok) {
+    const t = await response.text();
+    if (response.status === 429) throw new Error('Rate limited by Lovable AI');
+    if (response.status === 402) throw new Error('Lovable AI credits exhausted');
+    throw new Error(`AI gateway error ${response.status}: ${t}`);
+  }
+
+  const data = await response.json();
+  const content: string = data?.choices?.[0]?.message?.content || '';
+  try {
+    const parsed = JSON.parse(content);
+    return {
+      headlines: Array.isArray(parsed.headlines) ? parsed.headlines : [],
+      descriptions: Array.isArray(parsed.descriptions) ? parsed.descriptions : [],
+      meta: parsed.meta
+    };
+  } catch {
+    throw new Error('AI did not return valid JSON');
+  }
+}
+
+function buildPrompt(context: RewriteContext, policyNotes: string[] = [], revise?: string): string {
+  const geo = context.geo.city || context.geo.region || '';
+  const offersObj = {
+    financing: context.offers.financing,
+    promotions: context.offers.promotions,
+    trust: context.offers.trust,
+    differentiators: context.offers.differentiators
+  };
+  const prompt = `FOLLOW THIS EXACT STRUCTURE:\n- Headline 1 = Keyword + Intent  (must include one of: ${JSON.stringify(context.topKeywords)})\n- Headline 2 = Offer or Benefit\n- Headline 3 = Proof / Trust\n- Add 2–5 more headlines mixing: Model / Geo / Urgency / CTA\n\nDescriptions: Use "Pain/Need + Solution + Offer + CTA". Keep to <= 90 chars.\n\nCONTEXT:\n- Brand: ${context.brand}\n- Geo: ${geo || 'N/A'}\n- Landing Page: ${''}\n- Top Keywords: ${JSON.stringify(context.topKeywords)}\n- Top Search Terms: ${JSON.stringify(context.topSearchTerms)}\n- Models/SKUs: ${JSON.stringify(context.modelsOrSKUs)}\n- Offers: ${JSON.stringify(offersObj)}\n- Trust/Differentiators: ${JSON.stringify([...context.offers.trust, ...context.offers.differentiators])}\n- Policy to Avoid: ${JSON.stringify(policyNotes)}\n\nREQUIREMENTS:\n- Headlines <= 30 chars; Descriptions <= 90 chars\n- Include at least 1 exact keyword headline\n- Include 1 model headline (if models present)\n- Include 1 geo headline (if geo present)\n- Include 1 trust headline\n- No excessive caps; no unverifiable claims; no punctuation spam\n\nRETURN JSON ONLY in this schema:\n{\n  "headlines": ["...", "..."],\n  "descriptions": ["...", "..."],\n  "meta": {\n    "usedKeywords": ["..."],\n    "hasGeo": true,\n    "hasModel": true,\n    "hasTrust": true\n  }\n}\n${revise ? `\nRevise to fix: ${revise}` : ''}`;
+  return prompt;
+}
+
+async function generateWithAI(context: RewriteContext): Promise<RewriteSuggestions | null> {
+  const policyNotes: string[] = [];
+  let attempts = 0;
+  let lastErrors: string[] = [];
+
+  while (attempts < 2) {
+    const prompt = buildPrompt(context, policyNotes, attempts > 0 ? lastErrors.join('; ') : undefined);
+    try {
+      const ai = await callLovableAI(prompt);
+      // Sanitize lengths
+      const headlines = (ai.headlines || []).map(h => smartTruncate(h, H_MAX)).slice(0, context.constraints.headlines);
+      const descriptions = (ai.descriptions || []).map(d => smartTruncate(d, D_MAX)).slice(0, context.constraints.descriptions);
+      
+      const output: RewriteSuggestions = {
+        headlines,
+        descriptions,
+        meta: {
+          usedKeywords: context.topKeywords.filter(kw => headlines.some(h => h.toLowerCase().includes(kw.toLowerCase()))),
+          hasGeo: headlines.some(h => containsAny(h, [context.geo.city || '', context.geo.region || '', 'Near Me', 'Local'].filter(Boolean) as string[])),
+          hasModel: headlines.some(h => containsAny(h, context.modelsOrSKUs)),
+          hasTrust: headlines.some(h => containsAny(h, context.offers.trust)),
+          hasOffer: headlines.some(h => containsAny(h, [...context.offers.financing, ...context.offers.promotions]))
+        },
+        framework: {
+          h1_formula: 'Keyword + Intent',
+          h2_formula: 'Offer/Benefit',
+          h3_formula: 'Proof/Trust',
+          description_formula: 'Pain + Solution + Offer + CTA'
+        }
+      };
+      
+      const errors = validateRSA(output, context);
+      if (errors.length === 0) return output;
+      lastErrors = errors;
+      attempts++;
+    } catch (e) {
+      console.error('AI generation failed:', e);
+      break;
+    }
+  }
+  
+  return null;
+}
+
 // ============= MAIN GENERATOR =============
 
-export function generateRewritesForIssue(
+export async function generateRewritesForIssue(
   issue: any,
   ad: any,
   context: RewriteContext
-): RewriteSuggestions {
-  
+): Promise<RewriteSuggestions> {
+  // 1) Try AI generation with validators and up to 2 revision passes
+  const aiOutput = await generateWithAI(context);
+  if (aiOutput) return aiOutput;
+
+  // 2) Deterministic structured generation (templates)
   const headlines: string[] = [];
   const descriptions: string[] = [];
-  
-  // Build headlines following H1/H2/H3 structure
+
   const h1Headlines = generateH1KeywordIntent(context);
   const h2Headlines = generateH2Offer(context);
   const h3Headlines = generateH3Proof(context);
-  
+
   headlines.push(...h1Headlines);
   headlines.push(...h2Headlines);
   headlines.push(...h3Headlines);
-  
-  // Add geo headline if required
+
   const geoHeadline = generateGeoHeadline(context);
   if (geoHeadline) headlines.push(geoHeadline);
-  
-  // Add model headline if available
+
   const modelHeadline = generateModelHeadline(context);
   if (modelHeadline) headlines.push(modelHeadline);
-  
-  // Generate descriptions
+
   descriptions.push(...generateDescriptions(context));
-  
-  // Build output
+
   let output: RewriteSuggestions = {
     headlines: headlines.slice(0, context.constraints.headlines),
     descriptions: descriptions.slice(0, context.constraints.descriptions),
@@ -352,14 +449,12 @@ export function generateRewritesForIssue(
       description_formula: 'Pain + Solution + Offer + CTA'
     }
   };
-  
-  // Validate
+
   const errors = validateRSA(output, context);
-  
   if (errors.length > 0) {
-    console.log('⚠️ Validation failed, using fallback templates:', errors);
     output = generateFallbackRSA(context);
   }
-  
+
   return output;
 }
+

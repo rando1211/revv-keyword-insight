@@ -233,19 +233,16 @@ serve(async (req) => {
         const allSuggestedDescriptions: string[] = [];
         let rewriteMeta: any = null;
         
-        for (const issue of classifiedIssues) {
-          const rewrites = generateRewritesForIssue(
-            issue,
-            ad,
-            rewriteContext
-          );
+        const rewritesList = await Promise.all(
+          classifiedIssues.map((issue: any) =>
+            generateRewritesForIssue(issue, ad, rewriteContext)
+          )
+        );
+
+        for (const rewrites of rewritesList) {
           allSuggestedHeadlines.push(...rewrites.headlines);
           allSuggestedDescriptions.push(...rewrites.descriptions);
-          
-          // Capture meta from first rewrite
-          if (!rewriteMeta) {
-            rewriteMeta = rewrites.meta;
-          }
+          if (!rewriteMeta) rewriteMeta = rewrites.meta;
         }
 
         // Create optimization object
