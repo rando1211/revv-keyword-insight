@@ -4,6 +4,7 @@
 export interface RewriteContext {
   accountName: string;
   brand: string;
+  category?: string; // e.g., ATV, UTV, Off-Road, Dirt Bike
   geo: {
     city?: string;
     region?: string;
@@ -60,6 +61,64 @@ const CITIES = new Set([
   'sacramento', 'mesa', 'kansas city', 'omaha', 'raleigh', 'tulsa', 'minneapolis'
 ]);
 
+// Category detection rules
+const CATEGORY_RULES: Array<{ pattern: RegExp; canonical: string }> = [
+  { pattern: /\batv(s)?\b/i, canonical: 'ATV' },
+  { pattern: /\butv(s)?\b|\bside[- ]?by[- ]?side\b|\bsxs\b/i, canonical: 'UTV' },
+  { pattern: /\boff[- ]?road|offroad\b/i, canonical: 'Off-Road' },
+  { pattern: /\bdirt\s?bike|motocross|mx|enduro\b/i, canonical: 'Dirt Bike' },
+  { pattern: /\bmotorcycle(s)?\b/i, canonical: 'Motorcycle' },
+];
+
+function detectCategory(keywords: string[], searchTerms: string[]): string | undefined {
+  const all = [...keywords, ...searchTerms];
+  for (const { pattern, canonical } of CATEGORY_RULES) {
+    if (all.some(t => pattern.test(t))) return canonical;
+  }
+  return undefined;
+}
+
+const GENERIC_BAD_KW = /\b(shop|store|price match|free shipping|shipping|warehouse|outlet)\b/i;
+
+function cleanAndRankKeywords(
+  brand: string,
+  models: string[],
+  keywords: string[],
+  searchTerms: string[],
+  category?: string
+): string[] {
+  const candidates = new Set<string>();
+  const add = (s: string) => { const t = s.trim(); if (t) candidates.add(t); };
+  [...keywords, ...searchTerms].forEach(add);
+
+  const filtered = Array.from(candidates).filter(k => !/buy\s+motorcycle\s+shop/i.test(k) && !GENERIC_BAD_KW.test(k));
+
+  const composed = category ? `${brand} ${category}` : brand;
+
+  const scored = filtered.map(k => {
+    const l = k.toLowerCase();
+    let score = 0;
+    if (brand && l.includes(brand.toLowerCase())) score += 3;
+    if (models.some(m => l.includes(m.toLowerCase()))) score += 3;
+    if (category && l.includes(category.toLowerCase())) score += 2;
+    if (/\bnear me\b/i.test(k)) score += 1;
+    if (/\b(shop|store)\b/i.test(k)) score -= 3;
+    if (/price|shipping/i.test(k)) score -= 2;
+    return { k, score };
+  });
+
+  scored.sort((a, b) => b.score - a.score);
+  const top = scored.map(s => s.k);
+  const uniq: string[] = [];
+  for (const t of [composed, ...top]) {
+    if (!t) continue;
+    const lower = t.toLowerCase();
+    if (!uniq.some(u => u.toLowerCase() === lower)) uniq.push(t);
+    if (uniq.length >= 8) break;
+  }
+  return uniq.slice(0, 5);
+}
+
 export function buildRewriteContext(
   ad: any,
   keywords: string[],
@@ -71,12 +130,15 @@ export function buildRewriteContext(
   const geo = detectGeoIntent(searchTerms);
   const offers = buildOffers(vertical, brand);
   const accountName = extractAccountName(ad);
+  const category = detectCategory(keywords, searchTerms);
+  const normalizedTopKeywords = cleanAndRankKeywords(brand, models, keywords, searchTerms, category);
 
   return {
     accountName,
     brand,
+    category,
     geo,
-    topKeywords: keywords.slice(0, 5),
+    topKeywords: normalizedTopKeywords,
     topSearchTerms: searchTerms.slice(0, 10),
     modelsOrSKUs: models,
     offers,
