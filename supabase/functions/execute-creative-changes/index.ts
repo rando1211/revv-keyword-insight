@@ -320,13 +320,14 @@ serve(async (req) => {
             })
           });
         } else if (change.op === 'ADD_ASSET' && change.type && change.text) {
-          console.log(`➕ Adding ${change.type} asset: "${change.text}"`);
+          console.log(`➕ Adding ${change.type} asset by cloning ad and appending: "${change.text}"`);
           
-          // First, get the current ad to access its assets
+          // Fetch current ad (assets + final urls)
           const adResourceName = `customers/${cleanCustomerId}/adGroupAds/${adGroupId}~${adId}`;
           const getAdQuery = `
-            SELECT ad_group_ad.ad.responsive_search_ad.headlines, 
-                   ad_group_ad.ad.responsive_search_ad.descriptions
+            SELECT ad_group_ad.ad.responsive_search_ad.headlines,
+                   ad_group_ad.ad.responsive_search_ad.descriptions,
+                   ad_group_ad.ad.final_urls
             FROM ad_group_ad 
             WHERE ad_group_ad.resource_name = '${adResourceName}'
           `;
@@ -335,35 +336,33 @@ serve(async (req) => {
             `https://googleads.googleapis.com/v20/customers/${cleanCustomerId}/googleAds:search`,
             {
               method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${access_token}`,
-              'developer-token': DEVELOPER_TOKEN || '',
-              'login-customer-id': (loginCustomerId || '9301596383'),
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ query: getAdQuery })
+              headers: {
+                'Authorization': `Bearer ${access_token}`,
+                'developer-token': DEVELOPER_TOKEN || '',
+                'login-customer-id': (loginCustomerId || '9301596383'),
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({ query: getAdQuery })
             }
           );
-          
           const searchData = await searchResponse.json();
           if (!searchResponse.ok) {
             throw new Error(`Failed to fetch ad: ${JSON.stringify(searchData)}`);
           }
           
           const currentAd = searchData.results?.[0]?.adGroupAd?.ad?.responsiveSearchAd;
+          const finalUrls = searchData.results?.[0]?.adGroupAd?.ad?.finalUrls || [];
           if (!currentAd) {
             throw new Error('Could not fetch current ad data');
           }
           
-          // Add new asset to existing ones
+          // Compose new assets
           const assetField = change.type === 'HEADLINE' ? 'headlines' : 'descriptions';
           const existingAssets = currentAd[assetField] || [];
-          const newAssets = [
-            ...existingAssets,
-            { text: change.text }
-          ];
+          const newAssets = [...existingAssets, { text: change.text }];
           
-          // Update the ad with new asset
+          // Create a NEW RSA ad in the same ad group (Ad fields are immutable)
+          const adGroupResource = `customers/${cleanCustomerId}/adGroups/${adGroupId}`;
           response = await fetch(`https://googleads.googleapis.com/v20/customers/${cleanCustomerId}/adGroupAds:mutate`, {
             method: 'POST',
             headers: {
@@ -374,26 +373,29 @@ serve(async (req) => {
             },
             body: JSON.stringify({
               operations: [{
-                update: {
-                  resourceName: adResourceName,
+                create: {
+                  adGroup: adGroupResource,
+                  status: 'ENABLED',
                   ad: {
+                    finalUrls,
                     responsiveSearchAd: {
-                      [assetField]: newAssets
+                      headlines: assetField === 'headlines' ? newAssets : (currentAd.headlines || []),
+                      descriptions: assetField === 'descriptions' ? newAssets : (currentAd.descriptions || [])
                     }
                   }
-                },
-                updateMask: `ad.responsive_search_ad.${assetField}`
+                }
               }]
             })
           });
         } else if (change.op === 'UPDATE_ASSET' && change.assetId && change.text) {
-          console.log(`✏️  Updating asset ${change.assetId} to: "${change.text}"`);
+          console.log(`✏️  Updating asset ${change.assetId} by cloning ad with new text: "${change.text}"`);
           
-          // Similar to ADD_ASSET, fetch current ad, update specific asset, then update
+          // Fetch current ad (assets + final urls)
           const adResourceName = `customers/${cleanCustomerId}/adGroupAds/${adGroupId}~${adId}`;
           const getAdQuery = `
-            SELECT ad_group_ad.ad.responsive_search_ad.headlines, 
-                   ad_group_ad.ad.responsive_search_ad.descriptions
+            SELECT ad_group_ad.ad.responsive_search_ad.headlines,
+                   ad_group_ad.ad.responsive_search_ad.descriptions,
+                   ad_group_ad.ad.final_urls
             FROM ad_group_ad 
             WHERE ad_group_ad.resource_name = '${adResourceName}'
           `;
@@ -402,33 +404,34 @@ serve(async (req) => {
             `https://googleads.googleapis.com/v20/customers/${cleanCustomerId}/googleAds:search`,
             {
               method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${access_token}`,
-              'developer-token': DEVELOPER_TOKEN || '',
-              'login-customer-id': (loginCustomerId || '9301596383'),
-              'Content-Type': 'application/json'
-            },
+              headers: {
+                'Authorization': `Bearer ${access_token}`,
+                'developer-token': DEVELOPER_TOKEN || '',
+                'login-customer-id': (loginCustomerId || '9301596383'),
+                'Content-Type': 'application/json'
+              },
               body: JSON.stringify({ query: getAdQuery })
             }
           );
           
           const searchData = await searchResponse.json();
           const currentAd = searchData.results?.[0]?.adGroupAd?.ad?.responsiveSearchAd;
+          const finalUrls = searchData.results?.[0]?.adGroupAd?.ad?.finalUrls || [];
           if (!currentAd) {
             throw new Error('Could not fetch current ad data');
           }
           
-          // Update the specific asset
+          // Determine type from snapshot and build updated assets
           const assetType = inputSnapshot?.assets?.find((a: any) => a.id === change.assetId)?.type;
           const assetField = assetType === 'HEADLINE' ? 'headlines' : 'descriptions';
           const existingAssets = currentAd[assetField] || [];
-          
-          // Find and update the asset by index (assetId is typically index-based)
           const assetIndex = parseInt(change.assetId.split('_').pop() || '0');
           const updatedAssets = existingAssets.map((asset: any, idx: number) => 
             idx === assetIndex ? { text: change.text } : asset
           );
           
+          // Create a NEW RSA ad with updated assets
+          const adGroupResource = `customers/${cleanCustomerId}/adGroups/${adGroupId}`;
           response = await fetch(`https://googleads.googleapis.com/v20/customers/${cleanCustomerId}/adGroupAds:mutate`, {
             method: 'POST',
             headers: {
@@ -439,15 +442,17 @@ serve(async (req) => {
             },
             body: JSON.stringify({
               operations: [{
-                update: {
-                  resourceName: adResourceName,
+                create: {
+                  adGroup: adGroupResource,
+                  status: 'ENABLED',
                   ad: {
+                    finalUrls,
                     responsiveSearchAd: {
-                      [assetField]: updatedAssets
+                      headlines: assetField === 'headlines' ? updatedAssets : (currentAd.headlines || []),
+                      descriptions: assetField === 'descriptions' ? updatedAssets : (currentAd.descriptions || [])
                     }
                   }
-                },
-                updateMask: `ad.responsive_search_ad.${assetField}`
+                }
               }]
             })
           });
