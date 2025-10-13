@@ -219,32 +219,48 @@ export const CreativesAnalysisUI = ({ customerId, campaignIds, onBack }: Creativ
       
       // Convert audit optimizations to executable recommendations
       if (auditResponse.optimizations && auditResponse.optimizations.length > 0) {
-        const executableOptimizations = auditResponse.optimizations.map((opt: any, idx: number) => ({
-          id: `audit_opt_${opt.adId}_${idx}`,
-          type: opt.type || 'add_creative',
-          action: opt.type || 'add_creative',
-          priority: opt.priority || 'HIGH',
-          title: opt.title || `${opt.type === 'pause_ad' ? '⛔ Pause' : '✅ Add'} - ${opt.rule}`,
-          description: opt.description || opt.message,
-          impact: opt.severity === 'error' ? 'HIGH' : opt.severity === 'warn' ? 'MEDIUM' : 'LOW',
-          confidence: opt.confidence || 85,
-          timeToExecute: opt.changes?.length > 5 ? '2 minutes' : '30 seconds',
-          effort: 'Minimal',
-          adId: opt.adId,
-          campaignId: opt.campaignId,
-          adGroupId: opt.adGroupId,
-          campaign: adsStructured.find(ad => ad.adId === opt.adId)?.campaign || '',
-          adGroup: adsStructured.find(ad => ad.adId === opt.adId)?.adGroup || '',
-          changes: opt.changes || [],
-          newHeadlines: opt.changes?.filter((c: any) => c.type === 'HEADLINE' && c.op === 'ADD_ASSET').map((c: any) => c.text) || [],
-          newDescriptions: opt.changes?.filter((c: any) => c.type === 'DESCRIPTION' && c.op === 'ADD_ASSET').map((c: any) => c.text) || [],
-          expectedOutcome: opt.explanation || `Implements ${opt.changes?.length || 0} changes to improve ad performance`,
-          reasoning: opt.message,
-          executionStrategy: opt.type === 'pause_ad' ? '⛔ PAUSE STRATEGY' : '✅ EXPERIMENT STRATEGY (ADD NEW VARIANTS)',
-          kpis: opt.expectedImpact ? [
-            { metric: 'Expected Impact', target: opt.expectedImpact }
-          ] : []
-        }));
+        const executableOptimizations = auditResponse.optimizations.map((opt: any, idx: number) => {
+          // Find the matching ad to get IDs
+          const matchingAd = adsStructured.find(ad => ad.adId === opt.adId);
+          
+          // Build changes array from suggested headlines/descriptions
+          const changes = [];
+          if (opt.suggested_headlines) {
+            opt.suggested_headlines.slice(0, 3).forEach((text: string) => {
+              changes.push({ op: 'ADD_ASSET', type: 'HEADLINE', text, adId: opt.adId });
+            });
+          }
+          if (opt.suggested_descriptions) {
+            opt.suggested_descriptions.slice(0, 2).forEach((text: string) => {
+              changes.push({ op: 'ADD_ASSET', type: 'DESCRIPTION', text, adId: opt.adId });
+            });
+          }
+          
+          return {
+            id: `audit_opt_${opt.adId}_${idx}`,
+            type: 'add_creative',
+            action: 'add_creative',
+            priority: opt.priority || 'HIGH',
+            title: `✅ Add - ${matchingAd?.campaign || 'Unknown Campaign'}`,
+            description: opt.issues?.map((i: any) => i.fix).join(', ') || 'Add new variants',
+            impact: opt.priority === 'Critical' ? 'HIGH' : opt.priority === 'High' ? 'MEDIUM' : 'LOW',
+            confidence: 85,
+            timeToExecute: '30 seconds',
+            effort: 'Minimal',
+            adId: opt.adId,
+            campaignId: matchingAd?.campaignId || '',
+            adGroupId: matchingAd?.adGroupId || '',
+            campaign: matchingAd?.campaign || '',
+            adGroup: matchingAd?.adGroup || '',
+            changes,
+            newHeadlines: opt.suggested_headlines?.slice(0, 3) || [],
+            newDescriptions: opt.suggested_descriptions?.slice(0, 2) || [],
+            expectedOutcome: `Implements ${changes.length} changes to improve ad performance`,
+            reasoning: opt.issues?.map((i: any) => i.message).join('; ') || '',
+            executionStrategy: '✅ EXPERIMENT STRATEGY (ADD NEW VARIANTS)',
+            kpis: []
+          };
+        });
         
         console.log('📊 Converted audit optimizations:', executableOptimizations);
         setPendingOptimizations(prev => [...prev, ...executableOptimizations]);
