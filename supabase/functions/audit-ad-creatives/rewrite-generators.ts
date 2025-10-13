@@ -248,14 +248,34 @@ function generateDescriptions(context: RewriteContext): string[] {
   const financing = context.offers.financing[0] || 'low payments';
   const promo = context.offers.promotions[0] || 'trade-ins welcome';
   const city = context.geo.city ? `in ${context.geo.city}` : '';
+  const category = context.category?.toLowerCase() || '';
   
-  const variants = [
+  // Category-specific action phrases
+  const isOffRoad = /atv|utv|off.?road|dirt.?bike/i.test(category + ' ' + keyword);
+  
+  if (isOffRoad) {
+    return [
+      `Conquer trails with new ${keywordLower}. ${financing}, ${promo.toLowerCase()}. Ride today.`,
+      `Get trail-ready ${city}. ${financing}, expert setup, test ride available. Call now.`,
+      `Adventure awaits. Shop ${keywordLower} with ${financing.toLowerCase()}. Visit us today.`
+    ].map(v => smartTruncate(v, D_MAX)).slice(0, context.constraints.descriptions);
+  }
+  
+  // Powersports/motorcycle
+  if (/motorcycle|bike|sportbike/i.test(keyword)) {
+    return [
+      `Ride new ${keywordLower}. ${financing}, ${promo.toLowerCase()}, expert service. Test ride.`,
+      `Get on the road ${city}. ${financing}, fast approval, huge selection. Call now.`,
+      `Find your ride. Shop ${keywordLower} with ${financing.toLowerCase()}. Visit today.`
+    ].map(v => smartTruncate(v, D_MAX)).slice(0, context.constraints.descriptions);
+  }
+  
+  // Generic fallback
+  return [
     `Shop new ${keywordLower}. ${financing}, ${promo.toLowerCase()}, huge inventory. Apply now.`,
-    `Get riding today. Fast approval, local delivery ${city}. Call for quote.`,
-    `Find your ${keywordLower}. ${financing}, expert service. Test drive today.`
-  ];
-  
-  return variants.map(v => smartTruncate(v, D_MAX)).slice(0, context.constraints.descriptions);
+    `Get yours today. Fast approval, local delivery ${city}. Call for quote.`,
+    `Find your ${keywordLower}. ${financing}, expert service. Visit today.`
+  ].map(v => smartTruncate(v, D_MAX)).slice(0, context.constraints.descriptions);
 }
 
 // ============= FALLBACK GENERATOR (Deterministic) =============
@@ -267,6 +287,8 @@ export function generateFallbackRSA(context: RewriteContext): RewriteSuggestions
   const city = context.geo.city || '';
   const financing = context.offers.financing[0] || 'Low Monthly Payments';
   const trust = context.offers.trust[0] || '5-Star Rated Dealer';
+  const category = context.category?.toLowerCase() || '';
+  const isOffRoad = /atv|utv|off.?road|dirt.?bike/i.test(category + ' ' + keyword);
   
   const headlines = [
     `${keywordTitle} – Apply Online`,
@@ -277,14 +299,17 @@ export function generateFallbackRSA(context: RewriteContext): RewriteSuggestions
     `Same-Day Approval Available`
   ].map(h => smartTruncate(h, H_MAX)).slice(0, context.constraints.headlines);
   
-  const descriptions = [
+  const descriptions = isOffRoad ? [
+    `Conquer trails with ${keyword.toLowerCase()}. ${financing.toLowerCase()}, trade-ins welcome. Ride today.`,
+    `Adventure awaits. Fast approval, expert setup, test ride available. Visit us.`
+  ] : [
     `Shop ${keyword.toLowerCase()}. ${financing.toLowerCase()}, trade-ins welcome. Visit us.`,
     `Get riding today. Fast approval, local delivery, big inventory. Apply now.`
-  ].map(d => smartTruncate(d, D_MAX)).slice(0, context.constraints.descriptions);
+  ];
   
   return {
     headlines,
-    descriptions,
+    descriptions: descriptions.map(d => smartTruncate(d, D_MAX)).slice(0, context.constraints.descriptions),
     meta: {
       usedKeywords: context.topKeywords.slice(0, 1),
       hasGeo: !!city,
@@ -351,7 +376,54 @@ function buildPrompt(context: RewriteContext, policyNotes: string[] = [], revise
     trust: context.offers.trust,
     differentiators: context.offers.differentiators
   };
-  const prompt = `FOLLOW THIS EXACT STRUCTURE:\n- Headline 1 = Keyword + Intent  (must include one of: ${JSON.stringify(context.topKeywords)})\n- Headline 2 = Offer or Benefit\n- Headline 3 = Proof / Trust\n- Add 2–5 more headlines mixing: Model / Geo / Urgency / CTA\n\nDescriptions: Use "Pain/Need + Solution + Offer + CTA". Keep to <= 90 chars.\n\nCONTEXT:\n- Brand: ${context.brand}\n- Geo: ${geo || 'N/A'}\n- Landing Page: ${''}\n- Top Keywords: ${JSON.stringify(context.topKeywords)}\n- Top Search Terms: ${JSON.stringify(context.topSearchTerms)}\n- Models/SKUs: ${JSON.stringify(context.modelsOrSKUs)}\n- Offers: ${JSON.stringify(offersObj)}\n- Trust/Differentiators: ${JSON.stringify([...context.offers.trust, ...context.offers.differentiators])}\n- Policy to Avoid: ${JSON.stringify(policyNotes)}\n\nREQUIREMENTS:\n- Headlines <= 30 chars; Descriptions <= 90 chars\n- Include at least 1 exact keyword headline\n- Include 1 model headline (if models present)\n- Include 1 geo headline (if geo present)\n- Include 1 trust headline\n- No excessive caps; no unverifiable claims; no punctuation spam\n\nRETURN JSON ONLY in this schema:\n{\n  "headlines": ["...", "..."],\n  "descriptions": ["...", "..."],\n  "meta": {\n    "usedKeywords": ["..."],\n    "hasGeo": true,\n    "hasModel": true,\n    "hasTrust": true\n  }\n}\n${revise ? `\nRevise to fix: ${revise}` : ''}`;
+  
+  const categoryContext = context.category ? `\n- Category: ${context.category} (USE THIS IN COPY - e.g., "Yamaha ATV" not "Yamaha Shop")` : '';
+  const isOffRoad = context.category && /atv|utv|off.?road|dirt.?bike/i.test(context.category);
+  const actionVerbs = isOffRoad 
+    ? 'Use action verbs like: Conquer, Explore, Ride, Adventure, Trail-Ready, Get Off-Road'
+    : 'Use action verbs like: Ride, Drive, Own, Get';
+  
+  const prompt = `You are writing Google Search Ads for ${context.brand} ${context.category || 'products'}. This is POWERSPORTS/OFF-ROAD, not ecommerce.
+
+FOLLOW THIS EXACT STRUCTURE:
+- Headline 1 = Brand + Category/Model + Intent (e.g., "Yamaha ATV – Trail Ready")
+- Headline 2 = Offer or Benefit
+- Headline 3 = Proof / Trust
+- Add 2–5 more headlines mixing: Model / Geo / Urgency / CTA
+
+Descriptions: ${actionVerbs}. Format: "Action + Product + Benefit + CTA". Keep to <= 90 chars.
+
+CONTEXT:
+- Brand: ${context.brand}${categoryContext}
+- Geo: ${geo || 'N/A'}
+- Top Keywords: ${JSON.stringify(context.topKeywords)}
+- Top Search Terms: ${JSON.stringify(context.topSearchTerms)}
+- Models/SKUs: ${JSON.stringify(context.modelsOrSKUs)}
+- Offers: ${JSON.stringify(offersObj)}
+- Trust/Differentiators: ${JSON.stringify([...context.offers.trust, ...context.offers.differentiators])}
+
+CRITICAL RULES:
+- Headlines <= 30 chars; Descriptions <= 90 chars
+- Include "${context.brand}" in at least 2 headlines
+- Include "${context.category || 'product'}" or model in headlines (NOT "shop" or "store")
+- Include 1 model headline (if models present)
+- Include 1 geo headline (if geo present)
+- Include 1 trust headline
+- ${isOffRoad ? 'Use trail/adventure/off-road language, NOT generic ecommerce' : 'Focus on the riding/ownership experience'}
+- No excessive caps; no unverifiable claims; no punctuation spam
+
+RETURN JSON ONLY in this schema:
+{
+  "headlines": ["...", "..."],
+  "descriptions": ["...", "..."],
+  "meta": {
+    "usedKeywords": ["..."],
+    "hasGeo": true,
+    "hasModel": true,
+    "hasTrust": true
+  }
+}
+${revise ? `\nRevise to fix: ${revise}` : ''}`;
   return prompt;
 }
 
