@@ -692,6 +692,76 @@ function auditAd(ad: Ad, adGroupStats: any, topQueries: string[], keywords: stri
     }
   }
 
+  // === CORE 6-CATEGORY CHECKS (No statistical guardrails) ===
+  
+  // Category 1: CTR - Low CTR (CTR < 3%)
+  if (ad.metrics.ctr < 0.03 && ad.metrics.impressions >= 100) {
+    findings.push({
+      rule: 'CORE-CTR-001',
+      severity: 'warn',
+      message: `CTR ${(ad.metrics.ctr * 100).toFixed(2)}% is below 3% benchmark (${ad.metrics.impressions} impressions)`
+    });
+  }
+  
+  // Category 2: Relevance - Missing keyword in H1 positions
+  const topKeywords = topQueries.slice(0, 3).map(q => q.toLowerCase().split(' ')[0]);
+  const h1HasKeyword = headlines.slice(0, 3).some(h => 
+    topKeywords.some(kw => h.text.toLowerCase().includes(kw))
+  );
+  if (topKeywords.length > 0 && !h1HasKeyword) {
+    findings.push({
+      rule: 'CORE-REL-002',
+      severity: 'warn',
+      message: `Top headlines missing primary keywords: ${topKeywords.join(', ')}`
+    });
+  }
+  
+  // Category 3: Offer - Weak offer language
+  const hasOfferLanguage = ad.assets.some(a => 
+    /\b(free|discount|save|offer|deal|limited|special|promo|sale|\$\d+\s*off)\b/i.test(a.text)
+  );
+  if (!hasOfferLanguage) {
+    findings.push({
+      rule: 'CORE-OFFER-003',
+      severity: 'suggest',
+      message: 'No offer language detected (e.g., discount, save, free, limited)'
+    });
+  }
+  
+  // Category 4: Proof - No trust signals
+  const hasTrustSignals = ad.assets.some(a => 
+    /\b(rated|review|trusted|certified|award|guarantee|expert|professional|years\s+experience|\d+\+\s+customers)\b/i.test(a.text)
+  );
+  if (!hasTrustSignals) {
+    findings.push({
+      rule: 'CORE-PROOF-004',
+      severity: 'suggest',
+      message: 'No trust signals found (e.g., reviews, guarantees, certifications)'
+    });
+  }
+  
+  // Category 5: Variation - Asset fatigue (same headlines > 30 days)
+  if (ad.daysSinceLastVariant && ad.daysSinceLastVariant >= 30 && ad.metrics.impressions >= 500) {
+    findings.push({
+      rule: 'CORE-VAR-005',
+      severity: 'warn',
+      message: `No new asset variants in ${ad.daysSinceLastVariant} days (${ad.metrics.impressions} impressions). Assets may be fatigued.`
+    });
+  }
+  
+  // Category 6: Local intent - Missing geo relevance
+  const hasGeoTerms = ad.assets.some(a => 
+    /\b(near\s+you|near\s+me|local|in\s+\w+|california|los\s+angeles|san\s+diego|city|area|region)\b/i.test(a.text)
+  );
+  const hasLocalQuery = topQueries.some(q => /\b(near|local|in\s+|california|los\s+angeles)\b/i.test(q));
+  if (hasLocalQuery && !hasGeoTerms) {
+    findings.push({
+      rule: 'CORE-LOC-006',
+      severity: 'warn',
+      message: 'Users searching with local intent but no geo-specific terms in ad copy'
+    });
+  }
+
   // Rule 18: Expired date references (DATE-EXPIRED-004)
   const currentYear = new Date().getFullYear();
   ad.assets.forEach(asset => {
