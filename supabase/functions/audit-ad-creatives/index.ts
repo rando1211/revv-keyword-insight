@@ -341,28 +341,42 @@ serve(async (req) => {
         console.log(`🔍 Raw headlines from AI: ${allSuggestedHeadlines.length}`);
         console.log(`🔍 Raw descriptions from AI: ${allSuggestedDescriptions.length}`);
         
-        const cleanedHeadlines = allSuggestedHeadlines
-          .filter((h: string) => {
-            const dki = isDKI(h);
-            const incomplete = isIncomplete(h);
-            if (dki || incomplete) {
-              console.log(`❌ Filtered headline: "${h}" (DKI: ${dki}, Incomplete: ${incomplete})`);
-            }
-            return !dki && !incomplete;
-          })
-          .map(sanitizeCopy)
-          .slice(0, 15);
-        const cleanedDescriptions = allSuggestedDescriptions
-          .filter((d: string) => {
-            const dki = isDKI(d);
-            const incomplete = isIncomplete(d);
-            if (dki || incomplete) {
-              console.log(`❌ Filtered description: "${d}" (DKI: ${dki}, Incomplete: ${incomplete})`);
-            }
-            return !dki && !incomplete;
-          })
-          .map(sanitizeCopy)
-          .slice(0, 4);
+  // Final validation - reject horrible generic headlines
+  const isTerribleCopy = (text: string) => {
+    const lower = text.toLowerCase();
+    // Reject "Product For Sale", "Item For Sale", etc.
+    if (/\b(product|item|thing|stuff)s?\s+(for sale|available|in stock)/i.test(lower)) return true;
+    // Reject year + generic product
+    if (/\b20\d{2}\s+(product|item|thing|stuff)s?\b/i.test(lower)) return true;
+    // Reject standalone generic words
+    if (/^(product|item|thing|stuff)s?$/i.test(lower.trim())) return true;
+    return false;
+  };
+  
+  const finalHeadlines = allSuggestedHeadlines
+    .filter((h: string) => {
+      const dki = isDKI(h);
+      const incomplete = isIncomplete(h);
+      const terrible = isTerribleCopy(h);
+      if (dki || incomplete || terrible) {
+        console.log(`❌ Filtered headline: "${h}" (DKI: ${dki}, Incomplete: ${incomplete}, Generic: ${terrible})`);
+      }
+      return !dki && !incomplete && !terrible;
+    })
+    .map(sanitizeCopy)
+    .slice(0, 15);
+  const finalDescriptions = allSuggestedDescriptions
+    .filter((d: string) => {
+      const dki = isDKI(d);
+      const incomplete = isIncomplete(d);
+      const terrible = isTerribleCopy(d);
+      if (dki || incomplete || terrible) {
+        console.log(`❌ Filtered description: "${d}" (DKI: ${dki}, Incomplete: ${incomplete}, Generic: ${terrible})`);
+      }
+      return !dki && !incomplete && !terrible;
+    })
+    .map(sanitizeCopy)
+    .slice(0, 4);
           
         console.log(`✅ Final headlines after filtering: ${cleanedHeadlines.length}`);
         console.log(`✅ Final descriptions after filtering: ${cleanedDescriptions.length}`);

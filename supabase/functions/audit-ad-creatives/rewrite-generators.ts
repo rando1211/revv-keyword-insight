@@ -225,16 +225,38 @@ function dedupeList(items: string[], threshold = 0.6): string[] {
 
 function generateH1KeywordIntent(context: RewriteContext): string[] {
   const keyword = context.topKeywords[0] || context.topSearchTerms[0] || context.brand;
+  
+  // Reject generic fallbacks - never use "Product" or similar
+  if (!keyword || /^(product|item|thing|stuff)s?$/i.test(keyword)) {
+    // Use brand + category instead
+    const specific = context.category 
+      ? `${context.brand} ${context.category}` 
+      : context.brand;
+    const keywordTitle = toTitleCase(specific);
+    const model = context.modelsOrSKUs[0];
+    
+    const variants = [
+      model ? `${context.brand} ${model} In Stock` : `${keywordTitle} – Apply Now`,
+      `${keywordTitle} Headquarters`,
+      `${keywordTitle} – Test Ride Today`,
+      `Shop ${keywordTitle} Inventory`,
+      `${context.brand} Authorized Dealer`
+    ];
+    
+    return variants.map(v => smartTruncate(v, H_MAX)).slice(0, 2);
+  }
+  
   const keywordTitle = toTitleCase(keyword);
   const year = new Date().getFullYear();
   const model = context.modelsOrSKUs[0];
   
+  // Use specific, action-oriented variants - NO "For Sale"
   const variants = [
     `${keywordTitle} – Apply Online`,
-    `${year} ${keywordTitle} For Sale`,
-    model ? `${context.brand} ${model} – Shop Now` : `${keywordTitle} – Shop Now`,
-    `${keywordTitle} – In Stock Now`,
-    `Shop ${keywordTitle} – Fast Approval`
+    model ? `${context.brand} ${model} In Stock` : `${keywordTitle} Available Now`,
+    model ? `New ${model} Models` : `${keywordTitle} – Test Ride`,
+    `${keywordTitle} Inventory`,
+    `Get Your ${keywordTitle} Today`
   ];
   
   return variants.map(v => smartTruncate(v, H_MAX)).slice(0, 2);
@@ -380,7 +402,14 @@ function buildTopPerformersFallback(context: RewriteContext): RewriteSuggestions
 
 export function generateFallbackRSA(context: RewriteContext): RewriteSuggestions {
   const keyword = context.topKeywords[0] || context.topSearchTerms[0] || context.brand;
-  const keywordTitle = toTitleCase(keyword);
+  
+  // Never use generic "Product" - use brand + category
+  const isGeneric = !keyword || /^(product|item|thing|stuff)s?$/i.test(keyword);
+  const mainKeyword = isGeneric 
+    ? (context.category ? `${context.brand} ${context.category}` : context.brand)
+    : keyword;
+    
+  const keywordTitle = toTitleCase(mainKeyword);
   const model = context.modelsOrSKUs[0];
   const city = context.geo.city || '';
   const financing = context.offers.financing[0] || 'Low Monthly Payments';
@@ -388,21 +417,22 @@ export function generateFallbackRSA(context: RewriteContext): RewriteSuggestions
   const category = context.category?.toLowerCase() || '';
   const isOffRoad = /atv|utv|off.?road|dirt.?bike/i.test(category + ' ' + keyword);
   
+  // Build specific, high-quality headlines
   const headlines = [
-    `${keywordTitle} – Apply Online`,
+    model ? `${context.brand} ${model} In Stock` : `${keywordTitle} Available Now`,
     financing,
-    model ? `${context.brand} ${model} In Stock` : `${keywordTitle} In Stock`,
-    city ? `${keywordTitle} ${city}` : `${keywordTitle} Near You`,
+    city ? `${keywordTitle} ${city}` : `${keywordTitle} Headquarters`,
     trust,
-    `Same-Day Approval Available`
+    model ? `New ${model} Models` : `${keywordTitle} Inventory`,
+    `${context.brand} Authorized Dealer`
   ].map(h => smartTruncate(h, H_MAX)).slice(0, context.constraints.headlines);
   
   const descriptions = isOffRoad ? [
-    `Conquer trails with ${keyword.toLowerCase()}. ${financing.toLowerCase()}, trade-ins welcome. Ride today.`,
-    `Adventure awaits. Fast approval, expert setup, test ride available. Visit us.`
+    `Explore our ${mainKeyword.toLowerCase()} inventory. ${financing.toLowerCase()}, trade-ins welcome. Visit today.`,
+    `Adventure starts here. Fast approval, expert setup, test ride available ${city ? `in ${city}` : 'now'}.`
   ] : [
-    `Shop ${keyword.toLowerCase()}. ${financing.toLowerCase()}, trade-ins welcome. Visit us.`,
-    `Get riding today. Fast approval, local delivery, big inventory. Apply now.`
+    `Shop our ${mainKeyword.toLowerCase()} selection. ${financing.toLowerCase()}, trade-ins welcome. Apply now.`,
+    `Get yours today. Fast approval, local delivery ${city ? `in ${city}` : ''}, expert service. Call now.`
   ];
   
   return {
