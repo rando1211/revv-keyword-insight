@@ -431,12 +431,12 @@ async function callLovableAI(prompt: string): Promise<{ headlines: string[]; des
   if (!apiKey) throw new Error('LOVABLE_API_KEY is not configured');
 
   const body: any = {
-    model: 'google/gemini-2.5-flash',
+    model: 'google/gemini-2.5-pro', // Upgraded to Pro for better quality writing
     temperature: 0.9, // High creativity for diverse variations
     messages: [
       {
         role: 'system',
-        content: 'You are a Google Ads copywriting expert specializing in high-converting responsive search ads. Return results via the provided function tool ONLY.'
+        content: 'You are a Google Ads copywriting expert specializing in high-converting responsive search ads. You write compelling, unique copy that matches the brand voice while avoiding clichés. Return results via the provided function tool ONLY.'
       },
       { role: 'user', content: prompt }
     ],
@@ -591,6 +591,24 @@ function buildPrompt(context: RewriteContext, policyNotes: string[] = [], revise
     }
   }
   
+  // Build brand voice guidance from detected voice
+  let voiceGuidance = '';
+  if (context.brandVoice) {
+    voiceGuidance = `\n\n🎭 BRAND VOICE & TONE (CRITICAL - MATCH THIS STYLE):
+Detected Tone: ${context.brandVoice.tone}
+Writing Style: ${context.brandVoice.style}
+
+${context.brandVoice.examples.length > 0 ? `Examples from this account's existing ads:
+${context.brandVoice.examples.map((ex, i) => `${i + 1}. "${ex}"`).join('\n')}
+
+🎯 YOUR TASK: Write NEW copy that matches this EXACT tone and style, but with DIFFERENT wording.
+- If the tone is "${context.brandVoice.tone}" → maintain that exact feeling in every headline/description
+- If the style is "${context.brandVoice.style}" → use similar sentence structures and appeal strategies
+- Study the examples above to understand HOW this account communicates (formal vs casual, technical vs emotional, etc.)
+- DO NOT copy the examples - USE THEM to understand the voice, then create fresh variations
+` : 'Write in a tone that matches the business category and target audience.'}`;
+  }
+  
   const prompt = `You are a Google Ads copywriting expert. Create high-converting responsive search ads for the following:
 
 Business: ${context.brand}
@@ -605,6 +623,7 @@ Available Offers:
 - Promotions: ${context.offers.promotions.join(', ') || 'Not specified'}
 - Trust Signals: ${context.offers.trust.join(', ') || 'Not specified'}
 - Differentiators: ${context.offers.differentiators.join(', ') || 'Not specified'}
+${voiceGuidance}
 ${topPerformersSection}
 
 Create ${context.constraints.headlines} headlines and ${context.constraints.descriptions} descriptions for a responsive search ad.
@@ -647,13 +666,24 @@ ${geo ? `- Include location "${geo}" in at least 2 headlines` : ''}
 - Include trust signals or social proof in at least 2 headlines
 - Include offers or financing options prominently in multiple headlines
 
-🚫 AVOID:
-- Generic words: "shop", "store", "product", "item", "buy now"
-- Excessive capitalization
-- Unverifiable claims
-- Spammy punctuation
+🚫 AVOID CLICHÉS & WEAK COPY:
+- Generic phrases: "Your one-stop shop", "We've got you covered", "Everything you need"
+- Overused words: "Amazing", "Incredible", "Unbeatable", "Best ever"
+- Empty promises: "Best prices guaranteed" (unless specifically in offers)
+- Vague CTAs: "Learn more", "Click here", "Visit us"
+- Filler words: "shop", "store", "product", "item" (use specific category names instead)
+- Excessive capitalization or punctuation
+- Unverifiable claims without proof
 - Dynamic insertion syntax - use plain text only
 - REPEATING the same copy with minor tweaks - each asset must be GENUINELY DIFFERENT
+
+✅ WRITE STRONG, SPECIFIC COPY:
+- Instead of "Great selection" → "${context.brand} RZR & Ranger Stock"
+- Instead of "Best prices" → "0% APR for 36 Months"
+- Instead of "Shop now" → "Test Ride This Weekend"
+- Instead of "Quality products" → "Factory-Certified ${categoryContext}"
+- Use concrete numbers, model names, specific locations, actual offers
+- Make every word count - no wasted space
 
 ${context.topPerformers ? '\n💡 WINNING PATTERN ANALYSIS:\nThe top performers show what themes resonate. NOW CREATE COMPLETELY NEW VARIATIONS:\n- If winners mention "Yamaha inventory" → try "Yamaha models in stock", "New Yamaha arrivals", "Yamaha selection"\n- If winners mention "Del Amo Motorsports" → try "Del Amo experts", "Your Del Amo dealer", "Del Amo trusted since 1968"\n- If winners use CTAs like "Shop" → try "Explore", "Discover", "Find", "Get", "Schedule"\n- THINK: What are 5 DIFFERENT ways to say the same winning message?' : ''}
 

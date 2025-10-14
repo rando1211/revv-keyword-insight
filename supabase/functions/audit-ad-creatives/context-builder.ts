@@ -5,6 +5,11 @@ export interface RewriteContext {
   accountName: string;
   brand: string;
   category?: string; // e.g., ATV, UTV, Off-Road, Dirt Bike
+  brandVoice: {
+    tone: string;
+    style: string;
+    examples: string[];
+  };
   geo: {
     city?: string;
     region?: string;
@@ -123,6 +128,108 @@ function cleanAndRankKeywords(
   return uniq.slice(0, 5);
 }
 
+// Detect brand voice from existing ad copy
+function detectBrandVoice(ad: any): {
+  tone: string;
+  style: string;
+  examples: string[];
+} {
+  const allCopy: string[] = [];
+  
+  // Extract all headlines and descriptions from the ad
+  if (ad.assets && Array.isArray(ad.assets)) {
+    ad.assets.forEach((asset: any) => {
+      if (asset.text) allCopy.push(asset.text);
+    });
+  }
+  
+  // Default if no copy available
+  if (allCopy.length === 0) {
+    return {
+      tone: 'professional and action-oriented',
+      style: 'direct and benefit-focused',
+      examples: []
+    };
+  }
+  
+  const combinedText = allCopy.join(' ').toLowerCase();
+  
+  // Detect tone patterns
+  let tone = 'professional';
+  const toneSignals = {
+    urgent: /\b(now|today|hurry|limited|don't miss|act fast|ending soon)\b/i,
+    friendly: /\b(you|your|we|us|our|get|help|perfect for)\b/i,
+    premium: /\b(premium|luxury|elite|exclusive|finest|superior)\b/i,
+    valuedriven: /\b(save|deal|price|affordable|low payment|discount)\b/i,
+    actionoriented: /\b(ride|drive|explore|discover|shop|get|start)\b/i,
+    trustfocused: /\b(trusted|certified|rated|reviews|authorized|licensed)\b/i
+  };
+  
+  const toneMatches: string[] = [];
+  for (const [key, pattern] of Object.entries(toneSignals)) {
+    if (pattern.test(combinedText)) {
+      toneMatches.push(key);
+    }
+  }
+  
+  if (toneMatches.includes('urgent') && toneMatches.includes('valuedriven')) {
+    tone = 'urgent and value-driven';
+  } else if (toneMatches.includes('premium') || toneMatches.includes('trustfocused')) {
+    tone = 'premium and trust-focused';
+  } else if (toneMatches.includes('actionoriented') && toneMatches.includes('friendly')) {
+    tone = 'energetic and action-oriented';
+  } else if (toneMatches.includes('valuedriven')) {
+    tone = 'value-focused and practical';
+  } else if (toneMatches.includes('friendly')) {
+    tone = 'friendly and approachable';
+  } else {
+    tone = 'professional and informative';
+  }
+  
+  // Detect style patterns
+  let style = 'straightforward';
+  const styleSignals = {
+    emotional: /\b(love|dream|perfect|amazing|incredible|awesome)\b/i,
+    technical: /\b(\d+hp|\d+cc|horsepower|engine|performance|specs)\b/i,
+    benefit: /\b(save|get|enjoy|experience|unlock|discover)\b/i,
+    social_proof: /\b(rated|reviews|customers|trusted|proven)\b/i,
+    scarcity: /\b(limited|few left|while supplies|running out|exclusive)\b/i,
+    question: /\?/
+  };
+  
+  const styleMatches: string[] = [];
+  for (const [key, pattern] of Object.entries(styleSignals)) {
+    if (pattern.test(combinedText)) {
+      styleMatches.push(key);
+    }
+  }
+  
+  if (styleMatches.includes('emotional') && styleMatches.includes('benefit')) {
+    style = 'emotionally compelling and benefit-driven';
+  } else if (styleMatches.includes('technical')) {
+    style = 'technical and specification-focused';
+  } else if (styleMatches.includes('social_proof') || styleMatches.includes('scarcity')) {
+    style = 'trust-building with urgency triggers';
+  } else if (styleMatches.includes('benefit')) {
+    style = 'benefit-focused and solution-oriented';
+  } else if (styleMatches.includes('question')) {
+    style = 'conversational and question-based';
+  } else {
+    style = 'direct and informative';
+  }
+  
+  // Extract best examples (prefer high-performing copy if available)
+  const examples = allCopy
+    .filter(text => text.length > 10) // Filter out very short text
+    .slice(0, 5);
+  
+  return {
+    tone,
+    style,
+    examples
+  };
+}
+
 export function buildRewriteContext(
   ad: any,
   keywords: string[],
@@ -136,6 +243,7 @@ export function buildRewriteContext(
   const accountName = extractAccountName(ad);
   const category = detectCategory(keywords, searchTerms);
   const normalizedTopKeywords = cleanAndRankKeywords(brand, models, keywords, searchTerms, category);
+  const brandVoice = detectBrandVoice(ad);
 
   // Extract top performers from assets
   const topPerformers = extractTopPerformers(ad);
@@ -144,6 +252,7 @@ export function buildRewriteContext(
     accountName,
     brand,
     category,
+    brandVoice,
     geo,
     topKeywords: normalizedTopKeywords,
     topSearchTerms: searchTerms.slice(0, 10),
