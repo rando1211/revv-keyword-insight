@@ -378,8 +378,8 @@ serve(async (req) => {
     .map(sanitizeCopy)
     .slice(0, 4);
           
-        console.log(`✅ Final headlines after filtering: ${cleanedHeadlines.length}`);
-        console.log(`✅ Final descriptions after filtering: ${cleanedDescriptions.length}`);
+        console.log(`✅ Final headlines after filtering: ${finalHeadlines.length}`);
+        console.log(`✅ Final descriptions after filtering: ${finalDescriptions.length}`);
 
         // Create optimization object
         const optimization = {
@@ -390,8 +390,8 @@ serve(async (req) => {
           priorityScore: priorityScore.score,
           priorityReasons: priorityScore.reasons,
           issues: classifiedIssues,
-          suggested_headlines: cleanedHeadlines,
-          suggested_descriptions: cleanedDescriptions,
+          suggested_headlines: finalHeadlines,
+          suggested_descriptions: finalDescriptions,
           rewriteFramework: {
             h1_formula: 'Keyword + Intent',
             h2_formula: 'Offer/Benefit',
