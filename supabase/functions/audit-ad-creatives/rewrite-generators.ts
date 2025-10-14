@@ -68,13 +68,6 @@ function validateDiversity(headlines: string[]): { valid: boolean; issues: strin
   };
 }
 
-function jaccardSimilarity(a: string, b: string): number {
-  const sa = new Set(a.toLowerCase().split(/\W+/));
-  const sb = new Set(b.toLowerCase().split(/\W+/));
-  const intersection = [...sa].filter(x => sb.has(x)).length;
-  const union = new Set([...sa, ...sb]).size;
-  return intersection / Math.max(1, union);
-}
 
 function containsAny(text: string, arr: string[]): boolean {
   if (arr.length === 0) return false;
