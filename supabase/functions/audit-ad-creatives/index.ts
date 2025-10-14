@@ -397,7 +397,97 @@ serve(async (req) => {
       }
     }
 
-    console.log(`✅ Audit complete: ${allFindings.length} ads analyzed, ${allOptimizations.length} optimizations generated`);
+    // Check ad group counts and generate new ads if needed
+    const adGroupCounts = new Map<string, { count: number; campaignId: string; adGroupName: string }>();
+    for (const ad of ads) {
+      const key = `${ad.campaignId}:${ad.adGroupId}`;
+      if (!adGroupCounts.has(key)) {
+        adGroupCounts.set(key, { 
+          count: 0, 
+          campaignId: ad.campaignId,
+          adGroupName: ad.adGroup || ad.adGroupId 
+        });
+      }
+      adGroupCounts.get(key)!.count++;
+    }
+
+    const newAdSuggestions: any[] = [];
+    for (const [key, info] of adGroupCounts) {
+      if (info.count < 3) {
+        const [campaignId, adGroupId] = key.split(':');
+        const adsNeeded = 3 - info.count;
+        
+        console.log(`📊 Ad Group ${info.adGroupName} has only ${info.count} ads, generating ${adsNeeded} new ad(s)`);
+        
+        // Find a representative ad from this ad group for context
+        const sampleAd = ads.find(ad => ad.campaignId === campaignId && ad.adGroupId === adGroupId);
+        if (sampleAd) {
+          const rewriteContext = buildRewriteContext(
+            sampleAd,
+            keywords || [],
+            topQueries || [],
+            detectedVertical
+          );
+          
+          // Generate new complete ads
+          for (let i = 0; i < adsNeeded; i++) {
+            const newAdRewrites = await generateRewritesForIssue(
+              {
+                category: 'NEW_AD_NEEDED',
+                severity: 'suggest',
+                message: `Ad Group needs ${adsNeeded} more ad(s) to reach recommended 3 ads per group`,
+                findings: [],
+                priority: 'Medium',
+                actionable: true
+              },
+              sampleAd,
+              rewriteContext
+            );
+            
+            const isDKI = (t: string) => /[{}]/.test(t) || /key\s*word\s*:?/i.test(t);
+            const isIncomplete = (t: string) => {
+              const s = (t || '').trim();
+              if (!s) return true;
+              if (s.split(/\s+/).length < 3) return true;
+              if (/[–\-:]\s*$/.test(s)) return true;
+              if (/(?:^|\s)(?:for|with|to|at|on|in|your|our|new|the|and|or|of)$/i.test(s)) return true;
+              return false;
+            };
+            const sanitizeCopy = (t: string) => {
+              let x = t.replace(/[{}]/g, '');
+              x = x.replace(/^\s*(?:key\s*word)\s*:\s*/i, '');
+              x = x.replace(/\s+/g, ' ').trim();
+              return x;
+            };
+            
+            const cleanedHeadlines = newAdRewrites.headlines
+              .filter((h: string) => !isDKI(h) && !isIncomplete(h))
+              .map(sanitizeCopy)
+              .slice(0, 15);
+            const cleanedDescriptions = newAdRewrites.descriptions
+              .filter((d: string) => !isDKI(d) && !isIncomplete(d))
+              .map(sanitizeCopy)
+              .slice(0, 4);
+            
+            newAdSuggestions.push({
+              type: 'NEW_AD',
+              campaignId: campaignId,
+              adGroupId: adGroupId,
+              adGroupName: info.adGroupName,
+              campaign: sampleAd.campaign || 'Unknown',
+              priority: 'Medium',
+              reason: `Ad Group has ${info.count}/3 recommended ads`,
+              suggested_headlines: cleanedHeadlines,
+              suggested_descriptions: cleanedDescriptions,
+              rewriteFramework: newAdRewrites.framework,
+              rewriteMeta: newAdRewrites.meta
+            });
+          }
+        }
+      }
+    }
+
+    console.log(`✅ Audit complete: ${allFindings.length} ads analyzed, ${allOptimizations.length} optimizations, ${newAdSuggestions.length} new ads suggested`);
 
     return new Response(JSON.stringify({
       success: true,
@@ -405,11 +495,13 @@ serve(async (req) => {
       scores: allScores,
       changeSet: allChanges,
       optimizations: allOptimizations,
+      newAdSuggestions: newAdSuggestions,
       summary: {
         totalAds: ads.length,
         totalFindings: allFindings.reduce((sum, f) => sum + f.findings.length, 0),
         totalChanges: allChanges.length,
         totalOptimizations: allOptimizations.length,
+        newAdsNeeded: newAdSuggestions.length,
         avgScore: allScores.reduce((sum, s) => sum + s.score, 0) / allScores.length
       },
       timestamp: new Date().toISOString()

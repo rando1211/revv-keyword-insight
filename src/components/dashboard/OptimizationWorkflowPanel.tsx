@@ -25,8 +25,9 @@ export const OptimizationWorkflowPanel = ({
   const [expandedAd, setExpandedAd] = useState<string | null>(null);
   const [isApplyingBulk, setIsApplyingBulk] = useState(false);
 
-  // Extract optimizations from audit results
+  // Extract optimizations and new ad suggestions from audit results
   const optimizations = auditResults?.optimizations || [];
+  const newAdSuggestions = auditResults?.newAdSuggestions || [];
   
   // Filter by priority and category
   const filtered = optimizations.filter((opt: any) => {
@@ -158,7 +159,7 @@ export const OptimizationWorkflowPanel = ({
     });
   };
 
-  if (!optimizations || optimizations.length === 0) {
+  if (!optimizations || (optimizations.length === 0 && newAdSuggestions.length === 0)) {
     return (
       <Card>
         <CardContent className="pt-6">
@@ -173,95 +174,210 @@ export const OptimizationWorkflowPanel = ({
 
   return (
     <div className="space-y-4">
-      {/* Filters */}
-      <div className="flex flex-wrap gap-4">
-        <div className="flex gap-2">
-          {(['All', 'High', 'Medium', 'Low'] as const).map((p) => (
-            <Button
-              key={p}
-              variant={priorityFilter === p ? 'default' : 'outline'}
-              onClick={() => setPriorityFilter(p)}
-              size="sm"
-            >
-              {p} {p !== 'All' && `(${optimizations.filter((o: any) => o.priority === p).length})`}
-            </Button>
-          ))}
-        </div>
-        
-        <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-          <SelectTrigger className="w-48">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="All">All Categories</SelectItem>
-            <SelectItem value="CTR">Low CTR</SelectItem>
-            <SelectItem value="Relevance">Relevance Issues</SelectItem>
-            <SelectItem value="Offer">Weak Offer</SelectItem>
-            <SelectItem value="Proof">Missing Proof</SelectItem>
-            <SelectItem value="Variation">Asset Fatigue</SelectItem>
-            <SelectItem value="Local">Local Intent</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-      
-      {/* Progress Bar */}
-      <Card>
-        <CardContent className="pt-6">
-          <div className="flex justify-between mb-2">
-            <span className="text-sm font-medium">Optimization Progress</span>
-            <span className="text-sm font-bold">{progressPercent}%</span>
+      {/* New Ads Needed Section */}
+      {newAdSuggestions.length > 0 && (
+        <Card className="border-blue-500/50 bg-blue-50/5">
+          <CardContent className="pt-6">
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <Zap className="h-5 w-5 text-blue-500" />
+                <h3 className="font-semibold text-lg">New Ads Needed ({newAdSuggestions.length})</h3>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                These ad groups have fewer than 3 ads. Creating additional ads improves testing and performance.
+              </p>
+              
+              <div className="space-y-3">
+                {newAdSuggestions.map((suggestion: any, idx: number) => (
+                  <Card key={idx} className="border-blue-300/30">
+                    <CardContent className="pt-4">
+                      <div className="space-y-3">
+                        <div>
+                          <div className="font-medium text-sm">{suggestion.campaign}</div>
+                          <div className="text-xs text-muted-foreground">
+                            Ad Group: {suggestion.adGroupName} • Currently {suggestion.reason}
+                          </div>
+                        </div>
+                        
+                        <div className="space-y-2 text-xs">
+                          <div>
+                            <strong className="text-blue-600">New Headlines ({suggestion.suggested_headlines.length}):</strong>
+                            <ul className="ml-4 mt-1 space-y-0.5">
+                              {suggestion.suggested_headlines.slice(0, 5).map((h: string, i: number) => (
+                                <li key={i}>• {h}</li>
+                              ))}
+                              {suggestion.suggested_headlines.length > 5 && (
+                                <li className="text-muted-foreground italic">
+                                  + {suggestion.suggested_headlines.length - 5} more...
+                                </li>
+                              )}
+                            </ul>
+                          </div>
+                          <div>
+                            <strong className="text-blue-600">New Descriptions ({suggestion.suggested_descriptions.length}):</strong>
+                            <ul className="ml-4 mt-1 space-y-0.5">
+                              {suggestion.suggested_descriptions.map((d: string, i: number) => (
+                                <li key={i}>• {d}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        </div>
+                        
+                        <Button
+                          size="sm"
+                          className="w-full"
+                          onClick={async () => {
+                            try {
+                              const { error } = await supabase.functions.invoke('execute-creative-changes', {
+                                body: {
+                                  customerId,
+                                  campaignId: suggestion.campaignId,
+                                  adGroupId: suggestion.adGroupId,
+                                  operation: 'CREATE_NEW_AD',
+                                  ruleCode: 'NEW-AD-NEEDED',
+                                  severity: 'suggest',
+                                  findingMessage: suggestion.reason,
+                                  changes: [
+                                    ...suggestion.suggested_headlines.map((h: string) => ({
+                                      op: 'ADD_ASSET',
+                                      type: 'HEADLINE',
+                                      text: h
+                                    })),
+                                    ...suggestion.suggested_descriptions.map((d: string) => ({
+                                      op: 'ADD_ASSET',
+                                      type: 'DESCRIPTION',
+                                      text: d
+                                    }))
+                                  ],
+                                  inputSnapshot: suggestion,
+                                  dryRun: false
+                                }
+                              });
+                              
+                              if (error) throw error;
+                              
+                              toast({
+                                title: '✅ New Ad Created',
+                                description: `Created new RSA in ${suggestion.adGroupName}`,
+                              });
+                              
+                              onRefresh();
+                            } catch (error: any) {
+                              toast({
+                                title: 'Failed to Create Ad',
+                                description: error.message,
+                                variant: 'destructive'
+                              });
+                            }
+                          }}
+                        >
+                          <Zap className="mr-2 h-4 w-4" />
+                          Create New Ad
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Existing Optimizations Section */}
+      {optimizations.length > 0 && (
+        <>
+          {/* Filters */}
+          <div className="flex flex-wrap gap-4">
+            <div className="flex gap-2">
+              {(['All', 'High', 'Medium', 'Low'] as const).map((p) => (
+                <Button
+                  key={p}
+                  variant={priorityFilter === p ? 'default' : 'outline'}
+                  onClick={() => setPriorityFilter(p)}
+                  size="sm"
+                >
+                  {p} {p !== 'All' && `(${optimizations.filter((o: any) => o.priority === p).length})`}
+                </Button>
+              ))}
+            </div>
+            
+            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+              <SelectTrigger className="w-48">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="All">All Categories</SelectItem>
+                <SelectItem value="CTR">Low CTR</SelectItem>
+                <SelectItem value="Relevance">Relevance Issues</SelectItem>
+                <SelectItem value="Offer">Weak Offer</SelectItem>
+                <SelectItem value="Proof">Missing Proof</SelectItem>
+                <SelectItem value="Variation">Asset Fatigue</SelectItem>
+                <SelectItem value="Local">Local Intent</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
-          <Progress value={progressPercent} className="h-2" />
-          <p className="text-xs text-muted-foreground mt-2">
-            {completedOptimizations} of {totalOptimizations} optimizations completed
-          </p>
-        </CardContent>
-      </Card>
-      
-      {/* Optimization Cards */}
-      <div className="space-y-4">
-        {sorted.map((opt: any) => (
-          <OptimizationCard
-            key={opt.adId}
-            optimization={opt}
-            isExpanded={expandedAd === opt.adId}
-            onToggle={() => setExpandedAd(expandedAd === opt.adId ? null : opt.adId)}
-            customerId={customerId}
-            onApply={(newAdId) => {
-              if (newAdId) {
-                toast({
-                  title: '📝 Note',
-                  description: `New ad ${newAdId} created. It will appear in reports once it receives impressions.`,
-                });
-              }
-              onRefresh();
-            }}
-          />
-        ))}
-      </div>
-      
-      {/* Bulk Actions */}
-      {sorted.length > 0 && (
-        <div className="flex gap-4 sticky bottom-4 bg-background p-4 border rounded-lg shadow-lg">
-          <Button
-            size="lg"
-            variant="default"
-            onClick={applyAllHighPriority}
-            disabled={isApplyingBulk || sorted.length === 0}
-          >
-            <Zap className="mr-2 h-4 w-4" />
-            Apply All Optimizations ({sorted.length})
-          </Button>
           
-          <Button
-            size="lg"
-            variant="outline"
-            onClick={exportRecommendations}
-          >
-            <Download className="mr-2 h-4 w-4" />
-            Export All (CSV)
-          </Button>
-        </div>
+          {/* Progress Bar */}
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex justify-between mb-2">
+                <span className="text-sm font-medium">Optimization Progress</span>
+                <span className="text-sm font-bold">{progressPercent}%</span>
+              </div>
+              <Progress value={progressPercent} className="h-2" />
+              <p className="text-xs text-muted-foreground mt-2">
+                {completedOptimizations} of {totalOptimizations} optimizations completed
+              </p>
+            </CardContent>
+          </Card>
+          
+          {/* Optimization Cards */}
+          <div className="space-y-4">
+            {sorted.map((opt: any) => (
+              <OptimizationCard
+                key={opt.adId}
+                optimization={opt}
+                isExpanded={expandedAd === opt.adId}
+                onToggle={() => setExpandedAd(expandedAd === opt.adId ? null : opt.adId)}
+                customerId={customerId}
+                onApply={(newAdId) => {
+                  if (newAdId) {
+                    toast({
+                      title: '📝 Note',
+                      description: `New ad ${newAdId} created. It will appear in reports once it receives impressions.`,
+                    });
+                  }
+                  onRefresh();
+                }}
+              />
+            ))}
+          </div>
+          
+          {/* Bulk Actions */}
+          {sorted.length > 0 && (
+            <div className="flex gap-4 sticky bottom-4 bg-background p-4 border rounded-lg shadow-lg">
+              <Button
+                size="lg"
+                variant="default"
+                onClick={applyAllHighPriority}
+                disabled={isApplyingBulk || sorted.length === 0}
+              >
+                <Zap className="mr-2 h-4 w-4" />
+                Apply All Optimizations ({sorted.length})
+              </Button>
+              
+              <Button
+                size="lg"
+                variant="outline"
+                onClick={exportRecommendations}
+              >
+                <Download className="mr-2 h-4 w-4" />
+                Export All (CSV)
+              </Button>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
