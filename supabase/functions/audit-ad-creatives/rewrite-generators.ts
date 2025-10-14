@@ -668,18 +668,18 @@ CRITICAL GUIDELINES:
 - Each headline must be UNIQUE - no two headlines can share more than 50% of their words
 - Each description must be UNIQUE - no two descriptions can share more than 50% of their words
 - DO NOT repeat the same phrasing - use synonyms, different angles, different structures
-- Test MULTIPLE call-to-action styles:
-  * Direct: "Schedule Service Today"
-  * Benefit-focused: "Save on Premium Models"
-  * Trust-based: "Trusted Since 1968"
-  * Urgency: "Limited Inventory Available"
-  * Question: "Looking for Yamaha?"
-- Test MULTIPLE benefit angles:
-  * Selection: "Largest Selection in CA"
-  * Price: "Best Prices Guaranteed"
-  * Service: "Expert Service & Parts"
-  * Location: "Serving Long Beach"
-  * Trust: "5-Star Rated Dealer"
+- Test MULTIPLE call-to-action styles (adapt to the business type):
+  * Direct action: "Schedule [Service] Today", "Book Your [Consultation]", "Get [Product] Now"
+  * Benefit-focused: "Save on [Category]", "[X]% Off [Service]"
+  * Trust-based: "Trusted Since [Year]", "[X]-Star Rated"
+  * Urgency: "Limited [Inventory/Slots]", "Ends [Timeframe]"
+  * Question: "Looking for [Category]?", "Need [Service]?"
+- Test MULTIPLE benefit angles (adapt to what matters in this business):
+  * Selection: "Largest [Category] in [Area]", "[X]+ [Products] Available"
+  * Price: "[Offer Details]", "[Discount] on [Service]"
+  * Service: "Expert [Service Type]", "[Certification] [Professionals]"
+  * Location: "Serving [City/Area]", "[City] [Business Type]"
+  * Trust: "[X]-Star Rated", "Licensed & Insured", "[Years]+ Experience"
 
 📝 CONTENT REQUIREMENTS:
 - Include primary keywords naturally in headlines
@@ -696,26 +696,27 @@ ${geo ? `- Include location "${geo}" in at least 2 headlines` : ''}
 - Include trust signals or social proof in at least 2 headlines
 - Include offers or financing options prominently in multiple headlines
 
-🚫 AVOID CLICHÉS & WEAK COPY:
+🚫 AVOID CLICHÉS & WEAK COPY (universal across all businesses):
 - Generic phrases: "Your one-stop shop", "We've got you covered", "Everything you need"
 - Overused words: "Amazing", "Incredible", "Unbeatable", "Best ever"
-- Empty promises: "Best prices guaranteed" (unless specifically in offers)
-- Vague CTAs: "Learn more", "Click here", "Visit us"
-- Filler words: "shop", "store", "product", "item" (use specific category names instead)
+- Empty promises: "Best prices" (unless it's a specific, verified offer in your list)
+- Vague CTAs: "Learn more", "Click here", "Visit us" (use specific actions instead)
+- Filler words that don't add value or specificity
 - Excessive capitalization or punctuation
 - Unverifiable claims without proof
 - Dynamic insertion syntax - use plain text only
 - REPEATING the same copy with minor tweaks - each asset must be GENUINELY DIFFERENT
+- Generic category names when specific product/service names are available
 
 ✅ WRITE STRONG, SPECIFIC COPY:
-- Instead of "Great selection" → "${context.brand} RZR & Ranger Stock"
-- Instead of "Best prices" → "0% APR for 36 Months"
-- Instead of "Shop now" → "Test Ride This Weekend"
-- Instead of "Quality products" → "Factory-Certified ${categoryContext}"
-- Use concrete numbers, model names, specific locations, actual offers
+- Instead of "Great selection" → Use specific product/service names and quantities
+- Instead of "Best prices" → Use actual offers (e.g., specific % off, dollar amounts)
+- Instead of "Shop now" → Use category-specific actions (e.g., "Schedule Consultation", "Book Appointment", "Get Quote", "Test Drive")
+- Instead of "Quality products" → Use certifications, awards, or specific credentials
+- Use concrete numbers, product/service names, specific locations, actual offers
 - Make every word count - no wasted space
 
-${context.topPerformers ? '\n💡 WINNING PATTERN ANALYSIS:\nThe top performers show what themes resonate. NOW CREATE COMPLETELY NEW VARIATIONS:\n- If winners mention "Yamaha inventory" → try "Yamaha models in stock", "New Yamaha arrivals", "Yamaha selection"\n- If winners mention "Del Amo Motorsports" → try "Del Amo experts", "Your Del Amo dealer", "Del Amo trusted since 1968"\n- If winners use CTAs like "Shop" → try "Explore", "Discover", "Find", "Get", "Schedule"\n- THINK: What are 5 DIFFERENT ways to say the same winning message?' : ''}
+${context.topPerformers ? '\n💡 WINNING PATTERN ANALYSIS:\nThe top performers show what themes resonate. NOW CREATE COMPLETELY NEW VARIATIONS:\n- Identify the key theme (inventory, location, brand, offer, trust)\n- Create 5+ DIFFERENT ways to express that same theme\n- Vary the structure: statement vs question, benefit vs feature, urgency vs trust\n- Change the angle: customer outcome vs product attribute vs social proof' : ''}
 
 Return ONLY a JSON object with this exact structure:
 {
